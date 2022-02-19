@@ -14,11 +14,13 @@
 - This will allow different programmers to collaborate on distinct stages of analysis.
 - Althought development can occur in IDEs or in environments supporting multiple tools (e.g. https://jupyter.org/) ideally code could be executable by anyone at the command line.
 - Data can be read in via code (the locations for data can be shared and documented _in the code_).
-- We propose placing data read in via code in your local /input/ directory
-- And digested data in your local /output/ directory
-- Both directories are listed in .gitignore
+- We propose that each discrete computational **chunk** has its own directory.
+- Underneath thihs directory, all code would exist in the \/src/ subdirectory.
+- Then we would use code to move key data into a local /input/ subdirectory for each **chunk**.
+- Similarly, digested data that is necessary for subsequent **chunks** will be written to a local /output/ subdirectory
+- Both /input/ AND /output/ directories are listed in .gitignore
 
-Solution:  Adopt GitHub for _code_ and Google Drive / Sheets for _data_ (Academy has infinite Google space).
+This way we can adopt GitHub for _code_ and use Google Drive / Sheets for _data_ (Academy has infinite Google space).
 
 Proposed structure
 
@@ -26,8 +28,8 @@ File or Directory     | Description
 ------------- | -------------
 README.md     | This markdown document: start here for orientation to the project space
 \/**chunk_x**\/ | coding each discrete '**chunk or step**' in the \/**chunk_x**\/ directories as follows:
-..\/input         | all raw data retrieved from Google Drive (large files) or Google Sheets ('by hand' metadata).
 ..\/src           | all code: R, Python, Awk, etc. scripts for reading in, cleaning, exploring, and analyzing data
+..\/input         | all raw data retrieved from Google Drive (large files) or Google Sheets ('by hand' metadata).
 ..\/output        | all digested data (for next steps) as well as figures, tables, etc. for reports, manuscripts, presentations
 ..\/note          | all notebook analyses (jupyter, R-notebooks, Markdown docs, metadata summaries)
 ..\/hand          | all by-hand step descriptions how to reproduce  (readme_by_hand.txt, with links to tools)
@@ -43,3 +45,5 @@ Where he explains his rationale on how to organize computational work for ‘sel
 Whatever we decide on, it will be great if our pipeline process self-documents with 'stepwise' inputs, code and outputs in the directory hierarchy and intermediate files are saved and automatically archived and work can be restarted from any step.  
 
 Eventually we may combine these in a shared computing environment that everyone understands, perhaps using JupyterLab for notebooks that can collate our results.  If we do that, we might want to create a stable set of tools for a mixed R/python environment using Conda so we are all on the same page.
+
+Thoughts welcome, meanwhile we will start to populate the git with some of our code that _points to data_ and _processes it_.
