@@ -15,10 +15,10 @@
 - Althought development can occur in IDEs or in environments supporting multiple tools (e.g. https://jupyter.org/) ideally code could be executable by anyone at the command line.
 - Data can be read in via code (the locations for data can be shared and documented _in the code_).
 - We propose that each discrete computational **chunk** has its own directory.
-- Underneath thihs directory, all code would exist in the \/src/ subdirectory.
-- Then we would use code to move key data into a local /input/ subdirectory for each **chunk**.
-- Similarly, digested data that is necessary for subsequent **chunks** will be written to a local /output/ subdirectory
-- Both /input/ AND /output/ directories are listed in .gitignore
+- Underneath this directory, all code would exist in the \/src/ subdirectory.
+- Then we would use code to move key data into a /input/ subdirectory for each **chunk**.
+- Similarly, digested data that is necessary for subsequent **chunks** will be written to a /output/ subdirectory
+- For R both /input/ AND /output/ directories are created by code and listed in .gitignore
 
 This way we can adopt GitHub for _code_ and use Google Drive / Sheets for _data_ (Academy has infinite Google space).
 
