@@ -26,6 +26,14 @@ library(furrr)
 
 source(here("comb_functions.R"))
 
+############# OPTIONS FOR SCRIPT ###################
+# If you want to run the script below, make sure that you have sufficient memory (< 64 GB) and time
+# Otherwise, just download the outputs using the following command
+# This will download multiple data sets, each with varying amounts of data truncated
+# Name Structure:
+#   dataML_m[minimum_logit]_prop[proportion_of_remaining_data]
+drive_sync(here("acoustic/data_ingest/output/"), "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5")
+
 # Download/organize files from google drive if not already downloaded --------------------------------
 
 # Creating the folder within inputs that contains the raw_files
