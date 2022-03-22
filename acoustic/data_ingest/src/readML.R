@@ -26,6 +26,14 @@ library(furrr)
 
 source(here("comb_functions.R"))
 
+############# OPTIONS FOR SCRIPT ###################
+# If you want to run the script below, make sure that you have sufficient memory (< 64 GB) and time
+# Otherwise, just download the outputs using the following command
+# This will download multiple data sets, each with varying amounts of data truncated
+# Name Structure:
+#   dataML_m[minimum_logit]_prop[proportion_of_remaining_data]
+drive_sync(here("acoustic/data_ingest/output/"), "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5")
+
 # Download/organize files from google drive if not already downloaded --------------------------------
 
 # Creating the folder within inputs that contains the raw_files
@@ -88,6 +96,7 @@ sixBirdcols <- fread(here("acoustic/data_ingest/input/birds.txt"), stringsAsFact
 files <- list.files(here("acoustic/data_ingest/input/raw_files/"), recursive = T, full.names = T, pattern = "*.csv")
 
 # Making a string which contains all of the column numbers that awk will filter
+# Change the part after the ">" in order to set the minimum logit for each row
 awk <- unlist(map(
   5:95,
   ~ paste0("($", .x, ">-3)||")
@@ -139,5 +148,10 @@ dataML <- dataML %>%
 if (dir.exists(here("acoustic/data_ingest/output/")) == F) {
   dir.create(here("acoustic/data_ingest/output/"))
 }
+
+# Command for making output smaller by only keeping a proportion of the dataset grouped by date and time
+dataML <- dataML %>% 
+  group_by(Date_Time) %>% 
+  slice_sample(prop = 1)
 
 fwrite(dataML, here("acoustic/data_ingest/output/dataML.csv"))
