@@ -104,11 +104,11 @@ AVRO_SCHEMA = {
                     },
                     {
                         'name': 'latitude',
-                        'type': 'float'
+                        'type': ['float', 'null'],
                     },
                     {
                         'name': 'longitude',
-                        'type': 'float'
+                        'type': ['float', 'null'],
                     },
                 ],
             }, 'null'],
@@ -124,7 +124,7 @@ AVRO_SCHEMA = {
         {
             'name': 'begin_timestamp_millis',
             'type': {
-                'type': 'int',
+                'type': 'long',
                 'logicalType': 'timestamp-millis',
             },
         },
@@ -221,20 +221,23 @@ class LogitCsvLineToAvroRecordFn(beam.DoFn):
     key_parts = key.split('_')
     aru = key_parts[0]
 
-    file_start_utc = datetime.datetime.strptime('_'.join(key_parts[1:]),
-                                                '%Y%m%d_%H%M%S')
+    file_start_utc = datetime.datetime.strptime(
+        '_'.join(key_parts[1:]) + '+00:00', '%Y%m%d_%H%M%S%z')
     begin_timestamp_millis = int(
         1000 * (file_start_utc +
                 datetime.timedelta(seconds=begin_rel_file)).timestamp())
 
     point_number = aru_to_point.get(key, None)
     if point_number:
-      latitude, longitude = point_to_latlong[point_number]
       point = {
           'point_number': point_number,
-          'latitude': latitude,
-          'longitude': longitude,
       }
+      if point_number in point_to_latlong:
+        latitude, longitude = point_to_latlong[point_number]
+        point.update({
+            'latitude': latitude,
+            'longitude': longitude,
+        })
     else:
       point = None
 
@@ -304,7 +307,8 @@ def run(base_dir: str, min_logit: Optional[float],
         aru_to_point,
         point_to_latlong,
     )
-    _ = outputs | beam.io.avroio.WriteToAvro(output, AVRO_SCHEMA)
+    _ = outputs | beam.io.avroio.WriteToAvro(
+        output, AVRO_SCHEMA, use_fastavro=True)
 
 
 def main(argv: Sequence[str]) -> None:
@@ -323,7 +327,7 @@ def main(argv: Sequence[str]) -> None:
   else:
     options = beam.options.pipeline_options.PipelineOptions(
         runner='DirectRunner',
-        direct_num_workers=0,
+        direct_num_workers=50,
     )
 
   run(
