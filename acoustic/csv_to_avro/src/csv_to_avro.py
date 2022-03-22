@@ -321,7 +321,7 @@ def main(argv: Sequence[str]) -> None:
         runner='DataflowRunner',
         project=FLAGS.gcp_project,
         region=FLAGS.gcp_region,
-        job_name='flatten-bird-csv',
+        job_name='csv-to-avro',
         temp_location=os.path.join(base_dir, 'tmp'),
     )
   else:
