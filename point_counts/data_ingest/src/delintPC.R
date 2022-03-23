@@ -30,7 +30,6 @@ PC <- PointC %>%
   spread(birdCode_fk, value = abun, fill = 0) %>%
   pivot_longer(AMDI:WISA, names_to = "birdCode_fk", values_to = "abun")
 
-
 visits <- PointC %>% 
   mutate(year = year(DateTime)) %>%
   filter(point_ID_fk!="1072", 
@@ -65,3 +64,4 @@ unique(dfc$observer_fk)
 
 
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
+write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
