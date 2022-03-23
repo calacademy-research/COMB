@@ -28,18 +28,19 @@ hamfly_maxlgt <- hamfly_df$max_logit
 coords <- as.matrix(hamfly_df[, c("longitude", "latitude")])
 plot(coords, pch = 1, cex = sqrt(hamfly_ptct)/10, col = "darkgreen")
 
-# Generating an inerpolation of the point count and max logit for an example bird
+# Generating interpolation plots
 library(MBA)
 library(fields)
 x.res <- 100
 y.res <- 100
 col.br <- colorRampPalette(c("blue", "cyan", "yellow", "red"))
+## Point count surface plot
 surf <- mba.surf(cbind(coords, hamfly_ptct), no.X = x.res, no.Y = y.res, 
                  h = 5, m = 2, extend = FALSE)$xyz.est
 image.plot(surf, xaxs = "r", yaxs = "r", xlab = "Lon", ylab = "Lat", col = col.br(25))
 contour(surf, add=TRUE)
 
-
+## Max logit surface plot
 surf <- mba.surf(cbind(coords, hamfly_maxlgt), no.X = x.res, no.Y = y.res, 
                  h = 5, m = 2, extend = FALSE)$xyz.est
 image.plot(surf, xaxs = "r", yaxs = "r", xlab = "Lon", ylab = "Lat", col = col.br(25))
