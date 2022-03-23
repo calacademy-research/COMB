@@ -9,6 +9,7 @@ library(lubridate)
 library(googledrive)
 library(here)
 library(wesanderson)
+library(reshape2)
 
 rm(list = ls())
 
@@ -17,79 +18,30 @@ rm(list = ls())
 if (dir.exists(here("models/jags/")) == FALSE) {
   dir.create(here("models/jags"))
 }
+
+if (dir.exists(here("models/input/")) == FALSE) {
+  dir.create(here("models/input"))
+}
+
 if (dir.exists(here("models/output/")) == FALSE) {
   dir.create(here("models/output"))
 }
 
 # TODO []: link to Google Drive &/or a link to `read_PC.R`. The Google Drive code in readPC.R does not work when using non-CalAcademy login. For now, doing a hard download.
-source(here("caples_functions.R"))
+source(here("COMB_functions.R"))
 #drive_auth()
 # 
 #drive_sync(here("point_counts/data_ingest/input/"), "https://drive.google.com/drive/u/0/folders/13bXkNCZzFwGC8H4k-CJ4Cf3tYJ3t18zW")
 # 
 # # Reading inputs -------------------
-PointC <- fread(here("point_counts/data_ingest/output/PointC_2022-03-09.csv"))
-
-#source(here("point_counts/data_ingest/src/readPC.R")) # trying to get this code to run that script
-
-#REMOVE double-observer counts and other errors/duplicates, filter data by distance, etc  ---------------
-
-# TODO []: decide how to choose surveys if >3 (using weather data? etc)
-
-# find surveys with duplicate entries and investigate cause (double-observer, error in FMPro entry, etc)
-
-PC <- PointC %>% 
-  filter(dist_detect != "flyover", # comment these on/off to restrict distances
-         dist_detect !="100m+", 
-         dist_detect !="50to100m", 
-         point_ID_fk!="1072", # missing veg data
-         birdCode_fk != "UNKN", birdCode_fk != "0", !is.na(birdCode_fk),
-         birdCode_fk != "XXHU", birdCode_fk != "XXWO", # comment on/off to include XX__ entries
-         year(DateTime) == 2019,
-         observer_fk != "IASH", observer_fk!="MASC") %>%
-  mutate(year = year(DateTime)) %>%
-  group_by(pointCount_ID_fk, point_ID_fk, DateTime, year, observer_fk, birdCode_fk) %>%
-  summarise(abun=n()) %>% 
-  spread(birdCode_fk, value = abun, fill = 0) %>%
-  pivot_longer(AMRO:WHWO, names_to = "birdCode_fk", values_to = "abun")
-
-visits <- PointC %>% 
-  mutate(year = year(DateTime)) %>%
-  filter(point_ID_fk!="1072", 
-         observer_fk != "IASH", observer_fk!="MASC",
-         birdCode_fk != "UNKN", birdCode_fk != "XXHU", birdCode_fk != "XXWO", !is.na(birdCode_fk), 
-         year == 2019) %>%
-  group_by(point_ID_fk, year, DateTime) %>% 
-  summarise(rich = n_distinct(fbirdName)) %>%
-  arrange(DateTime, .by_group=TRUE) %>%
-  mutate(visit=seq_along(DateTime))
-
-extraVisits <- visits %>% filter(visit>3)
-
-dfc <- full_join(PC, visits) %>% 
-  ungroup() %>% 
-  dplyr::select(abun, observer_fk, DateTime, point_ID_fk, year, birdCode_fk, visit) %>% 
-  filter(visit < 5) 
-
-dups <- dfc[which(duplicated(dfc[,4:7])==TRUE),] %>% group_by(point_ID_fk, year, visit) %>% summarise(nspec=n_distinct(birdCode_fk))
-
-dfc[which(duplicated(dfc[,4:7])==TRUE),] %>% group_by(point_ID_fk, year, visit, DateTime) %>% arrange(DateTime) %>% summarise(nspec=n_distinct(birdCode_fk)) %>% arrange(DateTime) # all of these are double-observer/training counts
-
-dfc <- dfc[which(duplicated(dfc[,4:7])==FALSE),]
-
-# check this is 0
-dfc[which(duplicated(dfc[,4:7])==TRUE),] %>% group_by(point_ID_fk, year, visit) %>% summarise(nspec=n_distinct(birdCode_fk)) # okay
-
-dfc <- dfc %>% filter(!is.na(birdCode_fk))
-
-dfc$observer_fk[dfc$observer_fk=="MC"] <- "MKC"
-unique(dfc$observer_fk)
+dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sure these are the specifications on detection distance, years included, etc. you want for your model and rerun delintPC.R with changes to those filters if necessary
 
 y <- melt(dfc, id.var=c("birdCode_fk", "point_ID_fk", "visit"), measure.var="abun") %>% acast(point_ID_fk ~ visit ~ birdCode_fk)
 
 N <- n_distinct(dfc$birdCode_fk)
 spp <- sort(unique(dfc$birdCode_fk))
 
+visits <- read_csv("point_counts/data_ingest/output/PC_visit_metadata.csv")
 
 # Covariates --------------------------------------------------------------
 
@@ -139,7 +91,7 @@ K <- as_vector(nvisit[,2])
 
 
 # Site covariates (occurrence model) --------------------------------------
-
+#TODO [] [DDK]: replace with newly generated spatial data 
 # the following two csvs were saved from the 3/15/2021 version of 'Caples Points Metadata.xlsx' from shared GoogleDrive-- in the future could add the googledrive package to read in directly?
 env <- read_csv("data/caples_env_1ha_20210315.csv")
 utms <- read_csv("data/Wildlife_Sampling_Points.csv")
