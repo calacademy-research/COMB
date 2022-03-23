@@ -1,0 +1,940 @@
+---
+title: "Spatial Processing for Caples Sample Points"
+output:
+  html_document:
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+Spatial data analysis for occupancy and acoustic machine learning.
+
+Code developed by Durrell D. Kapan in *this* '\~/Github/Caples_Spatial/'
+repository.
+
+-   External steps (document and rerun from here)
+-   [x] = already done, or no check-box
+-   [ ] = TODO later
+
+**First get data**
+
+Get SALO:
+
+-   conda, jupyter, python
+-   ran terminal
+-   [ ] make shell script for these steps
+-   installed miniconda (see Install miniconda3 from this package:
+    <https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.pkg>
+-   see personal note: [CFO data download conda, python, raster
+    files](https://www.evernote.com/shard/s178/sh/4f9850f0-315b-46b7-95bb-4e3153101afb/a71ffca162e22e1507a1261325c198a1)
+    `cd ~/GitHub/cfo-api` -edited *environment.yml* and deleted call to
+    *orfeotoolbox* `conda env create -n cfo-env -f ./environment.yml`
+    then updated it to get otb=7.2.0\
+    `conda env update -n cfo-env otb=7.2.0` and `conda activate cfo-env`
+    then inside the cfo-env I ran:\
+    `conda install -c conda-forge jupyterlab` clicked through yes/y then
+    typed: `jupyter lab` opened *SALO_DIRECT.ipynb*
+-   [ ] move note in Get_steps
+-   ran that code -then copied to local sub-directory `/input`
+    directories (Feb 22) and soft-linked them to `/input/rasters/` to
+    get started. -Then worked on the steps below:
+
+Get NBR
+
+-   Google Earth Engine (GEE)
+-   [x] Document this 'by hand' step or pull dynamically
+
+Get DEM \#see \^\^\^ GEE
+
+-   [x] DEM TODO see ditto \^\^\^
+
+Get RAVG \#<https://fsapps.nwcg.gov/ravg/data-access>
+
+-   RAVG ref Becky Estes
+
+-   Caples fire RAVG re-downloaded 2021-10-01
+
+-   Caldor fire RAVG downloaded 2022-03
+
+    -   Built steps for import
+
+Get LIDAR
+
+-   LIDAR <https://app.box.com/folder/155560502744>
+
+    `BOX > All Files >External Caples Monitoring > LIDAR > FINAL_Eldorado_2019_2021-11-15 > aKey_Metrics`
+    
+-   [ ] Need to recompute LIDAR to get finer resolution
+
+All files placed in Google Drive here:
+
+[Resilience_data_drive \>
+Caples_Spatial](https://drive.google.com/drive/folders/1GPuuiy0Qc94ARS65N5Gm68V3h8TP7ZJW)
+
+**Second Load Libraries**
+
+-   Install packages
+-   [ ] (not yet documented)
+-   Load Libraries (output suppressed)
+
+```{r Load Libraries & functions, error=FALSE, fig.keep='all', include=FALSE, paged.print=TRUE, results='hide'}
+#load libraries
+library(tidyverse)
+library(broom)
+library(circular)
+library(clipr)
+library(elevatr)
+library(exactextractr)
+library(forcats)
+library(GGally)
+library(ggpubr)
+library(googlesheets4)
+library(googledrive) #connect to google drive
+library(here)
+library(leaflet) # for interactive mapping (TBD)
+library(plotKML)
+library(purrr)
+library(stringr)
+library(cowplot)
+library(RStoolbox)
+library(sf)
+library(raster)
+library(rgdal)
+source(here("caples_functions.R"))
+```
+
+**Download/organize data from Google Drive**
+
+-   Download/organize input files from google drive if not already
+    downloaded
+
+this might be a bit buggy, try it out @MARY.
+
+-   R steps roughly go as follows
+
+    -   Find on Google Drive and download over:
+
+        -   Raster Files
+        -   Shape Files
+
+    -   Import:
+
+        -   Raster Files
+        -   Shape Files
+
+    ```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+#------------------------------------------------------------
+# Download/organize input files from google drive if not already downloaded
+#------------------------------------------------------------
+# this might be a bit buggy, try it out @MARY
+#define rastertype subdirectories
+rastertypes <- c("SALO","NBR","RAVG","LIDAR","DEM")
+#define base directory for input rasters
+rasterdir  <- here("Notebook","input","rasters")
+#list of directories to use
+rasterdirs <- here(rasterdir,rastertypes[])
+# Creating the folder within inputs that contains the raw_files
+map(.x = rasterdirs, .f = function(.x) if (dir.exists(.x) == F) {
+  dir.create(.x)})
+# wasn't able to write ^ as anonymous function, too tired.
+# Getting list of files that need to be downloaded
+google_raw_file_names <- drive_ls(as_dribble("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda"), recursive = TRUE)
+local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
+# Filtering google files that are not already downloaded
+needed_google_raw_file_names <- google_raw_file_names %>% filter(!(google_raw_file_names$name %in% local_file_names))
+# Downloading raw_data csv files from google drive if not already downloaded
+map2(
+  needed_google_raw_file_names$name, needed_google_raw_file_names$id,
+~ drive_sync(local_dir = here(rasterdir, .x), drive_folder = as_id(.y))
+)
+#if you hard-coded solution it would look like this
+#first go into each rasterdir 
+#rasterdirs[1]
+#[1] "/Users/dkapan/GitHub/Caples_Spatial/Notebook/input/rasters/SALO"
+#don't forget to match by hand to the appropriate google_drive input directory, e.g.  
+#drive_sync(local_dir = here(rasterdirs[1]), drive_folder = as_dribble("https://drive.google.com/drive/folders/1SKzKZNMYpDmzcUCACOjtEJCLybHN6wgQ"))
+#but the overall code above seems to work, so no need! :)
+```
+    -   First go into each rasterdir e.g. `rasterdirs[1]`
+
+    `/Users/dkapan/GitHub/Caples_Spatial/Notebook/input/rasters/SALO`
+
+    don't forget to match by hand to the appropriate google_drive input
+    directory, e.g.\
+    `drive_sync(local_dir = here(rasterdirs[1]), drive_folder =  as_dribble("https://drive.google.com/drive/folders/1SKzKZNMYpDmzcUCACOjtEJCLybHN6wgQ")`
+    but the overall code above seems to work, so no need! :)
+    
+    
+```{r Import and fix raster files, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+rasterdir <- rasterdirs[1] #SALO
+canopy_files <- list.files(rasterdir, pattern = 'Canopy', full.names = TRUE)
+canopy_imgStack <- stack(canopy_files)
+
+fuel_files <- list.files(rasterdir, pattern = 'Fuel', full.names = TRUE)
+fuel_imgStack <- stack(fuel_files)
+
+#NBR from GEE code
+rasterdir <- rasterdirs[2] #NBR
+nbr_files <- list.files(rasterdir, pattern = 'NBR', full.names = TRUE)
+nbr_imgStack <- stack(nbr_files[1:8])
+#fix CRS by re-projection
+nbr_imgStack<-projectRaster(nbr_imgStack, crs = crs(canopy_imgStack))
+
+rasterdir <- rasterdirs[3] #RAVG
+#RAVG from BE Caples
+RAVG_Caples_files <- list.files(rasterdir, pattern = "ca3872412014620191010_20181118_20191118", full.names = TRUE)
+RAVG_Caples_imgStack <- stack(RAVG_Caples_files)
+
+#RAVG from BE Caldor
+RAVG_Caldor_files <- list.files(rasterdir, pattern = "ca3858612053820210815_20201011_20211016", full.names = TRUE)
+RAVG_Caldor_imgStack <- stack(RAVG_Caldor_files)
+
+#same CRS (reproject below)
+identical(crs(RAVG_Caples_imgStack), crs(RAVG_Caldor_imgStack))
+
+#fix CRS by reprojection
+RAVG_Caples_imgStack<-projectRaster(RAVG_Caples_imgStack, crs = crs(canopy_imgStack))
+RAVG_Caldor_imgStack<-projectRaster(RAVG_Caldor_imgStack, crs = crs(canopy_imgStack))
+
+extent(RAVG_Caldor_imgStack)
+extent(RAVG_Caples_imgStack)
+
+#get extent for one, set for both
+RAVG_extent<-extent(RAVG_Caples_imgStack)
+
+#crop and set extents
+RAVG_Caldor_imgStack <- crop(RAVG_Caldor_imgStack, RAVG_extent)
+RAVG_Caldor_imgStack <- setExtent(RAVG_Caldor_imgStack, RAVG_extent, keepres=TRUE)
+
+#stack the stacks!
+RAVG_imgStack <- stack(RAVG_Caples_imgStack, RAVG_Caldor_imgStack)
+
+# LIDAR data !!!
+# [ ] try to update with higher resolution data
+rasterdir <- rasterdirs[4] #LIDAR 
+#(same as rasterdir  <- here("Notebook","input","Rasters","LIDAR"))
+
+#LIDAR from Becky Estes
+LIDAR_files <- list.files(rasterdir, pattern = '*.tif', full.names = TRUE)
+
+#DEM from GEE code
+rasterdir <- rasterdirs[5] # DEM
+#alternatively rasterdir  <- here("Notebook","input","Rasters")
+dem_files <- list.files(rasterdir, pattern = 'dem', full.names = TRUE)
+dem_imgStack <- stack(dem_files)
+
+#fix CRS by reprojection
+dem_imgStack<-projectRaster(dem_imgStack, crs = crs(canopy_imgStack))
+
+#note odd extents (not the same between the three groups below and error on PROJ4 when looking at these RASTERS
+# [ ] check to make sure everything lines up at the end)
+# use raster::raster(LIDAR_files[1]) to see error
+# Warning messages:
+# 1: In showSRID(SRS_string, format = "PROJ", multiline = "NO", prefer_proj = prefer_proj) :
+# Discarded datum NAD83 (National Spatial Reference System 2011) in Proj4 definition
+  
+#hack method to fix LIDAR extents
+#stack the files with same extent
+
+LIDAR_int_134<-raster::stack(LIDAR_files[c(1,3:4)])
+LIDAR_int_2<-raster::stack(LIDAR_files[2])
+LIDAR_int_58<-raster::stack(LIDAR_files[5:8])
+
+#fix CRS by reprojection
+LIDAR_int_134<-projectRaster(LIDAR_int_134, crs = crs(canopy_imgStack))
+LIDAR_int_2<-projectRaster(LIDAR_int_2, crs = crs(canopy_imgStack))
+LIDAR_int_58<-projectRaster(LIDAR_int_58, crs = crs(canopy_imgStack))
+
+#fix extent by 'clipping' using extent.
+#set extents to be the max of mins and the mins of maxs so we can stack()
+extent(LIDAR_int_134)
+extent(LIDAR_int_2)
+extent(LIDAR_int_58)
+
+#get extent from 'smallest'
+LIDAR_extent<-extent(LIDAR_int_2)
+
+#crop and set extents
+LIDAR_int_134 <- crop(LIDAR_int_134, LIDAR_extent)
+LIDAR_int_134 <- setExtent(LIDAR_int_134, LIDAR_extent, keepres=TRUE)
+
+LIDAR_int_58 <- crop(LIDAR_int_58, LIDAR_extent)
+LIDAR_int_58 <- setExtent(LIDAR_int_58, LIDAR_extent, keepres=TRUE)
+
+LIDAR_imgStack <- stack(LIDAR_int_134,LIDAR_int_2,LIDAR_int_58)
+#will crop & re-project below
+```
+
+**Do calculations**
+
+-   Digital Elevation Model
+
+    -   calculate Aspect
+
+```{r, include=FALSE}
+#echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+dem_imgStack$aspect <- terrain(dem_imgStack$elevation, opt="aspect", neighbors=8, unit="degrees", filename = here("Notebook","output","rasters","caples_aspect.tif"), overwrite=TRUE) #note the aspect must be translated to circular coordinates if using summary functions see below
+```
+
+**Import shape files**
+
+-   Study area file
+    -   study_area
+-   Fire boundary file
+    -   fire_boundary
+-   Sampling points
+    -   wild_points
+```{r, include=FALSE}
+#everything to be placed into WGS 84 / UTM zone 10N" = crs = 32610
+#get the data
+shapedir <- here("Notebook","input","shapefiles")
+google_file_names <- "https://drive.google.com/drive/folders/15uXx-I1U9cDTzoI0ptNv_wpuDYju_IRv"
+drive_sync(local_dir = shapedir, drive_folder = google_file_names)
+#read in study area
+study_area <- sf::read_sf(here("Notebook","input","shapefiles","study_boundary.shp"))
+#read in fire boundary
+fire_boundary <- sf::read_sf(here("Notebook","input","shapefiles","ca3872412014620191010_20181118_20191118_burn_bndy.shp"))
+fire_boundary<-st_transform(fire_boundary, crs(study_area)) #transformed crs
+#read in wildlife points 
+wild_points <- sf::read_sf(here("Notebook","input","shapefiles","WildlifePoints.shp")) #crs not included
+names(wild_points)<-c("point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2", 
+"Treatment", "geometry")
+#get the right coordinate reference system & transform
+st_crs(wild_points) = 26910 #were collected using NAD83 coordinate 
+wild_points<-st_transform(wild_points, crs(study_area)) #transformed crs
+```
+-   Plot and inspect rasters and shapefiles
+```{r echo=FALSE, error=FALSE, fig.keep='all', message=FALSE, warning=FALSE, results='hide'}
+plot(canopy_imgStack$CaplesCanopyCover2019)
+plot(nbr_imgStack$Caples_dNBR_Nov18_Nov19) #FIXed dNBR file lists
+plot(nbr_imgStack$Caldor_dNBR_Nov20_Oct21) #FIXed dNBR file lists
+plot(dem_imgStack$elevation)
+plot(dem_imgStack$aspect) #[X] convert aspect to radians see below
+
+plot(fuel_imgStack$LadderFuelDensity2019)
+#plot(LIDAR_imgStack$Dominant_Height)
+plot(fire_boundary$geometry, add = TRUE)
+plot(sample_points$geometry, add = TRUE)
+
+plot(fuel_imgStack$LadderFuelDensity2020)
+#plot(LIDAR_imgStack$Dominant_Height)
+plot(fire_boundary$geometry, add = TRUE)
+plot(sample_points$geometry, add = TRUE)
+
+plot(RAVG_imgStack$ca3872412014620191010_20181118_20191118_dnbr)
+plot(fire_boundary$geometry, add = TRUE)
+plot(sample_points$geometry, add = TRUE)
+
+```
+
+**Do analysis**
+
+-   Merge rasters\
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+#merge both stacks with different extents, inspect them first
+extent(canopy_imgStack)
+extent(fuel_imgStack)
+extent(nbr_imgStack)
+extent(dem_imgStack)
+extent(RAVG_imgStack)
+extent(LIDAR_imgStack)
+
+#merge rasters to match
+#first downsample NBR and DEM to get same 10m resolution then merge
+nbr_imgStack_10m <- resample(nbr_imgStack,canopy_imgStack,method = 'bilinear')
+dem_imgStack_10m <- resample(dem_imgStack,canopy_imgStack,method = 'bilinear')
+RAVG_imgStack_10m <- resample(RAVG_imgStack,canopy_imgStack,method = 'bilinear')
+LIDAR_imgStack_10m <- resample(LIDAR_imgStack,canopy_imgStack,method = 'bilinear')
+
+#can follow this code to crop before merging 
+#get extents
+study_area_extent<-extent(canopy_imgStack)
+
+#crop and set extents
+nbr_imgStack_10m <- crop(nbr_imgStack_10m, study_area_extent)
+nbr_imgStack_10m <- setExtent(nbr_imgStack_10m, study_area_extent, keepres=TRUE)
+
+dem_imgStack_10m <- crop(dem_imgStack_10m, study_area_extent)
+dem_imgStack_10m <- setExtent(dem_imgStack_10m, study_area_extent, keepres=TRUE)
+
+RAVG_imgStack_10m <- crop(RAVG_imgStack_10m, study_area_extent)
+RAVG_imgStack_10m <- setExtent(RAVG_imgStack_10m, study_area_extent, keepres=TRUE)
+
+LIDAR_imgStack_10m <- crop(LIDAR_imgStack_10m, study_area_extent)
+LIDAR_imgStack_10m <- setExtent(LIDAR_imgStack_10m, study_area_extent, keepres=TRUE)
+
+#now working, but not sure I like upscaling the ~9m pixels to 10m ... only for exploratory data analysis
+canopy_fuel_nbr_dem_RAVG_LIDAR<-raster::stack(canopy_imgStack, fuel_imgStack, nbr_imgStack_10m, dem_imgStack_10m,RAVG_imgStack_10m, LIDAR_imgStack_10m, orig=FALSE, tolerance=0.1)
+#[ ] check this doesn't corrupt everything ??? never did check, but is only adding a few decimeters to any pixel
+
+#ggplot(canopy_fuel_nbr_dem_RAVG_LIDAR, aes(xy = Canopy_Cover))
+plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Canopy_Cover)
+#plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Mean_Height)
+plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Height_To_Live_Crown_Proxy)
+
+plot(canopy_fuel_nbr_dem_RAVG_LIDAR$ca3872412014620191010_20181118_20191118_dnbr)
+plot(fire_boundary$geometry, add = TRUE)
+plot(sample_points$geometry, add = TRUE)
+
+plot(canopy_fuel_nbr_dem_RAVG_LIDAR$CaplesCanopyCover2018, canopy_fuel_nbr_dem_RAVG_LIDAR$Canopy_Cover, maxpixels=1e4)
+plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Canopy_Cover,canopy_fuel_nbr_dem_RAVG_LIDAR$CaplesCanopyCover2018)
+#look problematic for one or other measure even though RAVG and dNBR are based on same data ... [ ] work with Becky on this ...
+```
+
+-   *buffer* and *alignment* check quick & dirty but it works
+-   [ ] future: Work with Gilbert & Adam to redo the raw data download to
+    put in same CRS *before* import
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+buffer<-400
+inner_boundary<-as.vector(extent(canopy_imgStack)+c(buffer,-buffer,buffer,-buffer))
+inner_boundary<-rbind(inner_boundary[c(1,3)], 
+                      inner_boundary[c(2,4)],
+                      inner_boundary[c(1,4)],
+                      inner_boundary[c(2,3)])
+
+inner_boundary<-rbind(inner_boundary,c(744000,4289000))
+
+## 50 & 100 meter buffer around sampling points = 1 & 4ha plots: 
+##(100m in all four directions from point center, 200m ditto)
+wldf_50 <- wild_points  %>% sf::st_buffer(50,endCapStyle = "SQUARE") 
+wldf_100 <- wild_points  %>% sf::st_buffer(100,endCapStyle = "SQUARE") 
+
+plot(canopy_imgStack$CaplesCanopyHeight2018>28)
+points(inner_boundary, pch="*", cex=3.0)
+plot(wldf_100, add=T)
+plot(fire_boundary$geometry, add = TRUE)
+
+plot(nbr_imgStack$Caples_NBR_Nov18)
+points(inner_boundary, pch="*", cex=3.0)
+plot(fire_boundary$geometry, add = TRUE)
+plot(wldf_100, add=T)
+
+plot(dem_imgStack$aspect)
+points(inner_boundary, pch="*", cex=3.0)
+plot(wldf_100[6], add=T)
+
+```
+
+-   select these for each radius
+
+    -   (50, 100m radii squares = 1ha, 4ha)
+
+-   extract all data (raw) for and summarize for these radii
+
+-   delint variable names ...
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+#extract variables for 1 & 4ha plots 
+#for now missing standard error (standard deviation divided by the square root of the sample size) "1" not subtracted...
+#[ ]eventually build custom extractor functions e.g. stderr <- function(x) sd(x)/sqrt(length(x)) #or depending on your flavor -1.
+
+extract_canopy_1ha <- exactextractr::exact_extract(canopy_imgStack, wldf_50, c("mean","median","min","max","count"))
+
+extract_canopy_4ha <- exactextractr::exact_extract(canopy_imgStack, wldf_100, c("mean","median","min","max","count"))
+
+dput(colnames(extract_canopy_1ha)) #adjust names [ ] adopt standard naming NEXT
+
+#variable pattern to hand-code for now
+#mean.Cover_2018_1ha
+
+colnames(extract_canopy_1ha)<-
+  c("mean.BaseHeight_2018_1ha", "mean.BaseHeight_2019_1ha", "mean.BaseHeight_2020_1ha", 
+"mean.BulkDensity_2018_1ha", "mean.BulkDensity_2019_1ha", "mean.BulkDensity_2020_1ha", 
+"mean.LayerCount_2018_1ha", "mean.LayerCount_2019_1ha", "mean.LayerCount_2020_1ha", 
+"mean.Cover_2018_1ha", "mean.Cover_2019_1ha", "mean.Cover_2020_1ha", 
+"mean.Height_2018_1ha", "mean.Height_2019_1ha", 
+"mean.Height_2020_1ha", "median.BaseHeight_2018_1ha", 
+"median.BaseHeight_2019_1ha", "median.BaseHeight_2020_1ha", 
+"median.BulkDensity_2018_1ha", "median.BulkDensity_2019_1ha", 
+"median.BulkDensity_2020_1ha", "median.LayerCount_2018_1ha", 
+"median.LayerCount_2019_1ha", "median.LayerCount_2020_1ha", 
+"median.Cover_2018_1ha", "median.Cover_2019_1ha", 
+"median.Cover_2020_1ha", "median.Height_2018_1ha", 
+"median.Height_2019_1ha", "median.Height_2020_1ha", 
+"min.BaseHeight_2018_1ha", "min.BaseHeight_2019_1ha", "min.BaseHeight_2020_1ha", 
+"min.BulkDensity_2018_1ha", "min.BulkDensity_2019_1ha", "min.BulkDensity_2020_1ha", 
+"min.LayerCount_2018_1ha", "min.LayerCount_2019_1ha", "min.LayerCount_2020_1ha", 
+"min.Cover_2018_1ha", "min.Cover_2019_1ha", "min.Cover_2020_1ha", 
+"min.Height_2018_1ha", "min.Height_2019_1ha", "min.Height_2020_1ha", 
+"max.BaseHeight_2018_1ha", "max.BaseHeight_2019_1ha", "max.BaseHeight_2020_1ha", 
+"max.BulkDensity_2018_1ha", "max.BulkDensity_2019_1ha", "max.BulkDensity_2020_1ha", 
+"max.LayerCount_2018_1ha", "max.LayerCount_2019_1ha", "max.LayerCount_2020_1ha", 
+"max.Cover_2018_1ha", "max.Cover_2019_1ha", "max.Cover_2020_1ha", 
+"max.Height_2018_1ha", "max.Height_2019_1ha", "max.Height_2020_1ha", 
+"count.BaseHeight_2018_1ha", "count.BaseHeight_2019_1ha", "count.BaseHeight_2020_1ha", 
+"count.BulkDensity_2018_1ha", "count.BulkDensity_2019_1ha", 
+"count.BulkDensity_2020_1ha", "count.LayerCount_2018_1ha", 
+"count.LayerCount_2019_1ha", "count.LayerCount_2020_1ha", "count.Cover_2018_1ha", 
+"count.Cover_2019_1ha", "count.Cover_2020_1ha", 
+"count.Height_2018_1ha", "count.Height_2019_1ha", 
+"count.Height_2020_1ha")
+
+colnames(extract_canopy_4ha)<-
+  c("mean.BaseHeight_2018_4ha", "mean.BaseHeight_2019_4ha", "mean.BaseHeight_2020_4ha", 
+"mean.BulkDensity_2018_4ha", "mean.BulkDensity_2019_4ha", "mean.BulkDensity_2020_4ha", 
+"mean.LayerCount_2018_4ha", "mean.LayerCount_2019_4ha", "mean.LayerCount_2020_4ha", 
+"mean.Cover_2018_4ha", "mean.Cover_2019_4ha", "mean.Cover_2020_4ha", 
+"mean.Height_2018_4ha", "mean.Height_2019_4ha", 
+"mean.Height_2020_4ha", "median.BaseHeight_2018_4ha", 
+"median.BaseHeight_2019_4ha", "median.BaseHeight_2020_4ha", 
+"median.BulkDensity_2018_4ha", "median.BulkDensity_2019_4ha", 
+"median.BulkDensity_2020_4ha", "median.LayerCount_2018_4ha", 
+"median.LayerCount_2019_4ha", "median.LayerCount_2020_4ha", 
+"median.Cover_2018_4ha", "median.Cover_2019_4ha", 
+"median.Cover_2020_4ha", "median.Height_2018_4ha", 
+"median.Height_2019_4ha", "median.Height_2020_4ha", 
+"min.BaseHeight_2018_4ha", "min.BaseHeight_2019_4ha", "min.BaseHeight_2020_4ha", 
+"min.BulkDensity_2018_4ha", "min.BulkDensity_2019_4ha", "min.BulkDensity_2020_4ha", 
+"min.LayerCount_2018_4ha", "min.LayerCount_2019_4ha", "min.LayerCount_2020_4ha", 
+"min.Cover_2018_4ha", "min.Cover_2019_4ha", "min.Cover_2020_4ha", 
+"min.Height_2018_4ha", "min.Height_2019_4ha", "min.Height_2020_4ha", 
+"max.BaseHeight_2018_4ha", "max.BaseHeight_2019_4ha", "max.BaseHeight_2020_4ha", 
+"max.BulkDensity_2018_4ha", "max.BulkDensity_2019_4ha", "max.BulkDensity_2020_4ha", 
+"max.LayerCount_2018_4ha", "max.LayerCount_2019_4ha", "max.LayerCount_2020_4ha", 
+"max.Cover_2018_4ha", "max.Cover_2019_4ha", "max.Cover_2020_4ha", 
+"max.Height_2018_4ha", "max.Height_2019_4ha", "max.Height_2020_4ha", 
+"count.BaseHeight_2018_4ha", "count.BaseHeight_2019_4ha", "count.BaseHeight_2020_4ha", 
+"count.BulkDensity_2018_4ha", "count.BulkDensity_2019_4ha", 
+"count.BulkDensity_2020_4ha", "count.LayerCount_2018_4ha", 
+"count.LayerCount_2019_4ha", "count.LayerCount_2020_4ha", "count.Cover_2018_4ha", 
+"count.Cover_2019_4ha", "count.Cover_2020_4ha", 
+"count.Height_2018_4ha", "count.Height_2019_4ha", 
+"count.Height_2020_4ha")
+
+canopy<-cbind(extract_canopy_1ha,extract_canopy_4ha)
+
+extract_fuel_1ha <- exactextractr::exact_extract(fuel_imgStack, wldf_50, c("mean","median","min","max","count"))
+
+extract_fuel_4ha <- exactextractr::exact_extract(fuel_imgStack, wldf_100, c("mean","median","min","max","count"))
+
+#dput(colnames(extract_fuel_1ha)) #adjust names [ ] adopt standard naming NEXT
+
+colnames(extract_fuel_1ha)<-c("mean.LadderFuelDensity_2018_1ha", "mean.LadderFuelDensity_2019_1ha", 
+"mean.LadderFuelDensity_2020_1ha", "mean.SurfaceFuels_2018_1ha", "mean.SurfaceFuels_2019_1ha", 
+"mean.SurfaceFuels_2020_1ha", "median.LadderFuelDensity_2018_1ha", "median.LadderFuelDensity_2019_1ha", 
+"median.LadderFuelDensity2020_1ha", "median.SurfaceFuels_2018_1ha", "median.SurfaceFuels_2019_1ha", 
+"median.SurfaceFuels_2020_1ha", "min.LadderFuelDensity_2018_1ha", "min.LadderFuelDensity_2019_1ha", 
+"min.LadderFuelDensity_2020_1ha", "min.SurfaceFuels_2018_1ha", "min.SurfaceFuels_2019_1ha", 
+"min.SurfaceFuels_2020_1ha", "max.LadderFuelDensity_2018_1ha", "max.LadderFuelDensity_2019_1ha", 
+"max.LadderFuelDensity_2020_1ha", "max.SurfaceFuels_2018_1ha", "max.SurfaceFuels_2019_1ha", 
+"max.SurfaceFuels_2020_1ha", "count.LadderFuelDensity_2018_1ha", "count.LadderFuelDensity_2019_1ha", 
+"count.LadderFuelDensity_2020_1ha", "count.SurfaceFuels_2018_1ha", "count.SurfaceFuels_2019_1ha", 
+"count.SurfaceFuels_2020_1ha")
+
+colnames(extract_fuel_4ha)<-c("mean.LadderFuelDensity_2018_4ha", "mean.LadderFuelDensity_2019_4ha", 
+"mean.LadderFuelDensity_2020_4ha", "mean.SurfaceFuels_2018_4ha", "mean.SurfaceFuels_2019_4ha", 
+"mean.SurfaceFuels_2020_4ha", "median.LadderFuelDensity_2018_4ha", "median.LadderFuelDensity_2019_4ha", 
+"median.LadderFuelDensity2020_4ha", "median.SurfaceFuels_2018_4ha", "median.SurfaceFuels_2019_4ha", 
+"median.SurfaceFuels_2020_4ha", "min.LadderFuelDensity_2018_4ha", "min.LadderFuelDensity_2019_4ha", 
+"min.LadderFuelDensity_2020_4ha", "min.SurfaceFuels_2018_4ha", "min.SurfaceFuels_2019_4ha", 
+"min.SurfaceFuels_2020_4ha", "max.LadderFuelDensity_2018_4ha", "max.LadderFuelDensity_2019_4ha", 
+"max.LadderFuelDensity_2020_4ha", "max.SurfaceFuels_2018_4ha", "max.SurfaceFuels_2019_4ha", 
+"max.SurfaceFuels_2020_4ha", "count.LadderFuelDensity_2018_4ha", "count.LadderFuelDensity_2019_4ha", 
+"count.LadderFuelDensity_2020_4ha", "count.SurfaceFuels_2018_4ha", "count.SurfaceFuels_2019_4ha", 
+"count.SurfaceFuels_2020_4ha")
+
+fuels<-cbind(extract_fuel_1ha,extract_fuel_4ha)
+
+#nbr
+extract_nbr_1ha <- exactextractr::exact_extract(nbr_imgStack, wldf_50, c("mean","median","min","max","count"))
+extract_nbr_4ha <- exactextractr::exact_extract(nbr_imgStack, wldf_100, c("mean","median","min","max","count"))
+
+#dput(colnames(extract_nbr_1ha)) #adjust names
+
+colnames(extract_nbr_1ha)<-
+  c("mean.dNBR_Nov20Oct21_1ha", "mean.dNBR2_Nov20Oct21_1ha", 
+"mean.NBR_Oct21_1ha", "mean.dNBR_Nov18Nov19_1ha", "mean.NBR_Nov18_1ha", 
+"mean.NBR_Nov19_1ha", "mean.NBR_Nov20_1ha", "mean.NBR_Oct21_1ha", 
+"median.dNBR_Nov20Oct21_1ha", "median.dNBR2_Nov20Oct21_1ha", 
+"median.NBR_Oct21_1ha", "median.dNBR_Nov18Nov19_1ha", 
+"median.NBR_Nov18_1ha", "median.NBR_Nov19_1ha", "median.NBR_Nov20_1ha", 
+"median.NBR_Oct21_1ha", "min.dNBR_Nov20Oct21_1ha", 
+"min.dNBR2_Nov20Oct21_1ha", "min.NBR_Oct21_1ha", "min.dNBR_Nov18Nov19_1ha", 
+"min.NBR_Nov18_1ha", "min.NBR_Nov19_1ha", "min.NBR_Nov20_1ha", 
+"min.NBR_Oct21_1ha", "max.dNBR_Nov20Oct21_1ha", "max.dNBR2_Nov20Oct21_1ha", 
+"max.NBR_Oct21_1ha", "max.dNBR_Nov18Nov19_1ha", "max.NBR_Nov18_1ha", 
+"max.NBR_Nov19_1ha", "max.NBR_Nov20_1ha", "max.NBR_Oct21_1ha", 
+"count.dNBR_Nov20Oct21_1ha", "count.dNBR2_Nov20Oct21_1ha", 
+"count.NBR_Oct21_1ha", "count.dNBR_Nov18Nov19_1ha", "count.NBR_Nov18_1ha", 
+"count.NBR_Nov19_1ha", "count.NBR_Nov20_1ha", "count.NBR_Oct21_1ha")
+
+colnames(extract_nbr_4ha)<-
+c("mean.dNBR_Nov20Oct21_4ha", "mean.dNBR2_Nov20Oct21_4ha", 
+"mean.NBR_Oct21_4ha", "mean.dNBR_Nov18Nov19_4ha", "mean.NBR_Nov18_4ha", 
+"mean.NBR_Nov19_4ha", "mean.NBR_Nov20_4ha", "mean.NBR_Oct21_4ha", 
+"median.dNBR_Nov20Oct21_4ha", "median.dNBR2_Nov20Oct21_4ha", 
+"median.NBR_Oct21_4ha", "median.dNBR_Nov18Nov19_4ha", 
+"median.NBR_Nov18_4ha", "median.NBR_Nov19_4ha", "median.NBR_Nov20_4ha", 
+"median.NBR_Oct21_4ha", "min.dNBR_Nov20Oct21_4ha", 
+"min.dNBR2_Nov20Oct21_4ha", "min.NBR_Oct21_4ha", "min.dNBR_Nov18Nov19_4ha", 
+"min.NBR_Nov18_4ha", "min.NBR_Nov19_4ha", "min.NBR_Nov20_4ha", 
+"min.NBR_Oct21_4ha", "max.dNBR_Nov20Oct21_4ha", "max.dNBR2_Nov20Oct21_4ha", 
+"max.NBR_Oct21_4ha", "max.dNBR_Nov18Nov19_4ha", "max.NBR_Nov18_4ha", 
+"max.NBR_Nov19_4ha", "max.NBR_Nov20_4ha", "max.NBR_Oct21_4ha", 
+"count.dNBR_Nov20Oct21_4ha", "count.dNBR2_Nov20Oct21_4ha", 
+"count.NBR_Oct21_4ha", "count.dNBR_Nov18Nov19_4ha", "count.NBR_Nov18_4ha", 
+"count.NBR_Nov19_4ha", "count.NBR_Nov20_4ha", "count.NBR_Oct21_4ha")
+
+nbr<-cbind(extract_nbr_1ha,extract_nbr_4ha)
+
+#elevation too
+extract_elevation_1ha<-exactextractr::exact_extract(dem_imgStack[[1]], wldf_50, c("mean","median","min","max","count"))
+extract_elevation_4ha<-exactextractr::exact_extract(dem_imgStack[[1]], wldf_100, c("mean","median","min","max","count"))
+
+colnames(extract_elevation_1ha)<-c("mean.Elevation_2020_1ha", "median.Elevation_2020_1ha", "min.Elevation_2020_1ha", "max.Elevation_NA_1ha", "count.Elevation_NA_1ha")
+colnames(extract_elevation_4ha)<-c("mean.Elevation_2020_4ha", "median.Elevation_2020_4ha", "min.Elevation_2020_4ha", "max.Elevation_NA_4ha", "count.Elevation_NA_4ha")
+
+elevation<-cbind(extract_elevation_1ha, extract_elevation_4ha)
+
+#binary extraction easiest
+#define binary aspect Raster
+aspect.bi<-dem_imgStack$aspect
+#extract values for Pat's binary categorization: aspect>315 | aspect<135
+#aspect.bi <- getValues(asp_bi_imgStack) 
+aspect.bi <- (aspect.bi > 315 | aspect.bi < 135)
+#values(asp_bi_imgStack) <- aspect.bi
+
+#binary at 50
+extract_aspect_bi_1ha <- exactextractr::exact_extract(aspect.bi, wldf_50, c("sum", "count"))
+Perc.NtoE_1ha <- extract_aspect_bi_1ha$sum/extract_aspect_bi_1ha$count
+Perc.NtoE_1ha <- as.data.frame(Perc.NtoE_1ha)
+Perc.NtoE_1ha$Binary.NtoE_1ha <- ifelse (Perc.NtoE_1ha$Perc.NtoE_1ha >= 0.5, 1, 0)
+
+#binary at 100
+extract_aspect_bi_4ha <- exactextractr::exact_extract(aspect.bi, wldf_100, c("sum", "count"))
+Perc.NtoE_4ha <- extract_aspect_bi_4ha$sum/extract_aspect_bi_4ha$count
+Perc.NtoE_4ha <- as.data.frame(Perc.NtoE_4ha)
+Perc.NtoE_4ha$Binary.NtoE_2020_4ha <- ifelse (Perc.NtoE_4ha$Perc.NtoE_4ha >= 0.5, 1, 0)
+
+#dput(colnames(Perc.NtoE_1ha)) #add dummy year [change to 2018 for immutable variables]
+
+colnames(Perc.NtoE_1ha)<-c("Perc.NtoE_2020_1ha", "Binary.NtoE_2020_1ha")
+colnames(Perc.NtoE_4ha)<-c("Perc.NtoE_2020_4ha", "Binary.NtoE_2020_4ha")
+
+aspect.NE<-cbind(Perc.NtoE_1ha,Perc.NtoE_4ha)
+
+#get metadata columns
+metadatavars<-wldf_50[,1:7]
+st_geometry(metadatavars) <- NULL
+#collate into wide dataset
+#Put all together for 1ha 4ha 
+
+wide_forest_variables<-cbind(metadatavars, canopy, fuels, nbr, elevation, aspect.NE)
+```
+
+-   Make clean tall dataset
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+wide_forest_variables %>% #make into a 'long or tall' dataset
+  pivot_longer(
+    cols = contains("ha"),
+    names_to = c("sum_fn", "var", "Year", "scale"),
+# min.Elevation_NA_4ha
+    names_pattern = "(.*)\\.(.*)_(.*)_(.*)",
+    values_to = "value",
+    values_drop_na = TRUE
+  ) %>% 
+  mutate(point_d=as.factor(point_d)) %>% 
+ # mutate(Treatment=Tretmnt) %>% 
+  separate(col = SZ_DNS2, into=c("Size","Density"), sep=1) %>% 
+  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
+  dplyr::select(point_d, sum_fn, var, Year, scale, value, 
+         Cpls_Wt, Treatment, Size, Density)-> tall_forest_variables
+
+NotIn <- function(x,y) !(x %in% y)
+
+ tall_forest_variables %>%
+   dplyr::select(point_d, sum_fn, var, Year, scale, value) %>%
+   filter(sum_fn %in% c("max", "mean","Perc","Binary"), scale=='4ha', NotIn(var, c("dNBR","NA"))) %>% 
+   pivot_wider(names_from = sum_fn:scale,
+              #names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
+              values_from = value
+              ) -> wide_forest_variables_mean_perc_bin_4ha
+ 
+# write_clip(wide_forest_variables_mean_perc_bin_4ha) #[ ] should point directly to output (.csv and equivalent google sheet) [ ] FIX THIS
+ 
+ tall_forest_variables %>%
+   dplyr::select(point_d, sum_fn, var, Year, scale, value) %>%
+   filter(sum_fn %in% c("max", "mean","Perc","Binary"), scale=='1ha', NotIn(var, c("dNBR","NA"))) %>% 
+   pivot_wider(names_from = sum_fn:scale,
+              #names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
+              values_from = value
+              ) -> wide_forest_variables_mean_perc_bin_1ha
+
+dim(wide_forest_variables[,-(1:7)])
+
+#prcomp(wide_forest_variables[,-(1:7)])
+```
+
+-   conversion of continuous circular data is more complex
+-   [ ] FIX not working 2021-10-28
+-   Export final converted data
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+#aspect image stack (in degrees) (non-converted raster)
+asp_imgStack<-dem_imgStack$aspect
+extract_asp <- exactextractr::exact_extract(asp_imgStack, wldf_100)
+extract_asp[[1]]$value
+
+#convert degrees to a circular object and then to radians 
+#build a function to simplify converting degrees to radians with zero degrees/radians = North 
+con_circle<-function(degs) {
+  conversion.circular(       #do conversion to radians
+    circular(degs, units = "degrees", zero = pi/2, rotation="clock"), #of a circular object with degrees with N as zero
+    units="radians") #circular frame is inherited
+}
+
+#now get mean or other circular stats from converted values (in radians, 0 up top, clockwise compass)
+#define aspect Raster
+asp_rad_imgStack<-asp_imgStack
+#calculate the updated values in radians
+circ_vals <- as.vector(con_circle(getValues(asp_rad_imgStack)))
+#apply to raster, replacing degrees with the radians
+values(asp_rad_imgStack) <- circ_vals
+
+#checking values line up, at record 88888 (which is conveniently 1/2 a circle = ~180 degrees)
+asp_imgStack$aspect[88888] #180.3275
+asp_rad_imgStack$aspect[88888] #3.147309 !
+
+#sanity plots
+plot(asp_imgStack)
+plot(asp_rad_imgStack)
+
+#recall these are NOT in circular form (though they were calculated with it)!
+
+#extract radian data for points
+extract_rad_asp_100 <- exactextractr::exact_extract(asp_rad_imgStack, wldf_100)
+
+#need to calculate the weighted mean for each value, perhaps do the WM then convert to circular, or just do by hand:
+extract_rad_asp_100[[1]]$value%*%extract_rad_asp_100[[1]]$coverage_fraction/length(extract_rad_asp_100[[1]]$value)
+#          [,1]
+# [1,] 4.417106
+# looks great!
+
+#this can be calculated as follows (test by hand below) already in radians just need circular specs
+circular(weighted.mean(extract_rad_asp_100[[1]]$value, extract_rad_asp_100[[1]]$coverage_fraction),units = 'radians', zero=pi/2, rotation="clock")
+#[1] 4.875364 -- works so ...
+
+#wasn't able to get reasonable numbers out of the
+## circular::weighted.mean() == weighted.mean.circular() function [ ]#worth double checking why
+#make the weighted mean circular function 
+wm<-function(.x){circular(stats::weighted.mean(x=.x$value, w=.x$coverage_fraction), units = 'radians', zero=pi/2, rotation="clock")}
+
+purrr::map(extract_rad_asp_100, wm)[[1]]
+
+# Circular Data: 
+# Type = angles 
+# Units = radians 
+# Template = none 
+# Modulo = asis 
+# Zero = 1.570796 
+# Rotation = clock 
+# [1] 4.875364
+
+#it works!
+
+#use map to do all the weighted means at 1x 
+wmDirVals_100<-purrr::map(extract_rad_asp_100,wm)
+as.data.frame(wmDirVals_100) %>% t() -> wmDirVals_100 #sloppy, had to transpose (t())
+
+#add to the dataset
+wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha<-wmDirVals_100[,1]
+
+# final test
+wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha[1]
+# structure.4.87536440614317..circularp...list.type....angles... 
+#                                                       4.875364 
+
+extract_rad_asp_50 <- exactextractr::exact_extract(asp_rad_imgStack, wldf_50)
+
+#use map to do all the weighted means at 1x 
+wmDirVals_50<-purrr::map(extract_rad_asp_50,wm)
+as.data.frame(wmDirVals_50) %>% t() -> wmDirVals_50
+
+wide_forest_variables_mean_perc_bin_1ha$mean_aspCirc_2020_1ha<-wmDirVals_50[,1]
+
+#convert back for sanity (and readability)
+con_circular_deg <- function(rads) {conversion.circular(circular(rads, units = "radians", zero=pi/2, rotation="clock"),units="degrees")} #not used?
+
+con_circular_deg(wide_forest_variables_mean_perc_bin_1ha$mean_aspCirc_2020_1ha)[[1]]
+#[1] 302.508, yay looks good and very close to the median
+
+par(mfrow=c(2,2))
+plot(circular(wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha, units = "radians", zero=pi/2, rotation="clock"))
+points(mean.circular(circular(wide_forest_variables_mean_perc_bin_1ha$mean_aspCirc_2020_1ha,units = "radians", zero=pi/2, rotation="clock")), col="red")
+
+plot(con_circular_deg(circular(wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha, units = "radians", zero=pi/2, rotation="clock")))
+points(mean.circular(con_circular_deg(circular(wide_forest_variables_mean_perc_bin_1ha$mean_aspCirc_2020_1ha,units = "radians", zero=pi/2, rotation="clock"))), col="red")
+
+#save the sanity variables
+
+wide_forest_variables_mean_perc_bin_1ha$mean_aspDeg_2020_1ha<-con_circular_deg(wide_forest_variables_mean_perc_bin_1ha$mean_aspCirc_2020_1ha)
+
+wide_forest_variables_mean_perc_bin_4ha$mean_aspDeg_2020_4ha<-con_circular_deg(wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha)
+
+# wide_forest_variables_mean_perc_bin_4ha$mean_aspDeg_4ha<-NULL
+
+#write out to sheet by copy paste in google drive (change this [ ]!)
+write_clip(wide_forest_variables_mean_perc_bin_1ha)
+write_clip(wide_forest_variables_mean_perc_bin_4ha)
+
+wide_forest_variables_mean_perc_bin_4ha %>% knitr::kable() #[ ] problems with new RAVG '21 data
+
+# wide_forest_variables_mean_perc_bin_1ha %>%
+#   dplyr::select(-point_d,-Binary_NtoE_2020_1ha, -mean_aspCirc_2020_1ha) %>% #head()
+#   ggpairs() -> pairsplts
+# 
+# show(pairsplts)
+```
+
+**Overall RASTER PCA**
+
+-   choose random points across the landscape
+-   use converted rasters
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+#us dem_imgStack_10m
+
+asp_imgStack_10m<-dem_imgStack_10m$aspect
+aspect.bi <- asp_imgStack_10m$aspect
+aspect.bi <- (aspect.bi > 315 | aspect.bi < 135)
+
+#use con_circle<-function(degs) {
+
+#now get mean or other circular stats from converted values (in radians, 0 up top, clockwise compass)
+#define aspect Raster
+asp_rad_imgStack_10m<-asp_imgStack_10m
+#calculate the updated values in radians
+circ_vals <- as.vector(con_circle(getValues(asp_rad_imgStack_10m)))
+#apply to raster, replacing degrees with the radians
+values(asp_rad_imgStack_10m) <- circ_vals
+
+names(asp_rad_imgStack_10m)<-c("aspect_radians")
+
+asp_rad_imgStack_10m$aspect.bi<-aspect.bi
+
+canopy_fuel_nbr_dem_cir<-raster::stack(canopy_fuel_nbr_dem, asp_rad_imgStack_10m, orig=FALSE,tolerance=0.1)
+
+rpc <- rasterPCA(canopy_fuel_nbr_dem_cir[[c(1,4,7,10,13)]], nSamples = 1e5, spca = TRUE)  #by hand choice of layers c(1,4,8,11,13)
+rpc1481112<-rpc
+rpc <- rasterPCA(canopy_nbr_dem_cir[[c(1:6,8:11,13)]], nSamples = 1e5, spca = TRUE) #all layers [ ] broken hehre down
+rpc12345689101113<-rpc
+rpc <- rasterPCA(canopy_nbr_dem_cir[[c(1,2,4,5,8,9,11,13)]], nSamples = 1e5, spca = TRUE) #all layers
+rpc1245891113<-rpc
+rpc <- rasterPCA(canopy_nbr_dem_cir[[c(1:6,8,9,11,13)]], nSamples = 1e5, spca = TRUE) #all layers
+rpc123456891113<-rpc
+rpc <- rasterPCA(canopy_nbr_dem_cir[[c(1:6,8,9,11,14)]], nSamples = 1e5, spca = TRUE) #all layers
+rpc123456891114<-rpc
+rpc <- rasterPCA(canopy_nbr_dem_cir[[c(1:6,8,9,11,13,14)]], nSamples = 1e5, spca = TRUE) #all layers
+rpc12345689111314<-rpc
+rpc <- rasterPCA(canopy_nbr_dem_cir[[c(1:6,8,9,11,13,14)]], nSamples = 1e5, spca = TRUE) #all layers
+rpc12345689111314<-rpc
+
+#compare them ... look at anyone 1 at a time or do something fancier if you wish
+rpc<-rpc12345689111314
+
+## Model parameters:
+summary(rpc$model)
+loadings(rpc$model)
+
+ggRGB(rpc$map,1,2,3, stretch="lin", q=0)
+if(require(gridExtra)){
+plots <- lapply(1:4, function(x) ggR(rpc$map, x, geom_raster = TRUE))
+grid.arrange(plots[[1]],plots[[2]], plots[[3]], plots[[3]], ncol=2)
+}
+```
+
+**run PCA on sample point extracted data**
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+wfv <- wide_forest_variables_mean_perc_bin_1ha
+
+pca_fit <- wfv %>% 
+  dplyr::select(where(is.numeric)) %>% # retain only numeric columns
+  prcomp(scale = TRUE) # do PCA on scaled data
+
+pca_fit <- wfv %>% 
+  dplyr::select(where(is.numeric)) %>% # retain only numeric columns
+  scale() %>% # scale data
+  prcomp() # do PCA
+
+pca_fit %>%
+  augment(wfv) %>% # add original dataset back in
+  ggplot(aes(.fittedPC1, .fittedPC2)) + #, color = outcome)) + 
+  geom_point(size = 1.5) +
+  scale_color_manual() + #values = c(malignant = "#D55E00", benign = "#0072B2")) +
+  theme_half_open(12) + 
+  background_grid()
+
+
+pca_fit %>%
+  tidy(matrix = "rotation")
+
+# define arrow style for plotting
+arrow_style <- arrow(
+  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+)
+
+# plot rotation matrix
+pca_fit %>%
+  tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
+  ggplot(aes(PC1, PC2)) +
+  geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+  geom_text(
+    aes(label = column),
+    hjust = 1, nudge_x = -0.02, 
+    color = "#904C2F"
+  ) +
+  xlim(-1.25, .5) + ylim(-.5, 1) +
+  coord_fixed() + # fix aspect ratio to 1:1
+  theme_minimal_grid(12)
+
+pca_fit %>%
+  tidy(matrix = "eigenvalues")
+
+pca_fit %>%
+  tidy(matrix = "eigenvalues") %>%
+  ggplot(aes(PC, percent)) +
+  geom_col(fill = "#56B4E9", alpha = 0.8) +
+  scale_x_continuous(breaks = 1:9) +
+  scale_y_continuous(
+    labels = scales::percent_format(),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
+  theme_minimal_hgrid(12)
+
+
+#wide_forest_variables_mean_perc_bin_4ha
+```
+
+-   [ ] run PCA on random samples
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+#[ ] DO this later, basic idea, do PCA on random points (see above), compare to sample points ... use to identify major variables ...
+random_points<-
+  runif
+inner_boundary[1,]
+inner_boundary[2,]
+inner_boundary[1,]
+inner_boundary[1,]
+```
+
+-   [ ] put in PCA calculations for sample_points
+
+    -   Data point PCA
+    -   Summary stats
+    -   Decisions
+
+    ```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+
+    ```
+
+    **Export data**
+
+    -   [x] give to Tom, Matt & Lauren
+    -   [x] share with Mary and Angela
+    -   [ ] fix and choose how to integrate with COMB git
