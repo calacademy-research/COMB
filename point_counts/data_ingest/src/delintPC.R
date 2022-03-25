@@ -1,10 +1,11 @@
-library(tidyverse)
 library(chron)
-library(lubridate)
+library(data.table)
+library(forcats)
 library(googledrive)
 library(here)
+library(lubridate)
 library(reshape2)
-library(forcats)
+library(tidyverse)
 
 # script to delint point count data from Caples Creek project
 # creates data frame 'dfc' whose rows refer to bird counts of each species x point x visit x year.
