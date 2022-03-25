@@ -165,11 +165,27 @@ cols <- colnames(dataML)[12:100]
 
 # For this example, the cutoff is max logit > -2
 
-filter_values <- paste(cols, ">-2", "| ") %>% 
+filter_values <- paste(cols, ">-1.5", "| ") %>% 
   paste(collapse = "") %>% 
   str_sub(end = -4)
 
-dataML_m2.0 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_values)))
+dataML_m1.5 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_values)))
 
-fwrite(dataML_m2.0, here("acoustic/data_ingest/output/dataML_m2.0.csv"))
+fwrite(dataML_m1.5, here("acoustic/data_ingest/output/dataML_m1.5.csv"))
 
+
+###########################################################
+# to convert the logit to something more like a probability, 
+# we can use the formula 
+#
+#       p = exp(logit)/(exp(logit)+1) 
+#
+###########################################################
+
+# define function logit_to_p
+
+logit_to_p <- function(logit){
+  p <- exp(logit)/(exp(logit)+1)
+  return(p)
+}
+  

@@ -65,4 +65,32 @@ cols <- colnames(dataML)[1:100]
 
 
 
+###########################################################
+# to convert the logit to something more like a probability, 
+# we can use the formula 
+#
+#       p = exp(logit)/(exp(logit)+1) 
+#
+###########################################################
+
+# define function logit_to_p
+
+logit_to_p <- function(logit){
+  p <- exp(logit)/(exp(logit)+1)
+  return(p)
+}
+
+dataML_rebnut <- dataML %>% 
+  filter(logit_to_p(rebnut)>0.1)
+
+p <- ggplot(dataML_rebnut, aes(x=rebnut, y=(logit_to_p(rebnut)))) + 
+  geom_violin() 
+
+p
+
+# Rotate the violin plot
+p + coord_flip()
+
+
+
 
