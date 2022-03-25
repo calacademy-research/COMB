@@ -18,7 +18,9 @@ library(auk)
 library(forcats)
 library(data.table)
 
-source(here("COMB_functions.R"))
+
+source(here("comb_functions.R"))
+
 
 # Syncing file with google drive --------------
 
