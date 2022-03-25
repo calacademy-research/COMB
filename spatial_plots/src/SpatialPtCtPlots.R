@@ -21,7 +21,7 @@ library(spBayes)
 library(classInt)
 library(RColorBrewer)
 
-hamfly_df <- subset(subset(year_pt_counts, bird = "hamfly"), !is.na(latitude))
+hamfly_df <- subset(subset(year_pt_counts, (bird == "hamfly") & (year == 2018)), !is.na(latitude))
 hamfly_ptct <- hamfly_df$detection_count
 hamfly_maxlgt <- hamfly_df$max_logit
 
@@ -37,11 +37,11 @@ col.br <- colorRampPalette(c("blue", "cyan", "yellow", "red"))
 ## Point count surface plot
 surf <- mba.surf(cbind(coords, hamfly_ptct), no.X = x.res, no.Y = y.res, 
                  h = 5, m = 2, extend = FALSE)$xyz.est
-image.plot(surf, xaxs = "r", yaxs = "r", xlab = "Lon", ylab = "Lat", col = col.br(25))
+image.plot(surf, xaxs = "r", yaxs = "r", xlab = "Lon", ylab = "Lat", col = col.br(25), main = "Point Count - Hammonds Flycatcher")
 contour(surf, add=TRUE)
 
 ## Max logit surface plot
 surf <- mba.surf(cbind(coords, hamfly_maxlgt), no.X = x.res, no.Y = y.res, 
                  h = 5, m = 2, extend = FALSE)$xyz.est
-image.plot(surf, xaxs = "r", yaxs = "r", xlab = "Lon", ylab = "Lat", col = col.br(25))
+image.plot(surf, xaxs = "r", yaxs = "r", xlab = "Lon", ylab = "Lat", col = col.br(25), main = "Max Logit - Hammonds Flycatcher")
 contour(surf, add=TRUE)
