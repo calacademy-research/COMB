@@ -143,3 +143,19 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
     ~ drive_download(.x, path = paste0(local_dir, "/", .y))
   )
 }
+
+
+###########################################################
+# to convert the logit to something more like a probability, 
+# we can use the formula 
+#
+#       p = exp(logit)/(exp(logit)+1) 
+#
+###########################################################
+
+# define function logit_to_p
+
+logit_to_p <- function(logit){
+  p <- exp(logit)/(exp(logit)+1)
+  return(p)
+}
