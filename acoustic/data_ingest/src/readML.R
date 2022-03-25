@@ -123,13 +123,14 @@ dataML <- future_map_dfr(
 
 # Create symlink from output of file_to_point to input of readML.R
 if (file.exists(here("acoustic/data_ingest/input/aru2point.csv")) == F) {
-  drive_download(as_id("1e2DV2eykUskpffVqIZBOjmB08x3Z_cbt5NK93B3V6JE"), here("acoustic/data_ingest/input/aru2point.csv"))
+  drive_download(as_id("https://drive.google.com/file/d/13V0POA8y0b_qpu2MIF07SaGy4Mwiuw2C/view?usp=sharing"), here("acoustic/data_ingest/input/aru2point.csv"))
 }
 
 # READ IN THE ARU to actual point key value pair file from the file: 2020_ARU_data.soundfilelist.csv
 aru2point <- fread(here("acoustic/data_ingest/input/aru2point.csv"), header = TRUE, sep = ",") %>%
-  separate(Filename, into = c("File_ID", "filetype"), sep = "\\.", remove = FALSE) %>%
-  filter(!(is.na(Point))) # to get rid of rows when we don't know where the ARU is located
+  separate(filename, into = c("File_ID", "filetype"), sep = "\\.", remove = FALSE) %>%
+  filter(!is.na(as.numeric(point))) %>%  # throws out all that are NA or have text and are not on a point
+  filter(as.numeric(point)>0)
 
 # add point ID to df
 dataML <- right_join(aru2point, dataML, by = "File_ID")
@@ -150,8 +151,41 @@ if (dir.exists(here("acoustic/data_ingest/output/")) == F) {
 }
 
 # Command for making output smaller by only keeping a proportion of the dataset grouped by date and time
-dataML <- dataML %>% 
+dataML.slice <- dataML %>% 
   group_by(Date_Time) %>% 
   slice_sample(prop = 1)
 
 fwrite(dataML, here("acoustic/data_ingest/output/dataML.csv"))
+
+#########################################
+# to create a subset of data with a given 
+# minimum threshold across all species
+##########################################
+cols <- colnames(dataML)[12:100]
+
+# For this example, the cutoff is max logit > -2
+
+filter_values <- paste(cols, ">-1.5", "| ") %>% 
+  paste(collapse = "") %>% 
+  str_sub(end = -4)
+
+dataML_m1.5 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_values)))
+
+fwrite(dataML_m1.5, here("acoustic/data_ingest/output/dataML_m1.5.csv"))
+
+
+###########################################################
+# to convert the logit to something more like a probability, 
+# we can use the formula 
+#
+#       p = exp(logit)/(exp(logit)+1) 
+#
+###########################################################
+
+# define function logit_to_p
+
+logit_to_p <- function(logit){
+  p <- exp(logit)/(exp(logit)+1)
+  return(p)
+}
+  
