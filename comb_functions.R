@@ -135,11 +135,11 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
   # Uploading the only_local and downloading the only_google
   map(
     only_local,
-    ~ drive_upload(paste0(local_dir, .x), path = as_dribble(drive_folder))
+    ~ drive_upload(paste0(local_dir, "/", .x), path = as_dribble(drive_folder))
   )
 
   map2(
     only_google$id, only_google$name,
-    ~ drive_download(.x, path = paste0(local_dir, .y))
+    ~ drive_download(.x, path = paste0(local_dir, "/", .y))
   )
 }
