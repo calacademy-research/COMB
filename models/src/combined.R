@@ -89,60 +89,72 @@ visitToIndex <- dataML %>%
 
 
 # reshaping ---------------------------------------------------------------
-# target: y matrix [1:i, 1:j]
-# point count data
-yRBNU <- dataPC %>%
+nsites <- max(pointToIndex$pointIndex)
+nsurveys.pc <- max(dataPC$visit)
+nsurveys.aru <- aruVisitLimit
+
+sparsePointCounts <- dataPC %>%
   filter(birdCode_fk == speciesCode, year == year) %>%
   group_by(point_ID_fk) %>%
   select(point_ID_fk, visit, abun) %>%
   inner_join(pointToIndex, by = c("point_ID_fk" = "point"))
 
-MLscores <- dataML %>%
+sparseARUScores <- dataML %>%
   full_join(visitToIndex) %>%
   filter(visit <= aruVisitLimit) %>%
   inner_join(pointToIndex)
 
-MLcounts <- MLscores %>%
+sparseARUCounts <- sparseARUScores %>%
   mutate(is.det = (rebnut > threshold)) %>%
   group_by(pointIndex, visit) %>%
   summarise(count = sum(is.det), .groups = "keep")
 
-samples <- MLscores %>% filter(rebnut > threshold)
-siteID <- samples$pointIndex
-occID <- samples$visit
-nsamples <- nrow(samples)
-nsites <- max(pointToIndex$pointIndex)
-nsurveys.aru <- aruVisitLimit
-nsurveys.pc <- n_distinct(dataPC$visit)
-score <- samples$rebnut
+sparseScores <- sparseARUScores %>% filter(rebnut > threshold)
+siteID <- sparseScores$pointIndex
+occID <- sparseScores$visit
+score <- sparseScores$rebnut
+nsamples <- nrow(sparseScores)
+
+sparseToDense <- function(rowIndices, colIndices, values, nrows, ncols) {
+  m <- matrix(NA, nrows, ncols)
+  for (u in 1:length(rowIndices)) {
+    m[rowIndices[u], colIndices[u]] <- values[u]
+  }
+  m
+}
 
 # Point counts dense matrix
-y.pc <- matrix(NA, nsites, nsurveys.pc)
-for (row in 1:nrow(yRBNU)) {
-  y.pc[yRBNU$pointIndex[row], yRBNU$visit[row]] <- yRBNU$abun[row]
-}
+y.pc <- sparseToDense(
+  sparsePointCounts$pointIndex,
+  sparsePointCounts$visit, sparsePointCounts$abun,
+  nsites,
+  nsurveys.pc
+)
 
 # Point counts dense binary matrix (for Bernoulli likelihood factors)
 y.ind <- (y.pc > 0) * 1
 
 # ARU counts dense matrix
-y.aru <- matrix(NA, nsites, nsurveys.aru)
-for (row in 1:nrow(MLcounts)) {
-  y.aru[MLcounts$pointIndex[row], MLcounts$visit[row]] <- MLcounts$count[row]
-}
+y.aru <- sparseToDense(
+  sparseARUCounts$pointIndex,
+  sparseARUCounts$visit,
+  sparseARUCounts$count,
+  nsites,
+  nsurveys.aru
+)
 
 
 # JAGS structuring --------------------------------------------------------
 data <- list(
+  nsites = nsites,
+  nsurveys.pc = nsurveys.pc,
+  nsurveys.aru = nsurveys.aru,
   y.ind = y.ind,
   y.aru = y.aru,
   siteid = siteID,
   occid = occID,
-  nsites = nsites,
-  nsamples = nsamples,
-  nsurveys.pc = nsurveys.pc,
-  nsurveys.aru = nsurveys.aru,
-  score = score
+  score = score,
+  nsamples = nsamples
 )
 
 
