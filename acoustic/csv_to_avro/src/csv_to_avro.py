@@ -4,7 +4,7 @@ Directory structure convention:
 
 base_dir/  (passed in via --base_dir)
   input/
-    birds.txt
+    birds.tsv
     aru2point.csv
     latlong.csv
     [**]/*.csv
@@ -17,9 +17,9 @@ filename_stem,start_seconds,end_seconds,logit0,logit1,...
 
 where start_second and end_seconds are the endpoints of a context window of
 audio relative to the start of the file and where the ordering of logits
-corresponds to the order of lines in birds.txt.
+corresponds to the order of lines in birds.tsv.
 
-birds.txt is a tab-separated values file with no header line and the species
+birds.tsv is a tab-separated values file with no header line and the species
 code in the second column.
 
 aru2point.csv is a CSV file with no header and columns filename,point_number.
@@ -32,10 +32,20 @@ point_number,latitude,longitude. The coordinates are in decimal degrees.
 The output consists of multiple Avro files (shards), where each record is a
 prediction for a single context window. See AVRO_SCHEMA for the schema.
 
-To run on Google Cloud Dataflow, base_dir should be a gs:// path, --gcp_project=
-and --gcp_region= should have values, and the GOOGLE_APPLICATION_CREDENTIALS
-environment variable should be set to the path of service account JSON with
-permissions to the Storage bucket and the Compute Engine service account.
+To run locally:
+
+Simply leave the --gcp flags unspecified and set --base_dir to a local
+filesystem path following the convention above.
+
+In practice, a local run on the full predictions CSV can finish within a few
+hours, so running on Dataflow isn't absolutely necessary.
+
+To run on Google Cloud Dataflow:
+
+--base_dir should be a gs:// path, --gcp_project= and --gcp_region= should have
+values, and the GOOGLE_APPLICATION_CREDENTIALS environment variable should be
+set to the path of service account JSON with permissions to the Storage bucket
+and the Compute Engine service account.
 
 Dataflow does not support all Python versions, and dependencies can be tricky.
 Best practice is:
@@ -158,13 +168,20 @@ def read_species_codes(tsv_file: fileio.ReadableFile) -> Sequence[str]:
   """
   with io.StringIO(tsv_file.read_utf8()) as csvfile:
     reader = csv.reader(csvfile, delimiter='\t', quotechar='"')
-    return [row[1] for row in reader]
+    return [row[2] for row in reader]
 
 
 def parse_aru_line(aru_line: str) -> Tuple[str, int]:
   """Returns (key, point_number) from a line of aru2point.csv."""
   parts = aru_line.split(',')
-  return normalize_key(parts[0]), int(parts[1])
+  if len(parts) != 2:
+    logging.warn('unexpected field count in aru2point line: ' + aru_line)
+    return
+  try:
+    point_number = int(parts[1])
+  except ValueError:
+    return
+  yield normalize_key(parts[0]), point_number
 
 
 def parse_latlong_line(latlong_line: str) -> Tuple[int, LatLong]:
@@ -277,14 +294,14 @@ def run(base_dir: str, min_logit: Optional[float],
   Returns:
     None
   """
-  birds_txt_path = os.path.join(base_dir, 'input', 'birds.txt')
+  birds_txt_path = os.path.join(base_dir, 'input', 'birds.tsv')
   arus_csv_path = os.path.join(base_dir, 'input', 'aru2point.csv')
   latlong_csv_path = os.path.join(base_dir, 'input', 'latlong.csv')
   csv_pattern = os.path.join(base_dir, 'input', '**', '*.csv')
   output = os.path.join(base_dir, 'output', 'avro')
 
   with beam.Pipeline(options=options) as pipeline:
-    # Since to order of the lines in birds.txt determines the class indices, it
+    # Since to order of the lines in birds.tsv determines the class indices, it
     # must be read all at once rather than with ReadFromText, which produces a
     # PCollection with no guaranteed order.
     species_codes = beam.pvalue.AsSingleton(
@@ -293,7 +310,7 @@ def run(base_dir: str, min_logit: Optional[float],
 
     aru_to_point = beam.pvalue.AsDict(pipeline | (
         'ReadArus' >> beam.io.textio.ReadFromText(arus_csv_path))
-                                      | beam.Map(parse_aru_line))
+                                      | beam.ParDo(parse_aru_line))
 
     point_to_latlong = beam.pvalue.AsDict(pipeline | (
         'ReadLatLong' >> beam.io.textio.ReadFromText(latlong_csv_path))
