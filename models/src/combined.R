@@ -103,7 +103,8 @@ data <- list(
 # Specify Model C in BUGS language
 # Occupancy with false-positives, bioacoustics data with built-in
 # species classification using Gaussian mixtures
-cat(file = "modelC.txt", "
+modelFile <- tempfile()
+cat(file = modelFile, "
 model {
 
   # Priors
@@ -171,7 +172,7 @@ nb <- 1000
 nc <- 3
 
 # Call JAGS (ART 1 min), gauge convergence and summarize posteriors
-jagsResult <- jags(data, inits, params, "modelC.txt",
+jagsResult <- jags(data, inits, params, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE
 )
