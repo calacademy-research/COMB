@@ -83,12 +83,15 @@ for (row in 1:nrow(yRBNU)) {
   y.pc[yRBNU$pointIndex[row], yRBNU$visit[row]] <- yRBNU$abun[row]
 }
 
+# binarized version of point count for Bernoulli targets
+y.ind <- (y.pc > 0) * 1
+
 
 # define variables and make list of data ----------------------------------
 
 
 data <- list(
-  y.pc = y.pc,
+  y.ind = y.ind,
   y.aru = y.aru,
   siteid = siteID,
   occid = occID,
@@ -126,10 +129,10 @@ model {
     p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability
     site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species)
     for(j in 1:nsurveys.pc) { # Loop over occasions
-      y[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
+      y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
     for(j in 1:nsurveys.aru) { # Loop over occasions
-      yARU[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
+      y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
     }
   }
 
