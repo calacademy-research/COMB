@@ -12,6 +12,14 @@ library(wesanderson)
 
 source(here("comb_functions.R"))
 
+# parameters --------------------------------------------------------------
+speciesCode <- "RBNU" # must match prefiltering of dataML_model.csv
+year <- 2021
+threshold <- 0.5
+aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
+
+
+
 # data --------------------------------------------------------------------
 
 drive_auth()
@@ -23,51 +31,49 @@ dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sur
 
 # ACOUSTIC DATA
 
-dataML_model <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv"))
-
-# filter to morning hours
-morningML <- dataML_model %>%
+dataML <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv")) %>%
+  # morning hours only
   filter(hour(Date_Time) < 10) %>%
+  # specific start minutes
   filter(minute(Date_Time) == 30 | minute(Date_Time) == 00)
 
 # mapping from point id to y-matrix row index
-pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML_model$point))))
+pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML$point))))
 pointList <- arrange(pointList, point) %>%
   mutate(pointIndex = seq_along(point))
 
-visitindex <- morningML %>%
+visitindex <- dataML %>%
   select(point, Date_Time) %>%
   distinct() %>%
   group_by(point) %>%
   mutate(visit = seq_along(Date_Time))
 
-# target: y matrix [1:i, 1:j] for species RBNU and year 2019
+# target: y matrix [1:i, 1:j]
 # point count data
 yRBNU <- dfc %>%
-  filter(birdCode_fk == "RBNU", year == 2021) %>%
+  filter(birdCode_fk == speciesCode, year == year) %>%
   group_by(point_ID_fk) %>%
   select(point_ID_fk, visit, abun) %>%
   inner_join(pointList, by = c("point_ID_fk" = "point"))
 
 
-visitLimit <- 60
-MLscores <- morningML %>%
+MLscores <- dataML %>%
   full_join(visitindex) %>%
-  filter(visit <= visitLimit) %>%
+  filter(visit <= aruVisitLimit) %>%
   inner_join(pointList)
 
 MLcounts <- MLscores %>%
-  mutate(is.det = (rebnut > 0.5)) %>%
+  mutate(is.det = (rebnut > threshold)) %>%
   group_by(pointIndex, visit) %>%
   summarise(count = sum(is.det))
 
 
-samples <- MLscores %>% filter(rebnut > 0.5)
+samples <- MLscores %>% filter(rebnut > threshold)
 siteID <- samples$pointIndex
 occID <- samples$visit
 nsamples <- nrow(samples)
 nsites <- max(pointList$pointIndex)
-nsurveys.aru <- visitLimit
+nsurveys.aru <- aruVisitLimit
 nsurveys.pc <- n_distinct(dfc$visit)
 score <- samples$rebnut
 
@@ -154,8 +160,8 @@ model {
 # Initial values
 zst <- rep(1, nrow(y.pc))
 gst <- sample(1:2, length(score), replace = TRUE)
-gst[score > 0] <- 1
-gst[score <= 0] <- 2
+gst[score > threshold] <- 1
+gst[score <= threshold] <- 2
 inits <- function() {
   list(
     mu = c(1, -1), sigma = 0.2, z = zst,
