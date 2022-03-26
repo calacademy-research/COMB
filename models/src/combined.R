@@ -171,11 +171,7 @@ nb <- 1000
 nc <- 3
 
 # Call JAGS (ART 1 min), gauge convergence and summarize posteriors
-out3 <- jags(data, inits, params, "modelC.txt",
+jagsResult <- jags(data, inits, params, "modelC.txt",
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE
 )
-
-
-# visualize model results -------------------------------------------------
-output <- as.data.frame(out3$summary[1:10, ])
