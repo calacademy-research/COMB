@@ -21,10 +21,11 @@ aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
 
 
 # data --------------------------------------------------------------------
-
-drive_auth()
-
-drive_sync(here("acoustic/data_ingest/output/"), "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5")
+drive_auth(email = TRUE) # do not prompt when only one email has token
+drive_sync(
+  here("acoustic/data_ingest/output/"),
+  "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
+)
 
 dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sure these are the specifications on detection distance, years included, etc. you want for your model and rerun delintPC.R with changes to those filters if necessary
 
