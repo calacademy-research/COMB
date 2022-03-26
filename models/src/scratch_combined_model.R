@@ -41,7 +41,7 @@ visitindex <- morningML %>%
   group_by(point) %>%
   mutate(visit=seq_along(Date_Time))
 
-# target: y matrix [1:i, 1:j] for species HEWA and year 2019
+# target: y matrix [1:i, 1:j] for species RBNU and year 2019
 # point count data
  yRBNU <- dfc %>% filter(birdCode_fk=="RBNU", year==2021) %>%
   group_by(point_ID_fk) %>%
