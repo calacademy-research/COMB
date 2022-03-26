@@ -29,9 +29,9 @@ if (dir.exists(here("models/output/")) == FALSE) {
 
 # TODO []: link to Google Drive &/or a link to `read_PC.R`. The Google Drive code in readPC.R does not work when using non-CalAcademy login. For now, doing a hard download.
 source(here("COMB_functions.R"))
-#drive_auth()
+drive_auth()
 # 
-#drive_sync(here("point_counts/data_ingest/input/"), "https://drive.google.com/drive/u/0/folders/13bXkNCZzFwGC8H4k-CJ4Cf3tYJ3t18zW")
+drive_sync(here("point_counts/data_ingest/input/"), "https://drive.google.com/drive/u/0/folders/13bXkNCZzFwGC8H4k-CJ4Cf3tYJ3t18zW")
 # 
 # # Reading inputs -------------------
 dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sure these are the specifications on detection distance, years included, etc. you want for your model and rerun delintPC.R with changes to those filters if necessary

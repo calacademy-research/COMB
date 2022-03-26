@@ -63,6 +63,22 @@ dataML_m2.0 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_value
 
 cols <- colnames(dataML)[1:100]
 
+#########################################
+# to create a subset of data with a given 
+# minimum threshold across all species
+##########################################
+cols <- colnames(dataML)[12:100]
+
+# For this example, the cutoff is max logit > -2
+
+filter_values <- paste(cols, ">-0.5", "| ") %>% 
+  paste(collapse = "") %>% 
+  str_sub(end = -4)
+
+dataML_m0.5 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_values)))
+
+fwrite(dataML_m0.5, here("acoustic/data_ingest/output/dataML_m0.5.csv"))
+
 
 
 ###########################################################
@@ -92,5 +108,40 @@ p
 p + coord_flip()
 
 
+##############################################################
+# this section of code subsets the dataML dataframe
+# to provide raw data for Y[ARUi,j]
+# where i is the ith point
+# and j is the jth recording made on point i,
+# and sum is the total number of detections exceeding 
+# a particular threshold (in the case below, logit > 0.5)
+# 
+# we are additionally using only recordings taken from 
+# 06:00 to 10:00am, complete recordings, recordings 
+# made on a point.  
+##############################################################
+dataML_model <- dataML %>% 
+  filter(!is.na(as.numeric(point))) %>%  # throws out all that are NA or have text and are not on a point
+  filter(as.numeric(point)>0) %>% # removes recordings on point "0"
+  # select(filename, File_ID, ARU_ID, Date_Time, point, Start_Time, rebnut) %>% # choose only the focal species 
+  # mutate(P = logit_to_p(rebnut)) %>%    # if you want to add prob 
+  filter(year(Date_Time) == 2021) %>%     # to filter only 2021
+  filter(hour(Date_Time)>=6, hour(Date_Time)<10) %>% # to filter morning obs
+  filter(minute(Date_Time)==00 | minute(Date_Time)==30)  # to remove partial recordings
+
+fwrite(dataML_model, here("acoustic/data_ingest/output/dataML_model.csv"))
+
+dataML_sample <- dataML_model %>% 
+  group_by(File_ID, point, Date_Time) %>% 
+  summarize(sum=sum(rebnut>0)) # this restricts data to single species (rebnut) and counts only logits greater than a certain cutoff (logit>0)
+
+
+dataML_point <- dataML_sample %>% 
+  group_by(point) %>% 
+  summarize(n=sum(sum>0))
+
+p <- ggplot(data=dataML_point, aes(x=n)) +
+  geom_histogram(binwidth = 6)
+p
 
 
