@@ -122,25 +122,26 @@ p + coord_flip()
 ##############################################################
 dataML_model <- dataML %>% 
   filter(!is.na(as.numeric(point))) %>%  # throws out all that are NA or have text and are not on a point
-  filter(as.numeric(point)>0) %>% 
-  select(filename, File_ID, ARU_ID, Date_Time, point, Start_Time, rebnut) %>% 
-  mutate(P = logit_to_p(rebnut)) %>% 
-  filter(year(Date_Time) == 2021)
+  filter(as.numeric(point)>0) %>% # removes recordings on point "0"
+  # select(filename, File_ID, ARU_ID, Date_Time, point, Start_Time, rebnut) %>% # choose only the focal species 
+  # mutate(P = logit_to_p(rebnut)) %>%    # if you want to add prob 
+  filter(year(Date_Time) == 2021) %>%     # to filter only 2021
+  filter(hour(Date_Time)>=6, hour(Date_Time)<10) %>% # to filter morning obs
+  filter(minute(Date_Time)==00 | minute(Date_Time)==30)  # to remove partial recordings
 
 fwrite(dataML_model, here("acoustic/data_ingest/output/dataML_model.csv"))
 
-dataML_visit <- dataML_model %>% 
+dataML_sample <- dataML_model %>% 
   group_by(File_ID, point, Date_Time) %>% 
-  summarize(sum=sum(rebnut>1.0)) %>% 
-  filter(hour(Date_Time)>=6, hour(Date_Time)<10) %>% 
-  filter(minute(Date_Time)==00 | minute(Date_Time)==30)
+  summarize(sum=sum(rebnut>0)) # this restricts data to single species (rebnut) and counts only logits greater than a certain cutoff (logit>0)
 
-dataML_point <- dataML_visit %>% 
+
+dataML_point <- dataML_sample %>% 
   group_by(point) %>% 
   summarize(n=sum(sum>0))
 
-ggplot(data=dataML_point, aes(x=n)) +
-  geom_histogram(binwidth = 5)
-
+p <- ggplot(data=dataML_point, aes(x=n)) +
+  geom_histogram(binwidth = 6)
+p
 
 
