@@ -1,3 +1,10 @@
+# combined.R: Script to fit a (point count)+(ARU) occupancy model
+#
+# Usage:
+#   * Run interactively
+#   * or ```   source('models/src/combined.R')   ```
+
+
 # libraries ---------------------------------------------------------------
 library(chron)
 library(coda)
@@ -12,12 +19,12 @@ library(wesanderson)
 
 source(here("comb_functions.R"))
 
+
 # parameters --------------------------------------------------------------
 speciesCode <- "RBNU" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
-
 
 
 # data --------------------------------------------------------------------
@@ -27,10 +34,12 @@ drive_sync(
   "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
 )
 
-dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sure these are the specifications on detection distance, years included, etc. you want for your model and rerun delintPC.R with changes to those filters if necessary
-
-
-# ACOUSTIC DATA
+# point count data frame
+#
+# If you want different specifications on detection distance, years included,
+# etc. for your model, rerun delintPC.R with any necessary changes to those
+# filters.
+dataPC <- fread(here("point_counts/data_ingest/output/PC_delinted.csv"))
 
 dataML <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv")) %>%
   # morning hours only
@@ -38,8 +47,9 @@ dataML <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv")) %>%
   # specific start minutes
   filter(minute(Date_Time) == 30 | minute(Date_Time) == 00)
 
-# mapping from point id to y-matrix row index
-pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML$point))))
+
+# indexing ----------------------------------------------------------------
+pointList <- data.frame(point = as.numeric(union(unique(dataPC$point_ID_fk), unique(dataML$point))))
 pointList <- arrange(pointList, point) %>%
   mutate(pointIndex = seq_along(point))
 
@@ -49,14 +59,15 @@ visitindex <- dataML %>%
   group_by(point) %>%
   mutate(visit = seq_along(Date_Time))
 
+
+# reshaping ---------------------------------------------------------------
 # target: y matrix [1:i, 1:j]
 # point count data
-yRBNU <- dfc %>%
+yRBNU <- dataPC %>%
   filter(birdCode_fk == speciesCode, year == year) %>%
   group_by(point_ID_fk) %>%
   select(point_ID_fk, visit, abun) %>%
   inner_join(pointList, by = c("point_ID_fk" = "point"))
-
 
 MLscores <- dataML %>%
   full_join(visitindex) %>%
@@ -68,35 +79,32 @@ MLcounts <- MLscores %>%
   group_by(pointIndex, visit) %>%
   summarise(count = sum(is.det))
 
-
 samples <- MLscores %>% filter(rebnut > threshold)
 siteID <- samples$pointIndex
 occID <- samples$visit
 nsamples <- nrow(samples)
 nsites <- max(pointList$pointIndex)
 nsurveys.aru <- aruVisitLimit
-nsurveys.pc <- n_distinct(dfc$visit)
+nsurveys.pc <- n_distinct(dataPC$visit)
 score <- samples$rebnut
 
-y.aru <- matrix(NA, nsites, nsurveys.aru)
-
-for (row in 1:nrow(MLcounts)) {
-  y.aru[MLcounts$pointIndex[row], MLcounts$visit[row]] <- MLcounts$count[row]
-}
-
+# Point counts dense matrix
 y.pc <- matrix(NA, nsites, nsurveys.pc)
-
 for (row in 1:nrow(yRBNU)) {
   y.pc[yRBNU$pointIndex[row], yRBNU$visit[row]] <- yRBNU$abun[row]
 }
 
-# binarized version of point count for Bernoulli targets
+# Point counts dense binary matrix (for Bernoulli likelihood factors)
 y.ind <- (y.pc > 0) * 1
 
+# ARU counts dense matrix
+y.aru <- matrix(NA, nsites, nsurveys.aru)
+for (row in 1:nrow(MLcounts)) {
+  y.aru[MLcounts$pointIndex[row], MLcounts$visit[row]] <- MLcounts$count[row]
+}
 
-# define variables and make list of data ----------------------------------
 
-
+# JAGS structuring --------------------------------------------------------
 data <- list(
   y.ind = y.ind,
   y.aru = y.aru,
@@ -110,16 +118,13 @@ data <- list(
 )
 
 
-# Specify Model C in BUGS language
-# Occupancy with false-positives, bioacoustics data with built-in
-# species classification using Gaussian mixtures
+# JAGS specification ------------------------------------------------------
 modelFile <- tempfile()
 cat(file = modelFile, "
 model {
 
   # Priors
-  psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-  p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
+  psi ~ dunif(0, 1) # psi = Pr(Occupancy) p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
   p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
   lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
@@ -158,7 +163,7 @@ model {
 }
 ")
 
-# Initial values
+# initialization
 zst <- rep(1, nrow(y.pc))
 gst <- sample(1:2, length(score), replace = TRUE)
 gst[score > threshold] <- 1
@@ -171,8 +176,10 @@ inits <- function() {
   )
 }
 
-# Parameters monitored
-params <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
+
+# JAGS execution ----------------------------------------------------------
+
+monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
 
 # MCMC settings
 na <- 1000
@@ -181,8 +188,7 @@ nt <- 1
 nb <- 1000
 nc <- 3
 
-# Call JAGS (ART 1 min), gauge convergence and summarize posteriors
-jagsResult <- jags(data, inits, params, modelFile,
+jagsResult <- jags(data, inits, monitored, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE
 )
