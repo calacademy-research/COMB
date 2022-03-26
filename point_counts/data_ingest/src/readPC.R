@@ -18,13 +18,12 @@ library(auk)
 library(forcats)
 library(data.table)
 
+here <- here()
 
 source(here("comb_functions.R"))
 
 
 # Syncing file with google drive --------------
-
-
 
 drive_sync(here("point_counts/data_ingest/input/"), "https://drive.google.com/drive/u/0/folders/13bXkNCZzFwGC8H4k-CJ4Cf3tYJ3t18zW")
 
