@@ -38,9 +38,33 @@ drive_sync(
 # If you want different specifications on detection distance, years included,
 # etc. for your model, rerun delintPC.R with any necessary changes to those
 # filters.
-dataPC <- read_csv(here("point_counts/data_ingest/output/PC_delinted.csv"))
+dataPC <- read_csv(
+  here("point_counts/data_ingest/output/PC_delinted.csv"),
+  col_types = cols(
+    observer_fk = col_character(),
+    birdCode_fk = col_character(),
+    abun = col_integer(),
+    point_ID_fk = col_integer(),
+    year = col_integer(),
+    visit = col_integer(),
+    DateTime = col_datetime()
+  )
+)
 
-dataML <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv")) %>%
+# ARU data frame (filtered by start time)
+dataML <- read_csv(
+  here("acoustic/data_ingest/output/dataML_model.csv"),
+  col_types = cols(
+    filename = col_character(),
+    File_ID = col_character(),
+    ARU_ID = col_character(),
+    point = col_integer(),
+    Start_Time = col_datetime(),
+    rebnut = col_double(),
+    P = col_double(),
+    Date_Time = col_datetime(),
+  )
+) %>%
   # morning hours only
   filter(hour(Date_Time) < 10) %>%
   # specific start minutes
@@ -81,7 +105,7 @@ MLscores <- dataML %>%
 MLcounts <- MLscores %>%
   mutate(is.det = (rebnut > threshold)) %>%
   group_by(pointIndex, visit) %>%
-  summarise(count = sum(is.det))
+  summarise(count = sum(is.det), .groups = "keep")
 
 samples <- MLscores %>% filter(rebnut > threshold)
 siteID <- samples$pointIndex
