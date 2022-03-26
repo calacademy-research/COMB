@@ -8,7 +8,6 @@
 # libraries ---------------------------------------------------------------
 library(chron)
 library(coda)
-library(data.table, include.only = "fread")
 library(googledrive)
 library(here)
 library(jagsUI)
@@ -39,7 +38,7 @@ drive_sync(
 # If you want different specifications on detection distance, years included,
 # etc. for your model, rerun delintPC.R with any necessary changes to those
 # filters.
-dataPC <- fread(here("point_counts/data_ingest/output/PC_delinted.csv"))
+dataPC <- read_csv(here("point_counts/data_ingest/output/PC_delinted.csv"))
 
 dataML <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv")) %>%
   # morning hours only
@@ -49,11 +48,16 @@ dataML <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv")) %>%
 
 
 # indexing ----------------------------------------------------------------
-pointList <- data.frame(point = as.numeric(union(unique(dataPC$point_ID_fk), unique(dataML$point))))
-pointList <- arrange(pointList, point) %>%
+pointToIndex <- data.frame(
+  point = union(
+    unique(dataPC$point_ID_fk),
+    unique(dataML$point)
+  )
+) %>%
+  arrange(point) %>%
   mutate(pointIndex = seq_along(point))
 
-visitindex <- dataML %>%
+visitToIndex <- dataML %>%
   select(point, Date_Time) %>%
   distinct() %>%
   group_by(point) %>%
@@ -67,12 +71,12 @@ yRBNU <- dataPC %>%
   filter(birdCode_fk == speciesCode, year == year) %>%
   group_by(point_ID_fk) %>%
   select(point_ID_fk, visit, abun) %>%
-  inner_join(pointList, by = c("point_ID_fk" = "point"))
+  inner_join(pointToIndex, by = c("point_ID_fk" = "point"))
 
 MLscores <- dataML %>%
-  full_join(visitindex) %>%
+  full_join(visitToIndex) %>%
   filter(visit <= aruVisitLimit) %>%
-  inner_join(pointList)
+  inner_join(pointToIndex)
 
 MLcounts <- MLscores %>%
   mutate(is.det = (rebnut > threshold)) %>%
@@ -83,7 +87,7 @@ samples <- MLscores %>% filter(rebnut > threshold)
 siteID <- samples$pointIndex
 occID <- samples$visit
 nsamples <- nrow(samples)
-nsites <- max(pointList$pointIndex)
+nsites <- max(pointToIndex$pointIndex)
 nsurveys.aru <- aruVisitLimit
 nsurveys.pc <- n_distinct(dataPC$visit)
 score <- samples$rebnut
@@ -124,7 +128,8 @@ cat(file = modelFile, "
 model {
 
   # Priors
-  psi ~ dunif(0, 1) # psi = Pr(Occupancy) p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
+  psi ~ dunif(0, 1) # psi = Pr(Occupancy)
+  p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
   p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
   lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
