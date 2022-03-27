@@ -24,7 +24,7 @@ speciesCode <- "RBNU" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
-aruSampleN <- 1000 # sample size for *unthresholded* scores to fit GMM
+aruSampleN <- 4000 # sample size for *unthresholded* scores to fit GMM
 
 
 # data --------------------------------------------------------------------
@@ -60,10 +60,10 @@ dataML <- read_csv(
     File_ID = col_character(),
     ARU_ID = col_character(),
     point = col_integer(),
-    Start_Time = col_datetime(),
+    Date_Time = col_datetime(),
+    Start_Time = col_double(),
     rebnut = col_double(),
     P = col_double(),
-    Date_Time = col_datetime(),
   )
 ) %>%
   # morning hours only
