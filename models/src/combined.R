@@ -110,10 +110,9 @@ sparseARUCounts <- sparseARUScores %>%
   summarise(count = sum(is.det), .groups = "keep")
 
 sparseScores <- sparseARUScores %>% filter(rebnut > threshold)
-siteID <- sparseScores$pointIndex
-occID <- sparseScores$visit
+# TODO (matth79): Move the filtering from readML_model to this script and rename
+# the column from _rebnut_ to _score_.
 score <- sparseScores$rebnut
-nsamples <- nrow(sparseScores)
 
 sparseToDense <- function(rowIndices, colIndices, values, nrows, ncols) {
   m <- matrix(NA, nrows, ncols)
@@ -151,10 +150,10 @@ data <- list(
   nsurveys.aru = nsurveys.aru,
   y.ind = y.ind,
   y.aru = y.aru,
-  siteid = siteID,
-  occid = occID,
+  siteID = sparseScores$pointIndex,
+  occID = sparseScores$visit,
   score = score,
-  nsamples = nsamples
+  nsamples = nrow(score)
 )
 
 
