@@ -20,7 +20,7 @@ speciesCode <- "RBNU" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
-aruSampleN <- 4000 # sample size for *unthresholded* scores to fit GMM
+aruSampleN <- 8000 # sample size for *unthresholded* scores to fit GMM
 
 
 # data --------------------------------------------------------------------
@@ -107,25 +107,33 @@ sparseARUCounts <- sparseARUScores %>%
   summarise(count = sum(is.det), .groups = "keep")
 
 sparseScores <- sparseARUScores %>%
-  # There are a hugge number of scores, so we sample so that the model can fit
-  # within a reasonable time.
+  # There are a huge number of scores; sampling keeps fitting time contained.
   slice_sample(n = aruSampleN)
 # TODO (matth79): Move the filtering from readML_model to this script and rename
 # the column from _rebnut_ to _score_.
 score <- sparseScores$rebnut
 
-sparseToDense <- function(rowIndices, colIndices, values, nrows, ncols) {
-  m <- matrix(NA, nrows, ncols)
-  for (u in 1:length(rowIndices)) {
-    m[rowIndices[u], colIndices[u]] <- values[u]
+sparseToDense <- function(entries, nrows, ncols, defaultValue = NA) {
+  #' Creates a dense matrix from a list of entries
+  #'
+  #' @param entries List with (row=, col=, value=)
+  #' @param nrows Number of rows in the dense matrix
+  #' @param ncols Number of columns in the dense matrix
+  #' @param defaultValue Fill value for positions not listed in entries
+  m <- matrix(defaultValue, nrows, ncols)
+  for (u in 1:length(entries)) {
+    m[entries$row[u], entries$col[u]] <- entries$value[u]
   }
   m
 }
 
 # Point counts dense matrix
 y.pc <- sparseToDense(
-  sparsePointCounts$pointIndex,
-  sparsePointCounts$visit, sparsePointCounts$abun,
+  list(
+    row = sparsePointCounts$pointIndex,
+    col = sparsePointCounts$visit,
+    value = sparsePointCounts$abun
+  ),
   nsites,
   nsurveys.pc
 )
@@ -135,9 +143,11 @@ y.ind <- (y.pc > 0) * 1
 
 # ARU counts dense matrix
 y.aru <- sparseToDense(
-  sparseARUCounts$pointIndex,
-  sparseARUCounts$visit,
-  sparseARUCounts$count,
+  list(
+    row = sparseARUCounts$pointIndex,
+    col = sparseARUCounts$visit,
+    value = sparseARUCounts$count
+  ),
   nsites,
   nsurveys.aru
 )
