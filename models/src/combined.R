@@ -6,15 +6,11 @@
 
 
 # libraries ---------------------------------------------------------------
-library(chron)
-library(coda)
 library(googledrive)
 library(here)
 library(jagsUI)
 library(lubridate)
-library(reshape2)
 library(tidyverse)
-library(wesanderson)
 
 source(here("comb_functions.R"))
 
