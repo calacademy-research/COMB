@@ -24,6 +24,7 @@ speciesCode <- "RBNU" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
+aruSampleN <- 1000 # sample size for *unthresholded* scores to fit GMM
 
 
 # data --------------------------------------------------------------------
@@ -109,7 +110,10 @@ sparseARUCounts <- sparseARUScores %>%
   group_by(pointIndex, visit) %>%
   summarise(count = sum(is.det), .groups = "keep")
 
-sparseScores <- sparseARUScores %>% filter(rebnut > threshold)
+sparseScores <- sparseARUScores %>%
+  # There are a hugge number of scores, so we sample so that the model can fit
+  # within a reasonable time.
+  slice_sample(n = aruSampleN)
 # TODO (matth79): Move the filtering from readML_model to this script and rename
 # the column from _rebnut_ to _score_.
 score <- sparseScores$rebnut
@@ -150,10 +154,10 @@ data <- list(
   nsurveys.aru = nsurveys.aru,
   y.ind = y.ind,
   y.aru = y.aru,
-  siteID = sparseScores$pointIndex,
-  occID = sparseScores$visit,
+  siteid = sparseScores$pointIndex,
+  occid = sparseScores$visit, # unused, but AHM 7.6.3 keeps it
   score = score,
-  nsamples = nrow(score)
+  nsamples = length(score)
 )
 
 
