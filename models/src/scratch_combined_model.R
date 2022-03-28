@@ -1,7 +1,7 @@
 # libraries ---------------------------------------------------------------
 library(chron)
 library(coda)
-library(data.table, include.only='fread')
+library(data.table, include.only = "fread")
 library(googledrive)
 library(here)
 library(jagsUI)
@@ -23,12 +23,12 @@ dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sur
 
 # ACOUSTIC DATA
 
-dataML_model  <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv"))
+dataML_model <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv"))
 
 # filter to morning hours
 morningML <- dataML_model %>%
-  filter(hour(Date_Time)<10) %>%
-  filter(minute(Date_Time)==30 | minute(Date_Time)==00)
+  filter(hour(Date_Time) < 10) %>%
+  filter(minute(Date_Time) == 30 | minute(Date_Time) == 00)
 
 # mapping from point id to y-matrix row index
 pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML_model$point))))
@@ -39,29 +39,30 @@ visitindex <- morningML %>%
   select(point, Date_Time) %>%
   distinct() %>%
   group_by(point) %>%
-  mutate(visit=seq_along(Date_Time))
+  mutate(visit = seq_along(Date_Time))
 
 # target: y matrix [1:i, 1:j] for species RBNU and year 2019
 # point count data
- yRBNU <- dfc %>% filter(birdCode_fk=="RBNU", year==2021) %>%
+yRBNU <- dfc %>%
+  filter(birdCode_fk == "RBNU", year == 2021) %>%
   group_by(point_ID_fk) %>%
   select(point_ID_fk, visit, abun) %>%
-  inner_join(pointList, by=c("point_ID_fk"="point"))
+  inner_join(pointList, by = c("point_ID_fk" = "point"))
 
 
 visitLimit <- 60
 MLscores <- morningML %>%
   full_join(visitindex) %>%
-  filter(visit<=visitLimit) %>%
+  filter(visit <= visitLimit) %>%
   inner_join(pointList)
 
 MLcounts <- MLscores %>%
-  mutate(is.det = (rebnut>0.5)) %>%
+  mutate(is.det = (rebnut > 0.5)) %>%
   group_by(pointIndex, visit) %>%
   summarise(count = sum(is.det))
 
 
-samples <- MLscores %>% filter(rebnut>0.5)
+samples <- MLscores %>% filter(rebnut > 0.5)
 siteID <- samples$pointIndex
 occID <- samples$visit
 nsamples <- nrow(samples)
@@ -86,22 +87,23 @@ for (row in 1:nrow(yRBNU)) {
 # define variables and make list of data ----------------------------------
 
 
-data = list(y.pc = y.pc,
-            y.aru = y.aru,
-            siteid = siteID,
-            occid = occID,
-            nsites = nsites,
-            nsamples = nsamples,
-            nsurveys.pc = nsurveys.pc,
-            nsurveys.aru = nsurveys.aru,
-            score = score
-            )
+data <- list(
+  y.pc = y.pc,
+  y.aru = y.aru,
+  siteid = siteID,
+  occid = occID,
+  nsites = nsites,
+  nsamples = nsamples,
+  nsurveys.pc = nsurveys.pc,
+  nsurveys.aru = nsurveys.aru,
+  score = score
+)
 
 
-  # Specify Model C in BUGS language
-  # Occupancy with false-positives, bioacoustics data with built-in
-  # species classification using Gaussian mixtures
-  cat(file="modelC.txt","
+# Specify Model C in BUGS language
+# Occupancy with false-positives, bioacoustics data with built-in
+# species classification using Gaussian mixtures
+cat(file = "modelC.txt", "
 model {
 
   # Priors
@@ -145,25 +147,35 @@ model {
 }
 ")
 
-  # Initial values
-  zst <- rep(1, nrow(y.pc))
-  gst <- sample(1:2, length(score), replace = TRUE)
-  gst[score>0] <- 1
-  gst[score<=0] <- 2
-  inits <- function(){ list(mu = c(1, -1), sigma = 0.2, z = zst,
-                            psi = runif(1), p10 = runif(1, 0, 0.05), p11 = runif(1, 0.5, 0.8),
-                            lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst) }
+# Initial values
+zst <- rep(1, nrow(y.pc))
+gst <- sample(1:2, length(score), replace = TRUE)
+gst[score > 0] <- 1
+gst[score <= 0] <- 2
+inits <- function() {
+  list(
+    mu = c(1, -1), sigma = 0.2, z = zst,
+    psi = runif(1), p10 = runif(1, 0, 0.05), p11 = runif(1, 0.5, 0.8),
+    lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
+  )
+}
 
-  # Parameters monitored
-  params <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
+# Parameters monitored
+params <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
 
-  # MCMC settings
-  na <- 1000 ; ni <- 2000 ; nt <- 1 ; nb <- 1000 ; nc <- 3
+# MCMC settings
+na <- 1000
+ni <- 2000
+nt <- 1
+nb <- 1000
+nc <- 3
 
-  # Call JAGS (ART 1 min), gauge convergence and summarize posteriors
-  out3 <- jags(data, inits, params, "modelC.txt", n.adapt = na,
-               n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE)
+# Call JAGS (ART 1 min), gauge convergence and summarize posteriors
+out3 <- jags(data, inits, params, "modelC.txt",
+  n.adapt = na,
+  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE
+)
 
 
 # visualize model results -------------------------------------------------
-output <- as.data.frame(out3$summary[1:10,])
+output <- as.data.frame(out3$summary[1:10, ])
