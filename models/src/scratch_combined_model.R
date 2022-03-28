@@ -1,40 +1,24 @@
-
 # libraries ---------------------------------------------------------------
-library(tidyverse)
 library(chron)
-library(jagsUI)
 library(coda)
-library(lubridate)
+library(data.table, include.only = "fread")
 library(googledrive)
 library(here)
-library(wesanderson)
+library(jagsUI)
+library(lubridate)
 library(reshape2)
+library(tidyverse)
+library(wesanderson)
 
+source(here("comb_functions.R"))
 
 # data --------------------------------------------------------------------
 
 drive_auth()
-if (dir.exists(here("acoustic/prototype_data/")) == FALSE) {
-  dir.create(here("acoustic/prototype_data/"))
-}
 
-if (dir.exists(here("acoustic/prototype_data/output/")) == FALSE) {
-  dir.create(here("acoustic/prototype_data/output/"))
-}
-
-drive_sync(here("acoustic/prototype_data/output/"), "https://drive.google.com/drive/u/1/folders/1YhB2NgXqo8JLM9o7JUDqS0tHWYaBtL6S")
-
-source(here("COMB_functions.R"))
+drive_sync(here("acoustic/data_ingest/output/"), "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5")
 
 dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sure these are the specifications on detection distance, years included, etc. you want for your model and rerun delintPC.R with changes to those filters if necessary
-
-# target: y matrix [1:i, 1:j] for species HEWA and year 2019
-# point count data
-yRBNU <- dfc %>%
-  filter(birdCode_fk == "RBNU", year == 2021) %>%
-  group_by(point_ID_fk) %>%
-  select(point_ID_fk, visit, abun) %>%
-  inner_join(pointList, by = c("point_ID_fk" = "point"))
 
 # ACOUSTIC DATA
 
@@ -47,12 +31,20 @@ morningML <- dataML_model %>%
 pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML_model$point)))) %>%
   arrange(pointList, point) %>%
   mutate(pointIndex = seq_along(point))
-# filter to morning hours
+
 visitindex <- morningML %>%
   select(point, Date_Time) %>%
   distinct() %>%
   group_by(point) %>%
   mutate(visit = seq_along(Date_Time))
+
+# target: y matrix [1:i, 1:j] for species RBNU and year 2019
+# point count data
+yRBNU <- dfc %>%
+  filter(birdCode_fk == "RBNU", year == 2021) %>%
+  group_by(point_ID_fk) %>%
+  select(point_ID_fk, visit, abun) %>%
+  inner_join(pointList, by = c("point_ID_fk" = "point"))
 
 visitLimit <- 60
 MLscores <- morningML %>%
@@ -182,5 +174,4 @@ out3 <- jags(data, inits, params, "modelC.txt",
 
 
 # visualize model results -------------------------------------------------
-
 output <- as.data.frame(out3$summary[1:10, ])
