@@ -121,7 +121,7 @@ sparseToDense <- function(entries, nrows, ncols, defaultValue = NA) {
   #' @param ncols Number of columns in the dense matrix
   #' @param defaultValue Fill value for positions not listed in entries
   m <- matrix(defaultValue, nrows, ncols)
-  for (u in 1:length(entries)) {
+  for (u in 1:length(entries$row)) {
     m[entries$row[u], entries$col[u]] <- entries$value[u]
   }
   m
