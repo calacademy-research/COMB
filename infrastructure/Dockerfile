@@ -7,6 +7,11 @@
 # can create a somewhat sandboxed environment with this project's development
 # setup, but most contributors will probably prefer the host OS for development
 # work.
+#
+# For the curious, one way to build a container is to change to this directory
+# and:
+#
+# podman build .
 
 FROM debian:bullseye
 
