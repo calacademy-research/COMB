@@ -12,3 +12,29 @@ recommended to style all that have changed under styler's default settings, as
 this can meaningfully reduce the rate of merge conflicts due to formatting.
 (Differences due to editor handling of tab expansion and trailing whitespace are
 the most common.)
+
+## Development Tools
+
+### renv
+
+#### First-time setup
+
+[renv](https://rstudio.github.io/renv/articles/renv.html) is a dependency
+management system for R. Using it is optional but highly recommended as a way of
+keeping all contributors' package versions in sync. There is not much to do to
+use it. When you run R from the project directory, you will notice a prompt
+suggesting
+
+```renv::restore()```
+
+to sync with the lockfile. Running this command will install the
+lockfile-specified package versions into renv/library. This can take about half
+an hour the first time, but after that R will start up as fast as before, and
+syncs as new packages are added will be quicker.
+
+#### Adding packages
+
+If you add a library() line for a new package during development and find that
+you needed to install a package, please also run ```renv::snapshot()``` and
+include the changes to the lockfile in the commit that adds the library()
+statement.
