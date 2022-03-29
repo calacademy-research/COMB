@@ -112,7 +112,7 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
   if (dir.exists(local_dir) == FALSE) {
     dir.create(local_dir)
   }
-  
+
   # Getting info about the directories and the files in them
   if (is.null(pattern) == TRUE) {
     google_files <- drive_ls(as_dribble(drive_folder))
@@ -146,16 +146,16 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
 
 
 ###########################################################
-# to convert the logit to something more like a probability, 
-# we can use the formula 
+# to convert the logit to something more like a probability,
+# we can use the formula
 #
-#       p = exp(logit)/(exp(logit)+1) 
+#       p = exp(logit)/(exp(logit)+1)
 #
 ###########################################################
 
 # define function logit_to_p
 
-logit_to_p <- function(logit){
-  p <- exp(logit)/(exp(logit)+1)
+logit_to_p <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
   return(p)
 }

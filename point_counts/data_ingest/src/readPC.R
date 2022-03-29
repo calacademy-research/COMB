@@ -8,7 +8,7 @@
 ## December 2021 - Reorganized Data Structure
 ## Mostly copied from old read_PC.R
 ## Mark Schulist
-rm(list=ls())
+rm(list = ls())
 # Load Libraries and Caples Scripts -----------
 library(tidyverse)
 library(here)
@@ -36,12 +36,17 @@ if (dir.exists(here("point_counts/data_ingest/input/")) == FALSE) {
 PCTC <- fread(here("point_counts/data_ingest/input/2021-06-17_2017-2021_Caples_data.out.csv"))
 
 # Do some QA/QC -------------------
-PCTC %>% select(point_ID_fk, Date) %>% mutate(Year = lubridate::year(mdy(Date))) %>% distinct() %>% group_by(Year, point_ID_fk) %>%
+PCTC %>%
+  select(point_ID_fk, Date) %>%
+  mutate(Year = lubridate::year(mdy(Date))) %>%
+  distinct() %>%
+  group_by(Year, point_ID_fk) %>%
   tally() %>%
-  spread(Year, n) %>% View()
+  spread(Year, n) %>%
+  View()
 
 # Filter out 'bad' or 'nonconforming data' --------
-# [ ] 
+# [ ]
 
 # Making data into "long" data -------------
 PCTClong <- PCTC %>%
@@ -55,7 +60,7 @@ PCTClong <- PCTC %>%
 
 # PCTClong <- PCTC %>%
 #   group_by(birdCode_fk) %>%
-#   gather(key = "orig_str", value = "counts", -Date, -point_ID_fk, -timeStart, -observer_fk, 
+#   gather(key = "orig_str", value = "counts", -Date, -point_ID_fk, -timeStart, -observer_fk,
 #          -interval_5to10_valid, -Sampling_Unit_fk, -`Caples Watershed`, -TRTMT, -CONTROL, -birdCode_fk, -birdName, -TOTAL_individuals_0to10min, -taxonCount_ID_pk, -pointCount_ID_fk, -notes)
 # Re-coding the key-value pairs into different columns -----------
 # time_period define
@@ -170,13 +175,13 @@ fwrite(PCTClong, here("point_counts/data_ingest/output/", long_input_file_name))
 
 # IMPORTANT NOTE: The files saved here contain ALL point count data, including training data and counts made on days of inclement weather, etc. Further post-processing for downstream analyses occur in other scripts.
 
-PointC<- PCTClong %>% 
-  mutate_if(is.factor, as.character) %>% #changes everything to characters also speedier
-  filter(NEWorCONT!="CONT", detect_type!="ALL") %>% 
-  group_by(pointCount_ID_fk, point_ID_fk, DateTime, observer_fk, time_period, dist_detect, detect_type, NEWorCONT, birdCode_fk, fbirdName) %>% 
-  summarise(tot = sum(counts)) %>% 
-  filter(tot>0) %>%
-  arrange(DateTime, point_ID_fk) #puts it in order for the entire dataset
+PointC <- PCTClong %>%
+  mutate_if(is.factor, as.character) %>% # changes everything to characters also speedier
+  filter(NEWorCONT != "CONT", detect_type != "ALL") %>%
+  group_by(pointCount_ID_fk, point_ID_fk, DateTime, observer_fk, time_period, dist_detect, detect_type, NEWorCONT, birdCode_fk, fbirdName) %>%
+  summarise(tot = sum(counts)) %>%
+  filter(tot > 0) %>%
+  arrange(DateTime, point_ID_fk) # puts it in order for the entire dataset
 
 # Write PointC to output folder
 PointC_filename <- paste0("PointC_", Sys.Date(), ".csv")
@@ -184,19 +189,21 @@ fwrite(PointC, here("point_counts/data_ingest/output/", PointC_filename))
 
 
 # find duplicates of pointCount_ID_fk (the record number from Filemaker Pro): it doesn't matter if there are duplicates there as long as the data are summarized using unique combinations of year, site, and date-time.
-PointC %>% group_by(pointCount_ID_fk, DateTime, point_ID_fk) %>% 
-  summarise(rich=n_distinct(birdCode_fk)) %>% 
-              filter(point_ID_fk !=0) %>% View()
+PointC %>%
+  group_by(pointCount_ID_fk, DateTime, point_ID_fk) %>%
+  summarise(rich = n_distinct(birdCode_fk)) %>%
+  filter(point_ID_fk != 0) %>%
+  View()
 
 # old notes ---------------------------------------------------------------
 
 
-#NOTE check against the final database ... 
+# NOTE check against the final database ...
 # some checks
-#function to find missing columns
+# function to find missing columns
 # NotIn <- function(x,y) !(x %in% y)
 # #columns in failing dplyr call
 # grplst<-c("not", "pointCount_ID_fk", "point_ID_fk", "DateTime", "observer_fk", "time_period", "dist_detect", "detect_type", "NEWorCONT", "birdCode_fk", "birdName")
-# 
+#
 # #quick test (including a true positive 'not')
 # NotIn(grplst[1:10],colnames(PCTClong))
