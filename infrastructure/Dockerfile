@@ -36,4 +36,6 @@ WORKDIR /root
 RUN git clone https://github.com/calacademy-research/COMB.git
 
 WORKDIR /root/COMB
+RUN git fetch
+RUN git checkout renv
 RUN Rscript -e 'renv::restore()'
