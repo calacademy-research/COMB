@@ -20,19 +20,16 @@ drive_sync(here("acoustic/data_ingest/output/"), "https://drive.google.com/drive
 
 dfc <- fread(here("point_counts/data_ingest/output/PC_delinted.csv")) # make sure these are the specifications on detection distance, years included, etc. you want for your model and rerun delintPC.R with changes to those filters if necessary
 
-
 # ACOUSTIC DATA
 
 dataML_model <- read_csv(here("acoustic/data_ingest/output/dataML_model.csv"))
-
-# filter to morning hours
 morningML <- dataML_model %>%
   filter(hour(Date_Time) < 10) %>%
   filter(minute(Date_Time) == 30 | minute(Date_Time) == 00)
 
-# mapping from point id to y-matrix row index
-pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML_model$point))))
-pointList <- arrange(pointList, point) %>%
+# point index
+pointList <- data.frame(point = as.numeric(union(unique(dfc$point_ID_fk), unique(dataML_model$point)))) %>%
+  arrange(pointList, point) %>%
   mutate(pointIndex = seq_along(point))
 
 visitindex <- morningML %>%
@@ -48,7 +45,6 @@ yRBNU <- dfc %>%
   group_by(point_ID_fk) %>%
   select(point_ID_fk, visit, abun) %>%
   inner_join(pointList, by = c("point_ID_fk" = "point"))
-
 
 visitLimit <- 60
 MLscores <- morningML %>%
