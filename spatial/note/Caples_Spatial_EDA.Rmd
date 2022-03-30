@@ -101,7 +101,7 @@ library(RStoolbox)
 library(sf)
 library(raster)
 library(rgdal)
-source(here("caples_functions.R"))
+source(here("comb_functions.R"))
 ```
 
 **Download/organize data from Google Drive**
@@ -131,7 +131,7 @@ this might be a bit buggy, try it out @MARY.
 #define rastertype subdirectories
 rastertypes <- c("SALO","NBR","RAVG","LIDAR","DEM")
 #define base directory for input rasters
-rasterdir  <- here("Notebook","input","rasters")
+rasterdir  <- here("spatial","input","rasters")
 #list of directories to use
 rasterdirs <- here(rasterdir,rastertypes[])
 # Creating the folder within inputs that contains the raw_files
@@ -139,7 +139,7 @@ map(.x = rasterdirs, .f = function(.x) if (dir.exists(.x) == F) {
   dir.create(.x)})
 # wasn't able to write ^ as anonymous function, too tired.
 # Getting list of files that need to be downloaded
-google_raw_file_names <- drive_ls(as_dribble("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda"), recursive = TRUE)
+google_raw_file_names$drive_resource <- drive_ls("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda", recursive = TRUE)
 local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
 # Filtering google files that are not already downloaded
 needed_google_raw_file_names <- google_raw_file_names %>% filter(!(google_raw_file_names$name %in% local_file_names))
@@ -151,14 +151,14 @@ map2(
 #if you hard-coded solution it would look like this
 #first go into each rasterdir 
 #rasterdirs[1]
-#[1] "/Users/dkapan/GitHub/Caples_Spatial/Notebook/input/rasters/SALO"
+#[1] "/Users/dkapan/GitHub/Caples_Spatial/spatial/input/rasters/SALO"
 #don't forget to match by hand to the appropriate google_drive input directory, e.g.  
 #drive_sync(local_dir = here(rasterdirs[1]), drive_folder = as_dribble("https://drive.google.com/drive/folders/1SKzKZNMYpDmzcUCACOjtEJCLybHN6wgQ"))
 #but the overall code above seems to work, so no need! :)
 ```
     -   First go into each rasterdir e.g. `rasterdirs[1]`
 
-    `/Users/dkapan/GitHub/Caples_Spatial/Notebook/input/rasters/SALO`
+    `/Users/dkapan/GitHub/Caples_Spatial/spatial/input/rasters/SALO`
 
     don't forget to match by hand to the appropriate google_drive input
     directory, e.g.\
@@ -213,14 +213,14 @@ RAVG_imgStack <- stack(RAVG_Caples_imgStack, RAVG_Caldor_imgStack)
 # LIDAR data !!!
 # [ ] try to update with higher resolution data
 rasterdir <- rasterdirs[4] #LIDAR 
-#(same as rasterdir  <- here("Notebook","input","Rasters","LIDAR"))
+#(same as rasterdir  <- here("spatial","input","Rasters","LIDAR"))
 
 #LIDAR from Becky Estes
 LIDAR_files <- list.files(rasterdir, pattern = '*.tif', full.names = TRUE)
 
 #DEM from GEE code
 rasterdir <- rasterdirs[5] # DEM
-#alternatively rasterdir  <- here("Notebook","input","Rasters")
+#alternatively rasterdir  <- here("spatial","input","Rasters")
 dem_files <- list.files(rasterdir, pattern = 'dem', full.names = TRUE)
 dem_imgStack <- stack(dem_files)
 
@@ -274,7 +274,7 @@ LIDAR_imgStack <- stack(LIDAR_int_134,LIDAR_int_2,LIDAR_int_58)
 
 ```{r, include=FALSE}
 #echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
-dem_imgStack$aspect <- terrain(dem_imgStack$elevation, opt="aspect", neighbors=8, unit="degrees", filename = here("Notebook","output","rasters","caples_aspect.tif"), overwrite=TRUE) #note the aspect must be translated to circular coordinates if using summary functions see below
+dem_imgStack$aspect <- terrain(dem_imgStack$elevation, opt="aspect", neighbors=8, unit="degrees", filename = here("spatial","output","rasters","caples_aspect.tif"), overwrite=TRUE) #note the aspect must be translated to circular coordinates if using summary functions see below
 ```
 
 **Import shape files**
@@ -288,16 +288,16 @@ dem_imgStack$aspect <- terrain(dem_imgStack$elevation, opt="aspect", neighbors=8
 ```{r, include=FALSE}
 #everything to be placed into WGS 84 / UTM zone 10N" = crs = 32610
 #get the data
-shapedir <- here("Notebook","input","shapefiles")
+shapedir <- here("spatial","input","shapefiles")
 google_file_names <- "https://drive.google.com/drive/folders/15uXx-I1U9cDTzoI0ptNv_wpuDYju_IRv"
 drive_sync(local_dir = shapedir, drive_folder = google_file_names)
 #read in study area
-study_area <- sf::read_sf(here("Notebook","input","shapefiles","study_boundary.shp"))
+study_area <- sf::read_sf(here("spatial","input","shapefiles","study_boundary.shp"))
 #read in fire boundary
-fire_boundary <- sf::read_sf(here("Notebook","input","shapefiles","ca3872412014620191010_20181118_20191118_burn_bndy.shp"))
+fire_boundary <- sf::read_sf(here("spatial","input","shapefiles","ca3872412014620191010_20181118_20191118_burn_bndy.shp"))
 fire_boundary<-st_transform(fire_boundary, crs(study_area)) #transformed crs
 #read in wildlife points 
-wild_points <- sf::read_sf(here("Notebook","input","shapefiles","WildlifePoints.shp")) #crs not included
+wild_points <- sf::read_sf(here("spatial","input","shapefiles","WildlifePoints.shp")) #crs not included
 names(wild_points)<-c("point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2", 
 "Treatment", "geometry")
 #get the right coordinate reference system & transform
@@ -369,6 +369,10 @@ LIDAR_imgStack_10m <- setExtent(LIDAR_imgStack_10m, study_area_extent, keepres=T
 canopy_fuel_nbr_dem_RAVG_LIDAR<-raster::stack(canopy_imgStack, fuel_imgStack, nbr_imgStack_10m, dem_imgStack_10m,RAVG_imgStack_10m, LIDAR_imgStack_10m, orig=FALSE, tolerance=0.1)
 #[ ] check this doesn't corrupt everything ??? never did check, but is only adding a few decimeters to any pixel
 
+writeRaster(canopy_fuel_nbr_dem_RAVG_LIDAR, here("spatial","output","rasters","canopy_fuel_nbr_dem_RAVG_LIDAR.grd"), format="raster")
+
+drive_sync(here("spatial","output","rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1wn4RS4Rcrr-5ef4UaZk1IUd6Zlxy8CC-")$id[2][1])
+
 #ggplot(canopy_fuel_nbr_dem_RAVG_LIDAR, aes(xy = Canopy_Cover))
 plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Canopy_Cover)
 #plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Mean_Height)
@@ -438,71 +442,70 @@ extract_canopy_4ha <- exactextractr::exact_extract(canopy_imgStack, wldf_100, c(
 dput(colnames(extract_canopy_1ha)) #adjust names [ ] adopt standard naming NEXT
 
 #variable pattern to hand-code for now
-#mean.Cover_2018_1ha
 
 colnames(extract_canopy_1ha)<-
-  c("mean.BaseHeight_2018_1ha", "mean.BaseHeight_2019_1ha", "mean.BaseHeight_2020_1ha", 
-"mean.BulkDensity_2018_1ha", "mean.BulkDensity_2019_1ha", "mean.BulkDensity_2020_1ha", 
-"mean.LayerCount_2018_1ha", "mean.LayerCount_2019_1ha", "mean.LayerCount_2020_1ha", 
-"mean.Cover_2018_1ha", "mean.Cover_2019_1ha", "mean.Cover_2020_1ha", 
-"mean.Height_2018_1ha", "mean.Height_2019_1ha", 
-"mean.Height_2020_1ha", "median.BaseHeight_2018_1ha", 
-"median.BaseHeight_2019_1ha", "median.BaseHeight_2020_1ha", 
-"median.BulkDensity_2018_1ha", "median.BulkDensity_2019_1ha", 
-"median.BulkDensity_2020_1ha", "median.LayerCount_2018_1ha", 
-"median.LayerCount_2019_1ha", "median.LayerCount_2020_1ha", 
-"median.Cover_2018_1ha", "median.Cover_2019_1ha", 
-"median.Cover_2020_1ha", "median.Height_2018_1ha", 
-"median.Height_2019_1ha", "median.Height_2020_1ha", 
-"min.BaseHeight_2018_1ha", "min.BaseHeight_2019_1ha", "min.BaseHeight_2020_1ha", 
-"min.BulkDensity_2018_1ha", "min.BulkDensity_2019_1ha", "min.BulkDensity_2020_1ha", 
-"min.LayerCount_2018_1ha", "min.LayerCount_2019_1ha", "min.LayerCount_2020_1ha", 
-"min.Cover_2018_1ha", "min.Cover_2019_1ha", "min.Cover_2020_1ha", 
-"min.Height_2018_1ha", "min.Height_2019_1ha", "min.Height_2020_1ha", 
-"max.BaseHeight_2018_1ha", "max.BaseHeight_2019_1ha", "max.BaseHeight_2020_1ha", 
-"max.BulkDensity_2018_1ha", "max.BulkDensity_2019_1ha", "max.BulkDensity_2020_1ha", 
-"max.LayerCount_2018_1ha", "max.LayerCount_2019_1ha", "max.LayerCount_2020_1ha", 
-"max.Cover_2018_1ha", "max.Cover_2019_1ha", "max.Cover_2020_1ha", 
-"max.Height_2018_1ha", "max.Height_2019_1ha", "max.Height_2020_1ha", 
-"count.BaseHeight_2018_1ha", "count.BaseHeight_2019_1ha", "count.BaseHeight_2020_1ha", 
-"count.BulkDensity_2018_1ha", "count.BulkDensity_2019_1ha", 
-"count.BulkDensity_2020_1ha", "count.LayerCount_2018_1ha", 
-"count.LayerCount_2019_1ha", "count.LayerCount_2020_1ha", "count.Cover_2018_1ha", 
-"count.Cover_2019_1ha", "count.Cover_2020_1ha", 
-"count.Height_2018_1ha", "count.Height_2019_1ha", 
-"count.Height_2020_1ha")
+c("mean.CanopyBaseHeight_2018_1ha", "mean.CanopyBaseHeight_2019_1ha", "mean.CanopyBaseHeight_2020_1ha", 
+"mean.CanopyBulkDensity_2018_1ha", "mean.CanopyBulkDensity_2019_1ha", "mean.CanopyBulkDensity_2020_1ha", 
+"mean.CanopyLayerCount_2018_1ha", "mean.CanopyLayerCount_2019_1ha", "mean.CanopyLayerCount_2020_1ha", 
+"mean.CaplesCanopyCover_2018_1ha", "mean.CaplesCanopyCover_2019_1ha", "mean.CaplesCanopyCover_2020_1ha", 
+"mean.CaplesCanopyHeight_2018_1ha", "mean.CaplesCanopyHeight_2019_1ha", 
+"mean.CaplesCanopyHeight_2020_1ha", "median.CanopyBaseHeight_2018_1ha", 
+"median.CanopyBaseHeight_2019_1ha", "median.CanopyBaseHeight_2020_1ha", 
+"median.CanopyBulkDensity_2018_1ha", "median.CanopyBulkDensity_2019_1ha", 
+"median.CanopyBulkDensity_2020_1ha", "median.CanopyLayerCount_2018_1ha", 
+"median.CanopyLayerCount_2019_1ha", "median.CanopyLayerCount_2020_1ha", 
+"median.CaplesCanopyCover_2018_1ha", "median.CaplesCanopyCover_2019_1ha", 
+"median.CaplesCanopyCover_2020_1ha", "median.CaplesCanopyHeight_2018_1ha", 
+"median.CaplesCanopyHeight_2019_1ha", "median.CaplesCanopyHeight_2020_1ha", 
+"min.CanopyBaseHeight_2018_1ha", "min.CanopyBaseHeight_2019_1ha", "min.CanopyBaseHeight_2020_1ha", 
+"min.CanopyBulkDensity_2018_1ha", "min.CanopyBulkDensity_2019_1ha", "min.CanopyBulkDensity_2020_1ha", 
+"min.CanopyLayerCount_2018_1ha", "min.CanopyLayerCount_2019_1ha", "min.CanopyLayerCount_2020_1ha", 
+"min.CaplesCanopyCover_2018_1ha", "min.CaplesCanopyCover_2019_1ha", "min.CaplesCanopyCover_2020_1ha", 
+"min.CaplesCanopyHeight_2018_1ha", "min.CaplesCanopyHeight_2019_1ha", "min.CaplesCanopyHeight_2020_1ha", 
+"max.CanopyBaseHeight_2018_1ha", "max.CanopyBaseHeight_2019_1ha", "max.CanopyBaseHeight_2020_1ha", 
+"max.CanopyBulkDensity_2018_1ha", "max.CanopyBulkDensity_2019_1ha", "max.CanopyBulkDensity_2020_1ha", 
+"max.CanopyLayerCount_2018_1ha", "max.CanopyLayerCount_2019_1ha", "max.CanopyLayerCount_2020_1ha", 
+"max.CaplesCanopyCover_2018_1ha", "max.CaplesCanopyCover_2019_1ha", "max.CaplesCanopyCover_2020_1ha", 
+"max.CaplesCanopyHeight_2018_1ha", "max.CaplesCanopyHeight_2019_1ha", "max.CaplesCanopyHeight_2020_1ha", 
+"count.CanopyBaseHeight_2018_1ha", "count.CanopyBaseHeight_2019_1ha", "count.CanopyBaseHeight_2020_1ha", 
+"count.CanopyBulkDensity_2018_1ha", "count.CanopyBulkDensity_2019_1ha", 
+"count.CanopyBulkDensity_2020_1ha", "count.CanopyLayerCount_2018_1ha", 
+"count.CanopyLayerCount_2019_1ha", "count.CanopyLayerCount_2020_1ha", "count.CaplesCanopyCover_2018_1ha", 
+"count.CaplesCanopyCover_2019_1ha", "count.CaplesCanopyCover_2020_1ha", 
+"count.CaplesCanopyHeight_2018_1ha", "count.CaplesCanopyHeight_2019_1ha", 
+"count.CaplesCanopyHeight_2020_1ha")
 
 colnames(extract_canopy_4ha)<-
-  c("mean.BaseHeight_2018_4ha", "mean.BaseHeight_2019_4ha", "mean.BaseHeight_2020_4ha", 
-"mean.BulkDensity_2018_4ha", "mean.BulkDensity_2019_4ha", "mean.BulkDensity_2020_4ha", 
-"mean.LayerCount_2018_4ha", "mean.LayerCount_2019_4ha", "mean.LayerCount_2020_4ha", 
-"mean.Cover_2018_4ha", "mean.Cover_2019_4ha", "mean.Cover_2020_4ha", 
-"mean.Height_2018_4ha", "mean.Height_2019_4ha", 
-"mean.Height_2020_4ha", "median.BaseHeight_2018_4ha", 
-"median.BaseHeight_2019_4ha", "median.BaseHeight_2020_4ha", 
-"median.BulkDensity_2018_4ha", "median.BulkDensity_2019_4ha", 
-"median.BulkDensity_2020_4ha", "median.LayerCount_2018_4ha", 
-"median.LayerCount_2019_4ha", "median.LayerCount_2020_4ha", 
-"median.Cover_2018_4ha", "median.Cover_2019_4ha", 
-"median.Cover_2020_4ha", "median.Height_2018_4ha", 
-"median.Height_2019_4ha", "median.Height_2020_4ha", 
-"min.BaseHeight_2018_4ha", "min.BaseHeight_2019_4ha", "min.BaseHeight_2020_4ha", 
-"min.BulkDensity_2018_4ha", "min.BulkDensity_2019_4ha", "min.BulkDensity_2020_4ha", 
-"min.LayerCount_2018_4ha", "min.LayerCount_2019_4ha", "min.LayerCount_2020_4ha", 
-"min.Cover_2018_4ha", "min.Cover_2019_4ha", "min.Cover_2020_4ha", 
-"min.Height_2018_4ha", "min.Height_2019_4ha", "min.Height_2020_4ha", 
-"max.BaseHeight_2018_4ha", "max.BaseHeight_2019_4ha", "max.BaseHeight_2020_4ha", 
-"max.BulkDensity_2018_4ha", "max.BulkDensity_2019_4ha", "max.BulkDensity_2020_4ha", 
-"max.LayerCount_2018_4ha", "max.LayerCount_2019_4ha", "max.LayerCount_2020_4ha", 
-"max.Cover_2018_4ha", "max.Cover_2019_4ha", "max.Cover_2020_4ha", 
-"max.Height_2018_4ha", "max.Height_2019_4ha", "max.Height_2020_4ha", 
-"count.BaseHeight_2018_4ha", "count.BaseHeight_2019_4ha", "count.BaseHeight_2020_4ha", 
-"count.BulkDensity_2018_4ha", "count.BulkDensity_2019_4ha", 
-"count.BulkDensity_2020_4ha", "count.LayerCount_2018_4ha", 
-"count.LayerCount_2019_4ha", "count.LayerCount_2020_4ha", "count.Cover_2018_4ha", 
-"count.Cover_2019_4ha", "count.Cover_2020_4ha", 
-"count.Height_2018_4ha", "count.Height_2019_4ha", 
-"count.Height_2020_4ha")
+c("mean.CanopyBaseHeight_2018_4ha", "mean.CanopyBaseHeight_2019_4ha", "mean.CanopyBaseHeight_2020_4ha", 
+"mean.CanopyBulkDensity_2018_4ha", "mean.CanopyBulkDensity_2019_4ha", "mean.CanopyBulkDensity_2020_4ha", 
+"mean.CanopyLayerCount_2018_4ha", "mean.CanopyLayerCount_2019_4ha", "mean.CanopyLayerCount_2020_4ha", 
+"mean.CaplesCanopyCover_2018_4ha", "mean.CaplesCanopyCover_2019_4ha", "mean.CaplesCanopyCover_2020_4ha", 
+"mean.CaplesCanopyHeight_2018_4ha", "mean.CaplesCanopyHeight_2019_4ha", 
+"mean.CaplesCanopyHeight_2020_4ha", "median.CanopyBaseHeight_2018_4ha", 
+"median.CanopyBaseHeight_2019_4ha", "median.CanopyBaseHeight_2020_4ha", 
+"median.CanopyBulkDensity_2018_4ha", "median.CanopyBulkDensity_2019_4ha", 
+"median.CanopyBulkDensity_2020_4ha", "median.CanopyLayerCount_2018_4ha", 
+"median.CanopyLayerCount_2019_4ha", "median.CanopyLayerCount_2020_4ha", 
+"median.CaplesCanopyCover_2018_4ha", "median.CaplesCanopyCover_2019_4ha", 
+"median.CaplesCanopyCover_2020_4ha", "median.CaplesCanopyHeight_2018_4ha", 
+"median.CaplesCanopyHeight_2019_4ha", "median.CaplesCanopyHeight_2020_4ha", 
+"min.CanopyBaseHeight_2018_4ha", "min.CanopyBaseHeight_2019_4ha", "min.CanopyBaseHeight_2020_4ha", 
+"min.CanopyBulkDensity_2018_4ha", "min.CanopyBulkDensity_2019_4ha", "min.CanopyBulkDensity_2020_4ha", 
+"min.CanopyLayerCount_2018_4ha", "min.CanopyLayerCount_2019_4ha", "min.CanopyLayerCount_2020_4ha", 
+"min.CaplesCanopyCover_2018_4ha", "min.CaplesCanopyCover_2019_4ha", "min.CaplesCanopyCover_2020_4ha", 
+"min.CaplesCanopyHeight_2018_4ha", "min.CaplesCanopyHeight_2019_4ha", "min.CaplesCanopyHeight_2020_4ha", 
+"max.CanopyBaseHeight_2018_4ha", "max.CanopyBaseHeight_2019_4ha", "max.CanopyBaseHeight_2020_4ha", 
+"max.CanopyBulkDensity_2018_4ha", "max.CanopyBulkDensity_2019_4ha", "max.CanopyBulkDensity_2020_4ha", 
+"max.CanopyLayerCount_2018_4ha", "max.CanopyLayerCount_2019_4ha", "max.CanopyLayerCount_2020_4ha", 
+"max.CaplesCanopyCover_2018_4ha", "max.CaplesCanopyCover_2019_4ha", "max.CaplesCanopyCover_2020_4ha", 
+"max.CaplesCanopyHeight_2018_4ha", "max.CaplesCanopyHeight_2019_4ha", "max.CaplesCanopyHeight_2020_4ha", 
+"count.CanopyBaseHeight_2018_4ha", "count.CanopyBaseHeight_2019_4ha", "count.CanopyBaseHeight_2020_4ha", 
+"count.CanopyBulkDensity_2018_4ha", "count.CanopyBulkDensity_2019_4ha", 
+"count.CanopyBulkDensity_2020_4ha", "count.CanopyLayerCount_2018_4ha", 
+"count.CanopyLayerCount_2019_4ha", "count.CanopyLayerCount_2020_4ha", "count.CaplesCanopyCover_2018_4ha", 
+"count.CaplesCanopyCover_2019_4ha", "count.CaplesCanopyCover_2020_4ha", 
+"count.CaplesCanopyHeight_2018_4ha", "count.CaplesCanopyHeight_2019_4ha", 
+"count.CaplesCanopyHeight_2020_4ha")
 
 canopy<-cbind(extract_canopy_1ha,extract_canopy_4ha)
 
@@ -510,12 +513,12 @@ extract_fuel_1ha <- exactextractr::exact_extract(fuel_imgStack, wldf_50, c("mean
 
 extract_fuel_4ha <- exactextractr::exact_extract(fuel_imgStack, wldf_100, c("mean","median","min","max","count"))
 
-#dput(colnames(extract_fuel_1ha)) #adjust names [ ] adopt standard naming NEXT
+dput(colnames(extract_fuel_1ha)) #adjust names [ ] adopt standard naming NEXT
 
 colnames(extract_fuel_1ha)<-c("mean.LadderFuelDensity_2018_1ha", "mean.LadderFuelDensity_2019_1ha", 
 "mean.LadderFuelDensity_2020_1ha", "mean.SurfaceFuels_2018_1ha", "mean.SurfaceFuels_2019_1ha", 
 "mean.SurfaceFuels_2020_1ha", "median.LadderFuelDensity_2018_1ha", "median.LadderFuelDensity_2019_1ha", 
-"median.LadderFuelDensity2020_1ha", "median.SurfaceFuels_2018_1ha", "median.SurfaceFuels_2019_1ha", 
+"median.LadderFuelDensity_2020_1ha", "median.SurfaceFuels_2018_1ha", "median.SurfaceFuels_2019_1ha", 
 "median.SurfaceFuels_2020_1ha", "min.LadderFuelDensity_2018_1ha", "min.LadderFuelDensity_2019_1ha", 
 "min.LadderFuelDensity_2020_1ha", "min.SurfaceFuels_2018_1ha", "min.SurfaceFuels_2019_1ha", 
 "min.SurfaceFuels_2020_1ha", "max.LadderFuelDensity_2018_1ha", "max.LadderFuelDensity_2019_1ha", 
@@ -527,7 +530,7 @@ colnames(extract_fuel_1ha)<-c("mean.LadderFuelDensity_2018_1ha", "mean.LadderFue
 colnames(extract_fuel_4ha)<-c("mean.LadderFuelDensity_2018_4ha", "mean.LadderFuelDensity_2019_4ha", 
 "mean.LadderFuelDensity_2020_4ha", "mean.SurfaceFuels_2018_4ha", "mean.SurfaceFuels_2019_4ha", 
 "mean.SurfaceFuels_2020_4ha", "median.LadderFuelDensity_2018_4ha", "median.LadderFuelDensity_2019_4ha", 
-"median.LadderFuelDensity2020_4ha", "median.SurfaceFuels_2018_4ha", "median.SurfaceFuels_2019_4ha", 
+"median.LadderFuelDensity_2020_4ha", "median.SurfaceFuels_2018_4ha", "median.SurfaceFuels_2019_4ha", 
 "median.SurfaceFuels_2020_4ha", "min.LadderFuelDensity_2018_4ha", "min.LadderFuelDensity_2019_4ha", 
 "min.LadderFuelDensity_2020_4ha", "min.SurfaceFuels_2018_4ha", "min.SurfaceFuels_2019_4ha", 
 "min.SurfaceFuels_2020_4ha", "max.LadderFuelDensity_2018_4ha", "max.LadderFuelDensity_2019_4ha", 
@@ -542,41 +545,43 @@ fuels<-cbind(extract_fuel_1ha,extract_fuel_4ha)
 extract_nbr_1ha <- exactextractr::exact_extract(nbr_imgStack, wldf_50, c("mean","median","min","max","count"))
 extract_nbr_4ha <- exactextractr::exact_extract(nbr_imgStack, wldf_100, c("mean","median","min","max","count"))
 
-#dput(colnames(extract_nbr_1ha)) #adjust names
+dput(colnames(extract_nbr_1ha)) #adjust names
 
 colnames(extract_nbr_1ha)<-
-  c("mean.dNBR_Nov20Oct21_1ha", "mean.dNBR2_Nov20Oct21_1ha", 
-"mean.NBR_Oct21_1ha", "mean.dNBR_Nov18Nov19_1ha", "mean.NBR_Nov18_1ha", 
-"mean.NBR_Nov19_1ha", "mean.NBR_Nov20_1ha", "mean.NBR_Oct21_1ha", 
-"median.dNBR_Nov20Oct21_1ha", "median.dNBR2_Nov20Oct21_1ha", 
-"median.NBR_Oct21_1ha", "median.dNBR_Nov18Nov19_1ha", 
-"median.NBR_Nov18_1ha", "median.NBR_Nov19_1ha", "median.NBR_Nov20_1ha", 
-"median.NBR_Oct21_1ha", "min.dNBR_Nov20Oct21_1ha", 
-"min.dNBR2_Nov20Oct21_1ha", "min.NBR_Oct21_1ha", "min.dNBR_Nov18Nov19_1ha", 
-"min.NBR_Nov18_1ha", "min.NBR_Nov19_1ha", "min.NBR_Nov20_1ha", 
-"min.NBR_Oct21_1ha", "max.dNBR_Nov20Oct21_1ha", "max.dNBR2_Nov20Oct21_1ha", 
-"max.NBR_Oct21_1ha", "max.dNBR_Nov18Nov19_1ha", "max.NBR_Nov18_1ha", 
-"max.NBR_Nov19_1ha", "max.NBR_Nov20_1ha", "max.NBR_Oct21_1ha", 
-"count.dNBR_Nov20Oct21_1ha", "count.dNBR2_Nov20Oct21_1ha", 
-"count.NBR_Oct21_1ha", "count.dNBR_Nov18Nov19_1ha", "count.NBR_Nov18_1ha", 
-"count.NBR_Nov19_1ha", "count.NBR_Nov20_1ha", "count.NBR_Oct21_1ha")
+  c("mean.Caldor_dNBR_Nov20_Oct21_1ha", "mean.Caldor_dNBR2_Nov20_Oct21_1ha", 
+"mean.Caldor_NBR_Oct21_1ha", "mean.Caples_dNBR_Nov18_Nov19_1ha", "mean.Caples_NBR_Nov18_1ha", 
+"mean.Caples_NBR_Nov19_1ha", "mean.Caples_NBR_Nov20_1ha", "mean.Caples_NBR_Oct21_NBR_1ha", 
+"median.Caldor_dNBR_Nov20_Oct21_1ha", "median.Caldor_dNBR2_Nov20_Oct21_1ha", 
+"median.Caldor_NBR_Oct21_1ha", "median.Caples_dNBR_Nov18_Nov19_1ha", 
+"median.Caples_NBR_Nov18_1ha", "median.Caples_NBR_Nov19_1ha", "median.Caples_NBR_Nov20_1ha", 
+"median.Caples_NBR_Oct21_NBR_1ha", "min.Caldor_dNBR_Nov20_Oct21_1ha", 
+"min.Caldor_dNBR2_Nov20_Oct21_1ha", "min.Caldor_NBR_Oct21_1ha", "min.Caples_dNBR_Nov18_Nov19_1ha", 
+"min.Caples_NBR_Nov18_1ha", "min.Caples_NBR_Nov19_1ha", "min.Caples_NBR_Nov20_1ha", 
+"min.Caples_NBR_Oct21_NBR_1ha", "max.Caldor_dNBR_Nov20_Oct21_1ha", "max.Caldor_dNBR2_Nov20_Oct21_1ha", 
+"max.Caldor_NBR_Oct21_1ha", "max.Caples_dNBR_Nov18_Nov19_1ha", "max.Caples_NBR_Nov18_1ha", 
+"max.Caples_NBR_Nov19_1ha", "max.Caples_NBR_Nov20_1ha", "max.Caples_NBR_Oct21_NBR_1ha", 
+"count.Caldor_dNBR_Nov20_Oct21_1ha", "count.Caldor_dNBR2_Nov20_Oct21_1ha", 
+"count.Caldor_NBR_Oct21_1ha", "count.Caples_dNBR_Nov18_Nov19_1ha", "count.Caples_NBR_Nov18_1ha", 
+"count.Caples_NBR_Nov19_1ha", "count.Caples_NBR_Nov20_1ha", "count.Caples_NBR_Oct21_NBR_1ha"
+)
 
 colnames(extract_nbr_4ha)<-
-c("mean.dNBR_Nov20Oct21_4ha", "mean.dNBR2_Nov20Oct21_4ha", 
-"mean.NBR_Oct21_4ha", "mean.dNBR_Nov18Nov19_4ha", "mean.NBR_Nov18_4ha", 
-"mean.NBR_Nov19_4ha", "mean.NBR_Nov20_4ha", "mean.NBR_Oct21_4ha", 
-"median.dNBR_Nov20Oct21_4ha", "median.dNBR2_Nov20Oct21_4ha", 
-"median.NBR_Oct21_4ha", "median.dNBR_Nov18Nov19_4ha", 
-"median.NBR_Nov18_4ha", "median.NBR_Nov19_4ha", "median.NBR_Nov20_4ha", 
-"median.NBR_Oct21_4ha", "min.dNBR_Nov20Oct21_4ha", 
-"min.dNBR2_Nov20Oct21_4ha", "min.NBR_Oct21_4ha", "min.dNBR_Nov18Nov19_4ha", 
-"min.NBR_Nov18_4ha", "min.NBR_Nov19_4ha", "min.NBR_Nov20_4ha", 
-"min.NBR_Oct21_4ha", "max.dNBR_Nov20Oct21_4ha", "max.dNBR2_Nov20Oct21_4ha", 
-"max.NBR_Oct21_4ha", "max.dNBR_Nov18Nov19_4ha", "max.NBR_Nov18_4ha", 
-"max.NBR_Nov19_4ha", "max.NBR_Nov20_4ha", "max.NBR_Oct21_4ha", 
-"count.dNBR_Nov20Oct21_4ha", "count.dNBR2_Nov20Oct21_4ha", 
-"count.NBR_Oct21_4ha", "count.dNBR_Nov18Nov19_4ha", "count.NBR_Nov18_4ha", 
-"count.NBR_Nov19_4ha", "count.NBR_Nov20_4ha", "count.NBR_Oct21_4ha")
+ c("mean.Caldor_dNBR_Nov20_Oct21_4ha", "mean.Caldor_dNBR2_Nov20_Oct21_4ha", 
+"mean.Caldor_NBR_Oct21_4ha", "mean.Caples_dNBR_Nov18_Nov19_4ha", "mean.Caples_NBR_Nov18_4ha", 
+"mean.Caples_NBR_Nov19_4ha", "mean.Caples_NBR_Nov20_4ha", "mean.Caples_NBR_Oct21_NBR_4ha", 
+"median.Caldor_dNBR_Nov20_Oct21_4ha", "median.Caldor_dNBR2_Nov20_Oct21_4ha", 
+"median.Caldor_NBR_Oct21_4ha", "median.Caples_dNBR_Nov18_Nov19_4ha", 
+"median.Caples_NBR_Nov18_4ha", "median.Caples_NBR_Nov19_4ha", "median.Caples_NBR_Nov20_4ha", 
+"median.Caples_NBR_Oct21_NBR_4ha", "min.Caldor_dNBR_Nov20_Oct21_4ha", 
+"min.Caldor_dNBR2_Nov20_Oct21_4ha", "min.Caldor_NBR_Oct21_4ha", "min.Caples_dNBR_Nov18_Nov19_4ha", 
+"min.Caples_NBR_Nov18_4ha", "min.Caples_NBR_Nov19_4ha", "min.Caples_NBR_Nov20_4ha", 
+"min.Caples_NBR_Oct21_NBR_4ha", "max.Caldor_dNBR_Nov20_Oct21_4ha", "max.Caldor_dNBR2_Nov20_Oct21_4ha", 
+"max.Caldor_NBR_Oct21_4ha", "max.Caples_dNBR_Nov18_Nov19_4ha", "max.Caples_NBR_Nov18_4ha", 
+"max.Caples_NBR_Nov19_4ha", "max.Caples_NBR_Nov20_4ha", "max.Caples_NBR_Oct21_NBR_4ha", 
+"count.Caldor_dNBR_Nov20_Oct21_4ha", "count.Caldor_dNBR2_Nov20_Oct21_4ha", 
+"count.Caldor_NBR_Oct21_4ha", "count.Caples_dNBR_Nov18_Nov19_4ha", "count.Caples_NBR_Nov18_4ha", 
+"count.Caples_NBR_Nov19_4ha", "count.Caples_NBR_Nov20_4ha", "count.Caples_NBR_Oct21_NBR_4ha"
+)
 
 nbr<-cbind(extract_nbr_1ha,extract_nbr_4ha)
 
@@ -609,7 +614,7 @@ Perc.NtoE_4ha <- extract_aspect_bi_4ha$sum/extract_aspect_bi_4ha$count
 Perc.NtoE_4ha <- as.data.frame(Perc.NtoE_4ha)
 Perc.NtoE_4ha$Binary.NtoE_2020_4ha <- ifelse (Perc.NtoE_4ha$Perc.NtoE_4ha >= 0.5, 1, 0)
 
-#dput(colnames(Perc.NtoE_1ha)) #add dummy year [change to 2018 for immutable variables]
+# dput(colnames(Perc.NtoE_1ha)) #add dummy year [change to 2018 for immutable variables]
 
 colnames(Perc.NtoE_1ha)<-c("Perc.NtoE_2020_1ha", "Binary.NtoE_2020_1ha")
 colnames(Perc.NtoE_4ha)<-c("Perc.NtoE_2020_4ha", "Binary.NtoE_2020_4ha")
@@ -778,8 +783,13 @@ wide_forest_variables_mean_perc_bin_4ha$mean_aspDeg_2020_4ha<-con_circular_deg(w
 # wide_forest_variables_mean_perc_bin_4ha$mean_aspDeg_4ha<-NULL
 
 #write out to sheet by copy paste in google drive (change this [ ]!)
-write_clip(wide_forest_variables_mean_perc_bin_1ha)
-write_clip(wide_forest_variables_mean_perc_bin_4ha)
+
+drive_sync(here("spatial","output"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1vNSUlaz34OA4uYNDjOkT_lToY60y0BPo")$id[2][1])
+
+
+# 
+# write_clip(wide_forest_variables_mean_perc_bin_1ha)
+# write_clip(wide_forest_variables_mean_perc_bin_4ha)
 
 wide_forest_variables_mean_perc_bin_4ha %>% knitr::kable() #[ ] problems with new RAVG '21 data
 
