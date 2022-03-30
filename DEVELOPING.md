@@ -38,3 +38,17 @@ If you add a library() line for a new package during development and find that
 you needed to install a package, please also run ```renv::snapshot()``` and
 include the changes to the lockfile in the commit that adds the library()
 statement.
+
+### Jupyter Notebook
+
+(Optional) If you would like to be able to run R .ipynb files from other
+contributors or to author your own, you can run a local Jupyter notebook. The
+IRkernel package is already installed in the project R environment by renv. For
+the rest:
+
+1. [Install Jupyter](https://jupyter.org/install).
+2. Run the R script ```infrastructure/install_jupyter_r_kernel.R``` from the
+   project R environment.
+3. Run ```jupyter notebook``` or ```jupyter lab``` according to your preference
+   and which are installed.
+4. In your browser, find or create the .ipynb you are interested in.

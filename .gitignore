@@ -41,3 +41,6 @@ vignettes/*.pdf
 # Project Specific - gitignoring inputs and outputs as they are too big for git and can be built through code
 input/
 output/
+
+# Jupyter scratch directory
+.ipynb_checkpoints/
