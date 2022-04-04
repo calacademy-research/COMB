@@ -97,26 +97,31 @@ files <- list.files(here("acoustic/data_ingest/input/raw_files/"), recursive = T
 
 # Making a string which contains all of the column numbers that awk will filter
 # Change the part after the ">" in order to set the minimum logit for each row
-awk <- unlist(map(
-  5:95,
-  ~ paste0("($", .x, ">-3)||")
-)) %>%
-  paste0(collapse = "") %>%
-  str_sub(end = -3)
+# awk <- unlist(map(
+#   5:95,
+#   ~ paste0("($", .x, ">-3)||")
+# )) %>%
+#   paste0(collapse = "") %>%
+#   str_sub(end = -3)
 
-file_filter <- ""
+# file_filter <- ""
 
 # If filtering is needed, run the following command:
 # file_filter <- "WHITE-2-CAPL"
 
-awk_command <- paste0("awk -F, '{if(", "($1 ~ /", file_filter, "/)&&(", awk, ")){print $0}}'", " ")
+# awk_command <- paste0("awk -F, '{if(", "($1 ~ /", file_filter, "/)&&(", awk, ")){print $0}}'", " ")
 
 # Mapping the awk reading command over all of the small dfs and making one large df with map_df()
 # Using library(furrr) in order to do this over multiple cores
 plan(multisession, workers = 32)
+# dataML <- future_map_dfr(
+#   files,
+#   ~ fread(cmd = paste0(awk_command, .), col.names = c("File_ID", "Start_Time", "End_Time", trimws(sixBirdcols$V2)))
+# )
+
 dataML <- future_map_dfr(
-  files,
-  ~ fread(cmd = paste0(awk_command, .), col.names = c("File_ID", "Start_Time", "End_Time", trimws(sixBirdcols$V2)))
+  files, 
+  ~ fread(.x, col.names = c("File_ID", "Start_Time", "End_Time", trimws(sixBirdcols$V2)))
 )
 
 # Add the survey point number where each recording took place ------------------------------------------------------------
@@ -144,6 +149,15 @@ dataML <- dataML %>%
   unite("Date_Time", Date:Time) %>% # making it into a format readable by the next line
   mutate(Date_Time = ymd_hms(Date_Time))
 
+# Making dataML tall
+dataML.tall <- dataML %>% 
+  data.table::melt(
+    measure.vars = sixBirdcols$V2,
+    variable.name = "species",
+    value.name = "logit"
+  )
+
+
 # Save the new table and clean up ------------------------------------------------------------
 
 if (dir.exists(here("acoustic/data_ingest/output/")) == F) {
@@ -151,28 +165,27 @@ if (dir.exists(here("acoustic/data_ingest/output/")) == F) {
 }
 
 # Command for making output smaller by only keeping a proportion of the dataset grouped by date and time
-dataML.slice <- dataML %>%
-  group_by(Date_Time) %>%
-  slice_sample(prop = 1)
+ # dataML.slice <- dataML %>%
+ #   group_by(Date_Time) %>%
+ #   slice_sample(prop = .01)
 
-fwrite(dataML, here("acoustic/data_ingest/output/dataML.csv"))
+fwrite(dataML.tall, here("acoustic/data_ingest/output/dataML_tall.csv"))
 
 #########################################
 # to create a subset of data with a given
 # minimum threshold across all species
 ##########################################
-cols <- colnames(dataML)[12:100]
-
-# For this example, the cutoff is max logit > -2
-
-filter_values <- paste(cols, ">-1.5", "| ") %>%
-  paste(collapse = "") %>%
-  str_sub(end = -4)
-
-dataML_m1.5 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_values)))
-
-fwrite(dataML_m1.5, here("acoustic/data_ingest/output/dataML_m1.5.csv"))
-
+# cols <- colnames(dataML)[12:100]
+# 
+# # For this example, the cutoff is max logit > -2
+# 
+# filter_values <- paste(cols, ">-1.5", "| ") %>%
+#   paste(collapse = "") %>%
+#   str_sub(end = -4)
+# 
+# dataML_m1.5 <- dataML %>% filter(rlang::eval_tidy(rlang::parse_expr(filter_values)))
+# 
+# fwrite(dataML_m1.5, here("acoustic/data_ingest/output/dataML_m1.5.csv"))
 
 ###########################################################
 # to convert the logit to something more like a probability,
