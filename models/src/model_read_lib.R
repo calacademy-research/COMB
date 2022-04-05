@@ -252,7 +252,12 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
                    thresholdOptions = list(value = -2.0, is.quantile = F),
                    squeeze = T) {
   aru2point <- readAru2point()
-  mlTibble <- readDataMl(species, years, beginTime, endTime)
+  mlTibble <- readDataMl(
+    outerIndices$species$Species,
+    outerIndices$year$Year,
+    beginTime,
+    endTime
+  )
 
   # Visits
   if (visitAggregation == "file") {
