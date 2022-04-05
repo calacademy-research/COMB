@@ -88,7 +88,8 @@ pointCountsPath <- here("models/input/PC_delinted.csv")
 #'     - nsites: Maximum index on the point axis.
 #'     - nsurveys.pc: The number of point counts. (Inner dimension of y.pc and
 #'       y.ind.)
-#'     - nsurveys.aru: The number ARU "visits" count. (Inner dimension of y.aru.#'       See also visitAggregation.)
+#'     - nsurveys.aru: The number ARU "visits" count. (Inner dimension of y.aru.
+#'       See also visitAggregation.)
 #'   - Counts
 #'     - y.ind: Binarized point counts (occupancy per observers).
 #'     - y.pc: Raw point counts.
