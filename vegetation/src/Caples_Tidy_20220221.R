@@ -3,17 +3,31 @@ library(tidyverse)
 library(tidyr)
 library(writexl)
 library(vegan)
+library(here)
+library(lubridate)
+library(data.table)
+library(fs)
 
+# source the drive sync functions
+source(here("comb_functions.R"))
+
+# check to see if data directories exist on the local drive; if not, make them
+if (dir.exists(here("vegetation/data_ingest/input/")) == FALSE) {
+  dir.create(here("vegetation/data_ingest/input/"))
+}
+
+# call drive sync to make sure that the local drive has all files that are present on the google drive
+drive_sync(here("vegetation/data_ingest/input/"), "https://drive.google.com/drive/folders/1nIbMrSgsoU2Zekk5NJ-oG440HwgcZ6V4")
 
 #Import tables from Access database.  Includes data for 158 plot visits associated with avian plots (SMC + RFR).
-Caples_PlotVisits_20220207 <- read_excel("~/FY2022_Tahoe/Caples/Caples_2021/Caples_Tidyverse/Caples_PlotVisits_20220207.xlsx")
-TreeData_forExport_20220207c <- read_excel("~/FY2022_Tahoe/Caples/Caples_2021/Caples_Tidyverse/TreeData_forExport_20220207c.xlsx")
-VegetationData_forExport_20220207c <- read_excel("~/FY2022_Tahoe/Caples/Caples_2021/Caples_Tidyverse/VegetationData_forExport_20220207c.xlsx")
+Caples_PlotVisits_20220207 <- read_excel(here("Caples_PlotVisits.xlsx"))
+TreeData_forExport_20220207c <- read_excel(here("TreeData_forExport.xlsx"))
+VegetationData_forExport_20220207c <- read_excel(here("VegetationData_forExport.xlsx"))
 #Seedling and Sapling data does not crosswalk from RFR plots
-RegenData_forExport_20220128 <- read_excel("~/FY2022_Tahoe/Caples/Caples_2021/Caples_Tidyverse/RegenData_forExport_20220128.xlsx")
-SpeciesComp_forExport_20220201 <- read_excel("~/FY2022_Tahoe/Caples/Caples_2021/Caples_Tidyverse/SpeciesComp_forExport_20220201.xlsx")
+RegenData_forExport_20220128 <- read_excel(here("RegenData_forExport.xlsx"))
+SpeciesComp_forExport_20220201 <- read_excel(here("SpeciesComp_forExport.xlsx"))
 #CWD in RFR?
-CWD_Data_forExport_20220216 <- read_excel("~/FY2022_Tahoe/Caples/Caples_2021/Caples_Tidyverse/CWD_Data_forExport_20220216.xlsx")
+CWD_Data_forExport_20220216 <- read_excel(here("CWD_Data_forExport.xlsx"))
 
 
 #Let's make some nicknames
@@ -301,22 +315,39 @@ SnagTPH<-Trees %>%
      Caples_RFR<-Caples_PlotData_Zeros%>%
        filter(Veg_Type=="RFR")
      Caples_PlotData_20220225<-bind_rows(Caples_SMC,Caples_RFR)
-     
-#Export to Excel and to .RData object
-    write_xlsx(Caples_PlotData_20220225,"C:\\Users\\kirstenbovee\\Documents\\FY2022_Tahoe\\Caples\\Caples_2021\\Caples_Tidyverse\\Output\\Caples_PlotData_20220225.xlsx")
-    save(Caples_PlotData_20220225, file = "C:\\Users\\kirstenbovee\\Documents\\FY2022_Tahoe\\Caples\\Caples_2021\\Caples_Tidyverse\\Output\\Caples_PlotData_20220225.RData")
+         
+  #Adjust colnames to omit spaces
+     colnames(Caples_PlotData_20220225)[13] <- "Total_Live_Veg_Cover"
+     colnames(Caples_PlotData_20220225)[14] <- "Total_Live_Veg_Ht"
+     colnames(Caples_PlotData_20220225)[15] <- "Total_Tree_Cover"
+     colnames(Caples_PlotData_20220225)[16] <- "Total_Tree_Ht"
+     colnames(Caples_PlotData_20220225)[17] <- "Total_Live_Shrub_Cover"
+     colnames(Caples_PlotData_20220225)[18] <- "Total_Live_Shrub_Ht"
+     colnames(Caples_PlotData_20220225)[19] <- "Live_Shrub_Tall_Cover"
+     colnames(Caples_PlotData_20220225)[20] <- "Live_Shrub_Tall_Height"
+     colnames(Caples_PlotData_20220225)[21] <- "Live_Shrub_Medium_Cover"
+     colnames(Caples_PlotData_20220225)[22] <- "Live_Shrub_Medium_Height"
+     colnames(Caples_PlotData_20220225)[23] <- "Live_Shrub_Low_Cover"
+     colnames(Caples_PlotData_20220225)[24] <- "Live_Shrub_Low_Height"
+     colnames(Caples_PlotData_20220225)[25] <- "Herb_Cover"
+     colnames(Caples_PlotData_20220225)[26] <- "Herb_Ht"
+   
+#Export to Excel and to .RData object ## changed to fwrite by SJ 13Apr2022 in prep for submission to the broader working group directories
+    #write_csv(Caples_PlotData_20220225,"")
+    #save(Caples_PlotData_20220225, file = "")
+    fwrite(Caples_PlotData_20220225,  here("vegetation/data_ingest/output/Caples_PlotData.csv"))
 
 #CWD visualizations
-library(ggplot2)
+#library(ggplot2)
 
 #select CWD vars and reshape from wide to long format
-CWDvol_long<- Caples_PlotData_20220221%>%
-  select(c(1,4,10,61:66))%>%
-  gather(CWD_vol_class,CWD_vol_value,c(4:9))%>%
-CWDdensity_long<- Caples_PlotData_20220221%>%
-  select(c(1,4,10,68:73))%>%
-  gather(CWD_density_class,CWD_density_value,c(4:9))
+#CWDvol_long<- Caples_PlotData_20220221%>%
+#  select(c(1,4,10,61:66))%>%
+#  gather(CWD_vol_class,CWD_vol_value,c(4:9))%>%
+#CWDdensity_long<- Caples_PlotData_20220221%>%
+#  select(c(1,4,10,68:73))%>%
+# gather(CWD_density_class,CWD_density_value,c(4:9))
 
-ggplot(CWDvol_long, aes(x = Treatment_Interval, y = CWD_vol_value, fill = CWD_vol_class)) +
-  geom_bar(stat = "identity")
+#ggplot(CWDvol_long, aes(x = Treatment_Interval, y = CWD_vol_value, fill = CWD_vol_class)) +
+#  geom_bar(stat = "identity")
 
