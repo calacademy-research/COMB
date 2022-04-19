@@ -11,7 +11,7 @@ library(here)
 library(tidyverse)
 # library(purrr)
 library(raster)
-library(googledrive) # connect to google drive
+#library(googledrive) # connect to google drive
 
 # load functions
 source(here("comb_functions.R"))
