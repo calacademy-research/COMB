@@ -44,3 +44,7 @@ output/
 
 # Jupyter scratch directory
 .ipynb_checkpoints/
+
+#notebook renderings
+*.html
+*.pdf
