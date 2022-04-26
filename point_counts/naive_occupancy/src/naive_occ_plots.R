@@ -1,5 +1,5 @@
 #### Naive Occupancy Plots for Species ####
-# naive_occ_plots-best_DK_update.R
+# naive_occ_plots.R
 # Created by: Natalie Beckman-Smith
 # Based on earlier work by Mary Clapp & Durrell Kapan
 # Created on: 26 July 2021
@@ -67,7 +67,7 @@ diffplot <- function(datadiff, dw, ww, ttl, ttl_size, txt_size, txt_angle) {
 #### Now calculate different scenarios
 #### Species that increased in 2020 ####
 diff_temp_up20 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(`2020` > max1719) %>%
   pivot_longer(
     cols = "1719mean":"2021",
@@ -88,7 +88,7 @@ up20 <-
 
 #### Species that decreased in 2020 ####
 diff_temp_down20 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(`2020` < min1719) %>%
   pivot_longer(
     cols = "1719mean":"2021",
@@ -109,7 +109,7 @@ down20 <-
 
 #### Species that stayed the same in 2020 ####
 diff_temp_same20 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(
     `2020` <= max1719,
     `2020` >= min1719
@@ -134,7 +134,7 @@ same20 <-
 
 #### Species that decreased in 2021 ####
 diff_temp_down21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(`2021` < min1719) %>%
   pivot_longer(
     cols = "1719mean":"2021",
@@ -155,7 +155,7 @@ down21 <-
 
 #### Species that increased in both 2020 and 2021 ####
 diff_temp_up20_up21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(
     `2020` > max1719,
     `2021` > max1719
@@ -179,7 +179,7 @@ up20up21 <-
 
 #### Species that increased in 2020 and remained the same in 2021 ####
 diff_temp_up20_same21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(
     `2020` > max1719,
     `2021` <= max1719,
@@ -204,7 +204,7 @@ up20same21 <-
 
 #### Species that remained the same in 2020 but increased in 2021 ####
 diff_temp_same20_up21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(
     `2020` <= max1719,
     `2020` >= min1719,
@@ -229,7 +229,7 @@ same20up21 <-
 
 #### Species that remained the same in both 2020 and 2021 ####
 diff_temp_same20_same21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(
     `2020` <= max1719,
     `2020` >= min1719,
@@ -255,7 +255,7 @@ same20same21 <-
 
 #### Species that decreased in 2020 but returned to pre-fire levels in 2021 or decreaed ####
 diff_temp_down20_same21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(
     `2020` < min1719,
     `2021` <= max1719,
@@ -280,7 +280,7 @@ down20same21 <-
 
 #### Species that decreased in 2020 and/or 2021 ####
 diff_temp_down20_or_down21 <- diff %>%
-  select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
   filter(`2020` < min1719 | `2021` < min1719) %>%
   pivot_longer(
     cols = "1719mean":"2021",
@@ -312,6 +312,35 @@ print(same20same21)
 
 print(down20same21)
 print(down21)
+
+#overall 2021 naive occupancy (with previous years too)
+diff_temp <- diff %>%
+  dplyr::select("birdName", "birdCode_fk", "1719mean" = "mean1719", "2020", "2021", "min1719", "max1719", "diff") %>%
+  #filter(`2020` > max1719) %>%
+  pivot_longer(
+    cols = "1719mean":"2021",
+    names_to = "year",
+    values_to = "naive_occ"
+  )
+
+# add back NAs
+diff_temp$min1719[diff_temp$year == "2020"] <- NA
+diff_temp$max1719[diff_temp$year == "2020"] <- NA
+diff_temp$min1719[diff_temp$year == "2021"] <- NA
+diff_temp$max1719[diff_temp$year == "2021"] <- NA
+
+ttl <- paste0("Species naive occupancy sorted by pre-fire relative abundance")
+
+#change the sortorder to be 2021 descending
+# diffplot21 <- edit(diffplot)
+#wasn't able to easily do, so plot not changed
+
+diff_temp %>%
+  filter(birdName != 0) -> diff_temp
+
+all2021sort <-
+  diffplot21(datadiff = diff_temp, dw = .8, ww = .8, ttl = ttl, ttl_size = 10, txt_size = 6, txt_angle = 42)
+
 
 # decide to save those that are final
 

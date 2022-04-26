@@ -32,7 +32,7 @@ if (dir.exists(here("point_counts/naive_occupancy/input/")) == F) {
 }
 
 # Creating a symlink from the output of /point_count/data_ingest/ to the input of /point_count/naive_occupancy/
-PointC_filename <- "PointC_2022-03-21.csv"
+PointC_filename <- "PointC_2022-04-06.csv"
 link_create(here("point_counts", "data_ingest", "output", PointC_filename), here("point_counts", "naive_occupancy", "input", PointC_filename))
 # Read the google data
 PointC <- fread(here("point_counts", "naive_occupancy", "input", PointC_filename))
@@ -41,7 +41,7 @@ PointC <- fread(here("point_counts", "naive_occupancy", "input", PointC_filename
 point_counts <- PointC %>%
   ungroup() %>%
   mutate(Yr = year(DateTime)) %>%
-  select(point_ID_fk, Yr, pointCount_ID_fk) %>%
+  dplyr::select(point_ID_fk, Yr, pointCount_ID_fk) %>%
   distinct() %>%
   arrange(point_ID_fk, Yr, pointCount_ID_fk) %>%
   group_by(point_ID_fk, Yr) %>%
@@ -52,7 +52,7 @@ PointC %>%
   ungroup() %>%
   mutate(Yr = year(DateTime)) %>%
   filter(is.na(Yr)) %>%
-  select(pointCount_ID_fk, point_ID_fk, DateTime, observer_fk) %>%
+  dplyr::select(pointCount_ID_fk, point_ID_fk, DateTime, observer_fk) %>%
   distinct() -> tofix
 
 # [ ] tofix has three issues:
@@ -102,7 +102,7 @@ PClong$naive.occ[PClong$max.ct > 0] <- 1
 
 # this is a list of species detected by point counts only
 PCTClong %>%
-  select(birdName, birdCode_fk, eBird_6_code) %>%
+  dplyr::select(birdName, birdCode_fk, eBird_6_code) %>%
   distinct() -> Spp4LetterList
 
 # update diff to include range for 2017-2019, and median or mean value ...
@@ -287,7 +287,7 @@ ggplot() +
 yesCBI<-read_csv(paste0(here(),"/largeIO/CaplesWesternpts_0621_2017_sampled_yes_CBI.csv"))
 yesCBI4<-read_csv(paste0(here(),"/largeIO/CaplesWesternpts_0621_2017_sampled_yes_CBI4.csv"))
 
-burnSev<-yesCBI %>% full_join(yesCBI4, by="Name") %>% select(Name,RASTERVALU.x,RASTERVALU.y)
+burnSev<-yesCBI %>% full_join(yesCBI4, by="Name") %>% dplyr::select(Name,RASTERVALU.x,RASTERVALU.y)
 
 summary(burnSev,RASTERVALU.y)
 

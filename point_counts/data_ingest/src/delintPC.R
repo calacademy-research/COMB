@@ -12,7 +12,7 @@ library(tidyverse)
 
 
 # for now, run readPC.R if you haven't already before starting here
-PointC <- fread(here("point_counts/data_ingest/output/PointC_2022-03-23.csv"))
+PointC <- fread(here("point_counts/data_ingest/output/PointC_2022-04-06.csv"))
 
 PC <- PointC %>%
   filter(
@@ -76,3 +76,4 @@ unique(dfc$observer_fk)
 
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
 write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
+
