@@ -37,7 +37,7 @@ PCTC <- fread(here("point_counts/data_ingest/input/2021-06-17_2017-2021_Caples_d
 
 # Do some QA/QC -------------------
 PCTC %>%
-  select(point_ID_fk, Date) %>%
+  dplyr::select(point_ID_fk, Date) %>%
   mutate(Year = lubridate::year(mdy(Date))) %>%
   distinct() %>%
   group_by(Year, point_ID_fk) %>%
@@ -184,7 +184,7 @@ PointC <- PCTClong %>%
   arrange(DateTime, point_ID_fk) # puts it in order for the entire dataset
 
 # Write PointC to output folder
-PointC_filename <- paste0("PointC_", Sys.Date(), ".csv")
+PointC_filename <- "PointC.csv"
 fwrite(PointC, here("point_counts/data_ingest/output/", PointC_filename))
 
 
