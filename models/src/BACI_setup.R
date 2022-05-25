@@ -10,7 +10,7 @@ library(here)
 library(data.table)
 library(reshape2)
 
-source(here("caples_functions.R"))
+source(here("comb_functions.R"))
 
 # Read in data ------------------------------------------------------------
 
@@ -26,32 +26,18 @@ if (dir.exists(here("models/output/")) == FALSE) {
 # TODO []: why does the total # of entries differ from that in the Caples git?
 
 PC <- fread(here("point_counts/data_ingest/output/PC_delinted.csv"))
-PC <- PC %>% filter(visit<4)
-visits <- PC %>%
-  group_by(point_ID_fk, year, DateTime) %>%
-  summarise(rich = n_distinct(birdCode_fk)) %>%
-  arrange(DateTime, .by_group = TRUE) %>%
-  mutate(visit = seq_along(DateTime))
-
-extraVisits <- visits %>% filter(visit > 3)
+visits <- read_csv("point_counts/data_ingest/output/PC_visit_metadata.csv")
 
 birdTots <- PC %>% group_by(birdCode_fk) %>% summarise(tot = sum(abun)) %>% filter(tot>3)
 dfc <- PC %>% filter(birdCode_fk %in% birdTots$birdCode_fk)
 
-nsite <- length(unique(dfc$point_ID_fk))
-nvisit <- length(unique(dfc$visit))
-nyear <- length(unique(dfc$year))
-nspec <- length(unique(dfc$birdCode_fk))
-
-y <- melt(dfc, id.var = c("birdCode_fk", "point_ID_fk", "visit", "yr"), measure.var = "abun") %>% acast(point_ID_fk ~ visit ~ yr ~ birdCode_fk)
+y <- melt(dfc, id.var = c("birdCode_fk", "point_ID_fk", "visit", "year"), measure.var = "abun") %>% acast(point_ID_fk ~ visit ~ year ~ birdCode_fk)
 
 # COVARIATES
 
 dates1 <- visits %>%
-  dplyr::select(-rich) %>%
   filter(visit < 4) %>%
   mutate(JDay = as.numeric(format(DateTime, "%j"))) %>%
-  select(-DateTime) %>%
   melt(id.var = c("point_ID_fk", "year", "visit"), measure.var = "JDay") %>%
   acast(point_ID_fk ~ visit ~ year)
 
@@ -65,10 +51,8 @@ date1[is.na(date1)] <- 0
 # TIME matrix [under construction - issue with time zone and converting to list of matrices]
 
 times <- visits %>%
-  dplyr::select(-rich) %>%
   filter(visit < 4) %>%
   mutate(Time = as.numeric(times(format(DateTime, "%H:%M:%S")))) %>%
-  select(-DateTime) %>%
   melt(id.var = c("point_ID_fk", "year", "visit"), measure.var = "Time") %>%
   acast(point_ID_fk ~ visit ~ year)
 
@@ -81,36 +65,29 @@ time1[is.na(time1)] <- 0
 
 # [] TODO: update with google drive links &/or symlinks
 
-newEnv1 <- read_csv("data/wide1havars.csv")
-newEnv4 <- read_csv("data/wide4havars.csv")
-tallvars <- read_csv("data/tallvars.csv")
-
-utms <- read_csv("data/Wildlife_Sampling_Points.csv")
-head(newEnv1)
-
-prefire <- newEnv1 %>%
-  dplyr::select(point_d, Perc_LargeTreeG22mHeight_2018_1ha, mean_CanopyCover_2018_1ha, max_Elevation_NA_1ha, mean_Caples_dNBR_Nov18_Nov19_1ha) %>%
-  left_join(utms, by = c("point_d" = "point_id")) %>%
+siteData4 <- fread(here("spatial/output/rasters/wide4havars.csv")) %>%
+  dplyr::select(point_d, Perc_LTg22mHt_2018_4ha, mean_CanopyCover_2018_4ha, max_Elevation_NA_4ha, mean_CaplesdNBR_Nov18Nov19_4ha, mean_RAVGcbi4_20182019_4ha) %>%
   arrange(point_d)
 
-prefire4 <- newEnv4 %>%
-  dplyr::select(point_d, Perc_LargeTreeG22mHeight_2018_4ha, mean_CanopyCover_2018_4ha, max_Elevation_NA_4ha, mean_Caples_dNBR_Nov18_Nov19_4ha, mean_RAVGcbi4_20182019_4ha) %>%
-  left_join(utms, by = c("point_d" = "point_id")) %>%
-  arrange(point_d)
+#utms <- read_csv("data/Wildlife_Sampling_Points.csv")
 
-prefire4$RAVG = cut(prefire4$mean_RAVGcbi4_20182019_4ha, breaks = c(-1, 0.5, 2, 3, 4), labels=c(0,1,2,3))
+siteData4$RAVG = cut(siteData4$mean_RAVGcbi4_20182019_4ha, breaks = c(-1, 0.5, 2, 3, 4), labels=c(0,1,2,3))
 
 siteList <- sort(unique(dfc$point_ID_fk))
 
-setdiff(prefire4$point_d, siteList) # these three aren't point count locations
-setdiff(siteList, prefire4$point_d) # 1072 is missing in the metadata for some reason
+nopc <- setdiff(siteData4$point_d, siteList) # these three aren't point count locations
+setdiff(siteList, siteData4$point_d) # 1072 is missing in the metadata for some reason
 
-siteData4 <- prefire4 %>%
-  filter(point_d %in% unique(visits$point_ID_fk)) %>%
-  separate(SZ_DNS2, c("Size", "Density"), sep = 1)
+dfc <- dfc %>% filter(point_ID_fk != 1072)
+siteData4 <- siteData4 %>% filter(point_d != 397, point_d != 587, point_d != 845)
+
+nsite <- length(unique(dfc$point_ID_fk))
+nvisit <- length(unique(dfc$visit))
+nyear <- length(unique(dfc$year))
+nspec <- length(unique(dfc$birdCode_fk))
 
 siteData4 %>% ggplot() +
-  geom_boxplot(aes(x=RAVG, y=mean_Caples_dNBR_Nov18_Nov19_4ha))
+  geom_boxplot(aes(x=RAVG, y=mean_CaplesdNBR_Nov18Nov19_4ha))
 
 Cover <- scale(siteData4$mean_CanopyCover_2018_4ha)
 Ht <- siteData4$Perc_LargeTreeG22mHeight_2018_4ha
@@ -125,7 +102,6 @@ BA[,3:4] <- 1
 
 BACI <- BA*Sev
 BACI[BACI>0] <- 1
-
 
 spp <- unique(dfc$birdCode_fk)
 
@@ -152,4 +128,3 @@ data <- list(
 )
 
 save(data, Ht, Cover, BACI, Sev, siteList, spp, file = "models/output/BACI_input.RData") # need to git ignore this
-load("models/output/BACI_input.RData")
