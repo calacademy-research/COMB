@@ -10,16 +10,15 @@ library(tidyverse)
 # script to delint point count data from Caples Creek project
 # creates data frame 'dfc' whose rows refer to bird counts of each species x point x visit x year.
 
-
 # for now, run readPC.R if you haven't already before starting here
-PointC <- fread(here("point_counts/data_ingest/output/PointC_2022-04-06.csv"))
+PointC <- fread(here("point_counts/data_ingest/output/PointC.csv"))
 
 PC <- PointC %>%
   filter(
     dist_detect != "flyover", # comment these on/off to restrict distances
     dist_detect != "100m+",
     # dist_detect !="50to100m",
-    point_ID_fk != "1072", # missing veg data for this point
+    # point_ID_fk != "1072", # missing veg data for this point
     birdCode_fk != "UNKN", birdCode_fk != "0", !is.na(birdCode_fk),
     birdCode_fk != "XXHU", birdCode_fk != "XXWO", # comment on/off to include XX__ entries
     year(DateTime) != 2017,
@@ -34,7 +33,7 @@ PC <- PointC %>%
 visits <- PointC %>%
   mutate(year = year(DateTime)) %>%
   filter(
-    point_ID_fk != "1072",
+    # point_ID_fk != "1072",
     observer_fk != "IASH", observer_fk != "MASC",
     birdCode_fk != "UNKN", birdCode_fk != "XXHU", birdCode_fk != "XXWO", !is.na(birdCode_fk),
     year != 2017
@@ -49,7 +48,7 @@ extraVisits <- visits %>% filter(visit > 3)
 dfc <- full_join(PC, visits) %>%
   ungroup() %>%
   dplyr::select(abun, observer_fk, DateTime, point_ID_fk, year, birdCode_fk, visit) %>%
-  filter(visit < 5)
+  filter(visit < 4)
 
 dups <- dfc[which(duplicated(dfc[, 4:7]) == TRUE), ] %>%
   group_by(point_ID_fk, year, visit) %>%
@@ -76,4 +75,3 @@ unique(dfc$observer_fk)
 
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
 write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
-
