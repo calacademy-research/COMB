@@ -2,8 +2,6 @@
 
 library(tidyverse)
 library(chron)
-library(jagsUI)
-library(coda)
 library(lubridate)
 library(googledrive)
 library(here)
@@ -65,15 +63,24 @@ time1[is.na(time1)] <- 0
 
 # [] TODO: update with google drive links &/or symlinks
 
-siteData4 <- fread(here("spatial/output/rasters/wide4havars.csv")) %>%
-  dplyr::select(point_d, Perc_LTg22mHt_2018_4ha, mean_CanopyCover_2018_4ha, max_Elevation_NA_4ha, mean_CaplesdNBR_Nov18Nov19_4ha, mean_RAVGcbi4_20182019_4ha) %>%
+veg <- fread(here("spatial/output/rasters/wide4havars.csv")) 
+siteData4 <- veg %>%
+  dplyr::select(point_d, Perc_LTg22mHt_2018_4ha, Perc_LTg22mHt_2020_4ha, mean_CanopyCover_2018_4ha, mean_CanopyCover_2019_4ha, mean_CanopyCover_2020_4ha,  max_Elevation_NA_4ha, mean_CaplesdNBR_Nov18Nov19_4ha, mean_RAVGcbi4_20182019_4ha) %>%
   arrange(point_d)
 
 #utms <- read_csv("data/Wildlife_Sampling_Points.csv")
 
 siteData4$RAVG = cut(siteData4$mean_RAVGcbi4_20182019_4ha, breaks = c(-1, 0.5, 2, 3, 4), labels=c(0,1,2,3))
 
-siteList <- sort(unique(dfc$point_ID_fk))
+siteData4 %>% pivot_longer(cols = mean_CanopyCover_2018_4ha:mean_CanopyCover_2020_4ha, names_to= "year", values_to = "canopycov") %>% 
+  ggplot() +
+  geom_violin(aes(x=RAVG, y=canopycov, color=year)) 
+
+siteData4 %>% pivot_longer(cols = Perc_LTg22mHt_2018_4ha:Perc_LTg22mHt_2020_4ha, names_to= "year", values_to = "lgtree") %>% 
+  ggplot() +
+  geom_violin(aes(x=RAVG, y=lgtree, color=year)) 
+
+# TODO []: deal with 1072 missing data and remove filters below once found and incorporated into RAVG data
 
 nopc <- setdiff(siteData4$point_d, siteList) # these three aren't point count locations
 setdiff(siteList, siteData4$point_d) # 1072 is missing in the metadata for some reason
@@ -81,16 +88,20 @@ setdiff(siteList, siteData4$point_d) # 1072 is missing in the metadata for some 
 dfc <- dfc %>% filter(point_ID_fk != 1072)
 siteData4 <- siteData4 %>% filter(point_d != 397, point_d != 587, point_d != 845)
 
+siteList <- sort(unique(dfc$point_ID_fk))
+
 nsite <- length(unique(dfc$point_ID_fk))
 nvisit <- length(unique(dfc$visit))
 nyear <- length(unique(dfc$year))
 nspec <- length(unique(dfc$birdCode_fk))
 
+y <- melt(dfc, id.var = c("birdCode_fk", "point_ID_fk", "visit", "year"), measure.var = "abun") %>% acast(point_ID_fk ~ visit ~ year ~ birdCode_fk)
+
 siteData4 %>% ggplot() +
   geom_boxplot(aes(x=RAVG, y=mean_CaplesdNBR_Nov18Nov19_4ha))
 
 Cover <- scale(siteData4$mean_CanopyCover_2018_4ha)
-Ht <- siteData4$Perc_LargeTreeG22mHeight_2018_4ha
+Ht <- scale(siteData4$Perc_LTg22mHt_2018_4ha)
 El <- scale(siteData4$max_Elevation_NA_4ha)
 Sev <- as.numeric(as.character(siteData4$RAVG))
 

@@ -1,9 +1,15 @@
 load("models/output/BACIdata.RData")
 
+library(wesanderson)
+library(tidyverse)
+library(AHM)
+
 # Occurrence covariates ---------------------------------------------------
 
 ### Year effect -------------------------------------------------------------
 
+out <- BACI_out
+out$overlap0 <- as.factor(out$overlap0)
 
 year <- out[97:144,]
 year$spp <- spp
@@ -94,7 +100,6 @@ ggplot(int) +
   scale_color_manual(values=wes_palette("BottleRocket1", n = 2)) +
   theme(legend.position = "none", axis.text.x = element_text(angle = 50,hjust=1)) 
 
-
 # Trees x Fire Biplot [UNDER CONSTRUCTION] --------------------------------
 
 # colnames(trees) <- paste("tree", colnames(trees), sep = "_")
@@ -172,7 +177,7 @@ rich <- out[337:656,]
 rich$year <- as.vector(sapply(c("2018", "2019", "2020", "2021"), function(x) rep(x,80)))
 rich$site <- rep(siteList,4)
 rich$RAVG <- rep(Sev,4)
-rich$TallTree <- rep(Ht, 4)
+rich$TallTree <- rep(siteData4$Perc_LTg22mHt_2018_4ha, 4)
 rich$TreeBin <- cut(rich$TallTree, breaks = c(-1, 0.02, 0.1, 0.2, 0.5))
 
 bin.labs <- c("0-2%", "2-10%", "11-20%", "20-50%")
@@ -188,6 +193,14 @@ ggplot(rich) +
 unburned <- rich %>% filter(RAVG=="0") 
 ggplot(unburned) +
   geom_line(aes(x=year, y=mean, group=site))
+
+rich %>% filter(RAVG != "0") %>%
+ggplot() +
+  geom_line(aes(x=year, y=mean, group=site))
+
+rich %>% ggplot() +
+  geom_boxplot(aes(x=year,y=mean)) +
+  facet_wrap(~RAVG)
 
 # before and after betas
 BA <- out[1:96,]
@@ -205,12 +218,12 @@ pre2 <- pre %>% filter(pre$firesig=="0")
 # Posterior Predictions by Species -------------------------------------------------------------
 # create new design matrix with "new" covariates using identical scaling as our original data
 summary(data$Ht)
-o.tree <- seq(0,0.5,,500)
+o.tree <- seq(min(data$Ht), max(data$Ht),,500)
 
 summary(data$Cov)
-o.cov <- seq(-2.5, 1.75,,500)
+o.cov <- seq(min(data$Cov), max(data$Cov),,500)
 
-str(tmp <- BACI_z$sims.list)
+str(tmp <- BACI_Out$sims.list)
 nsamp <- 4998
 nsamp
 
@@ -262,18 +275,30 @@ rownames(psi.coef) <- spp
 simHt <- o.tree
 simCov <- o.cov
 
-predS <- array(NA, dim=c(500,nspec,4))
-for(i in 1:nspec) {
+predS <- array(NA, dim=c(500,48,4))
+for(i in 1:48) {
   predS[,i,1] <- plogis(psi.coef[i,1] + psi.coef[i,3]*simHt)
   predS[,i,2] <- plogis(psi.coef[i,1] + psi.coef[i,4]*simCov)
   predS[,i,3] <- plogis(psi.coef[i,1] + 
-                          psi.coef[i,3]*simHt + 
-                          psi.coef[i,4] +
+                          psi.coef[i,3]*simHt + # additive effect of large trees
+                          #psi.coef[i,4]*simCov + # effect of cover
                           psi.coef[i,5]*simHt*1) # unburned
   predS[,i,4] <- plogis(psi.coef[i,2] + 
                           psi.coef[i,3]*simHt +
-                          psi.coef[i,4] +
+                          #psi.coef[i,4]*simCov +
                           psi.coef[i,5]*simHt*2) # burned
+}
+# credible intervals [2.5-97.5%]
+intS <- array(NA, dim=c(500,48,8))
+for(i in 1:48) {
+  intS[,i,1] <- plogis(psi.cihi[i,1] + psi.cihi[i,4]*simCov)
+  intS[,i,2] <- plogis(psi.cilo[i,1] + psi.cilo[i,4]*simCov)
+  intS[,i,3] <- plogis(psi.cihi[i,1] + psi.cihi[i,3]*simHt)
+  intS[,i,4] <- plogis(psi.cilo[i,1] + psi.cilo[i,3]*simHt)
+  intS[,i,5] <- plogis(psi.cihi[i,2] + psi.cihi[i,5]*simHt*2)
+  intS[,i,6] <- plogis(psi.cilo[i,2] + psi.cilo[i,5]*simHt*2)
+  intS[,i,5] <- plogis(psi.cihi[i,1] + psi.cihi[i,5]*simHt*1)
+  intS[,i,6] <- plogis(psi.cilo[i,1] + psi.cilo[i,5]*simHt*1)
 }
 
 plot(simHt, predS[,1,1], lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
@@ -282,11 +307,31 @@ for (i in 1:48) {
   lines(simHt, predS[,i,1], col=i, lwd=3)
 }
 
-# BHGR
-plot(simHt, predS[,5,1], col="orange", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
-     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Black-headed Grosbeak")
-lines(simHt, predS[,5,3], col="forestgreen", lwd=3)
-lines(simHt, predS[,5,4], col="red", lwd=3)
+# COVER
+
+par(mfrow=c(4,3))
+for(i in 1:48) {
+  plot(simCov, predS[,i,2], lwd=3, type="l", lty=1, frame=F, ylim = c(0,1),
+       xlab="% Canopy Cover", ylab = "pre-fire psi", main=spp[i])
+  lines(simCov, intS[,i,1], lty=3)
+  lines(simCov, intS[,i,2], lty=3)
+}
+
+par(mfrow=c(3,3))
+for(i in 1:48) {
+  plot(simHt, predS[,i,1], lwd=3, type="l", lty=1, frame=F, ylim = c(0,1), col="gray",
+       xlab="% Large Tree Cover", ylab = "occupancy probability", main=spp[i])
+  lines(simHt, predS[,i,3], col="forestgreen", lwd=3)
+  lines(simHt, predS[,i,4], col="red", lwd=3)
+}
+
+# Fox Sparrow
+par(mfrow=c(2,3))
+plot(simHt, predS[,14,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Fox Sparrow")
+lines(simHt, predS[,14,2], col="purple", lwd=3)
+lines(simHt, predS[,14,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,14,4], col="red", lwd=3)
 
 # GCKI
 plot(simHt, predS[,15,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
@@ -294,11 +339,53 @@ plot(simHt, predS[,15,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0
 lines(simHt, predS[,15,3], col="forestgreen", lwd=3)
 lines(simHt, predS[,15,4], col="red", lwd=3)
 
+# GTTO
+plot(simHt, predS[,16,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Green-tailed Towhee")
+lines(simHt, predS[,16,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,16,4], col="red", lwd=3) 
+
 # HETH
 plot(simHt, predS[,19,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
      xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Hermit Thrush")
 lines(simHt, predS[,19,3], col="forestgreen", lwd=3)
 lines(simHt, predS[,19,4], col="red", lwd=3) 
+
+# HEWA
+plot(simHt, predS[,20,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Hermit Warbler")
+lines(simHt, predS[,20,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,20,4], col="red", lwd=3) 
+
+# MGWA
+plot(simHt, predS[,24,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="MacGillivray's Warbler")
+lines(simHt, predS[,24,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,24,4], col="red", lwd=3) 
+
+# AUWA
+plot(simHt, predS[,3,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Yellow-rumped Warbler")
+lines(simHt, predS[,3,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,3,4], col="red", lwd=3) 
+
+plot(simHt, predS[,4,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Black-backed Woodpecker")
+lines(simHt, predS[,4,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,4,4], col="red", lwd=3) 
+
+plot(simHt, predS[,45,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Western Tanager")
+lines(simHt, predS[,45,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,45,4], col="red", lwd=3) 
+
+plot(simHt, predS[,30,1], col="gray", lwd=3, type="l", lty=1, frame=F, ylim= c(0,1), 
+     xlab="% Large Tree Cover", ylab = "Occupancy probability", main="Olive-sided Flycatcher")
+lines(simHt, predS[,30,3], col="forestgreen", lwd=3)
+lines(simHt, predS[,30,4], col="red", lwd=3) 
+
+
+# z scores
 
 # psi exploration [UNDER CONSTRUCTION] ---------------------------------------------------------
 # not ready to run 

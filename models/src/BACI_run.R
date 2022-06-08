@@ -1,13 +1,7 @@
 load("models/output/BACI_input.RData")
-library(tidyverse)
-library(chron)
+
 library(jagsUI)
 library(coda)
-library(lubridate)
-library(googledrive)
-library(here)
-library(data.table)
-library(reshape2)
 
 # BACI design modified from Cabodevilla et al. 2022
 
@@ -62,7 +56,7 @@ cat("
       
         for (t in 1:nyear) {
       
-          logit(psi[j,t,i]) <- b0[BACI[j,t]+1,i] + bHt[i]*Ht[j] + bCov[i]*Cov[j] +bInt[i]*BACI[j,4]+1*Ht[j] + bYr[i]*t
+          logit(psi[j,t,i]) <- b0[BACI[j,t]+1,i] + bHt[i]*Ht[j] + bCov[i]*Cov[j] + bInt[i]*(BACI[j,4]+1)*Ht[j] + bYr[i]*t
           z[j,t,i] ~ dbern(psi[j,t,i])
           
           for (k in 1:nsurvey) {
@@ -96,11 +90,11 @@ params <- c( # I have to run z, psi, and p individually in separate runs or my c
  # "a0", "aTime", "aDate",
   "b0", "bYr", "bCov", "bHt", "bInt",
   "effect.ba.sp", "Nsite"
- # "z", "psi", "p"
+  #"z"#, "psi", "p"
   )
 
 # initial values
-zst <- apply(y,c(1,3,4),max,na.rm=TRUE)  
+zst <- apply(data$y,c(1,3,4),max,na.rm=TRUE)  
 
 inits <- function(){list(z = zst)} #these are initial values for jags to start looking for estimates
 
@@ -111,3 +105,9 @@ out$overlap0 <- as.factor(out$overlap0)
 write_csv(out, "models/output/BACI_out.csv")
 
 save(BACI_Out, out, data, BACI, siteList, Ht, spp, file = "models/output/BACIdata.RData") # need to git ignore this
+
+BACI_z <- jags(data = data, model.file = "models/jags/BACI_occupancy.txt", inits=inits, parameters.to.save = params, n.chains = 3, n.iter = 10000, n.burnin = 5000, n.thin = 3) 
+
+outz <- as.data.frame(BACI_z$summary[1:15361,]) # check length of summary before saving 
+outz$overlap0 <- as.factor(outz$overlap0)
+write_csv(outz, "models/output/BACI_outz.csv")
