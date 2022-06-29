@@ -573,21 +573,21 @@ canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018,
 canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
 
 Perc_LTg28mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
-for (i in 1:length(canopy_ht_2018_1ha)) Perc_LargeTreeCover_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg28mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
 
 # for year, 2019:
 canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
 canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
 Perc_LTg28mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
-for (i in 1:length(canopy_ht_2019_1ha)) Perc_LargeTreeCover_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
+for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg28mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
 
 # for year, 2020:
 canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
 canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
 
 Perc_LTg28mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
-for (i in 1:length(canopy_ht_2020_1ha)) Perc_LargeTreeCover_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
+for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg28mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
 
 # 4ha
 # foryear, 2018:
@@ -595,21 +595,21 @@ canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018,
 canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
 
 Perc_LTg28mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
-for (i in 1:length(canopy_ht_2018_4ha)) Perc_LargeTreeCover_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
+for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg28mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
 
 # for year, 2019:
 canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
 canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
 Perc_LTg28mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
-for (i in 1:length(canopy_ht_2019_4ha)) Perc_LargeTreeCover_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
+for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg28mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
 
 # for year, 2020:
 canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
 canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
 
 Perc_LTg28mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
-for (i in 1:length(canopy_ht_2020_4ha)) Perc_LargeTreeCover_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
+for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg28mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
 #------------------------------------------------------------
 # hack for 25
 #------------------------------------------------------------
@@ -659,21 +659,21 @@ canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018,
 canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
 
 Perc_LTg25mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
-for (i in 1:length(canopy_ht_2018_1ha)) Perc_LargeTreeCover_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg25mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
 
 # for year, 2019:
 canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
 canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
 Perc_LTg25mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
-for (i in 1:length(canopy_ht_2019_1ha)) Perc_LargeTreeCover_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
+for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg25mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
 
 # for year, 2020:
 canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
 canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
 
 Perc_LTg25mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
-for (i in 1:length(canopy_ht_2020_1ha)) Perc_LargeTreeCover_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
+for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg25mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
 
 # 4ha
 # foryear, 2018:
@@ -681,21 +681,21 @@ canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018,
 canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
 
 Perc_LTg25mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
-for (i in 1:length(canopy_ht_2018_4ha)) Perc_LargeTreeCover_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
+for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg25mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
 
 # for year, 2019:
 canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
 canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
 Perc_LTg25mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
-for (i in 1:length(canopy_ht_2019_4ha)) Perc_LargeTreeCover_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
+for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg25mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
 
 # for year, 2020:
 canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
 canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
 
 Perc_LTg25mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
-for (i in 1:length(canopy_ht_2020_4ha)) Perc_LargeTreeCover_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
+for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg25mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
 
 #------------------------------------------------------------
 # hack for 22
@@ -746,21 +746,21 @@ canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018,
 canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
 
 Perc_LTg22mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
-for (i in 1:length(canopy_ht_2018_1ha)) Perc_LargeTreeCover_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg22mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
 
 # for year, 2019:
 canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
 canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
 Perc_LTg22mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
-for (i in 1:length(canopy_ht_2019_1ha)) Perc_LargeTreeCover_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
+for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg22mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
 
 # for year, 2020:
 canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
 canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
 
 Perc_LTg22mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
-for (i in 1:length(canopy_ht_2020_1ha)) Perc_LargeTreeCover_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
+for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg22mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
 
 # 4ha
 # foryear, 2018:
@@ -768,21 +768,21 @@ canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018,
 canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
 
 Perc_LTg22mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
-for (i in 1:length(canopy_ht_2018_4ha)) Perc_LargeTreeCover_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
+for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg22mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
 
 # for year, 2019:
 canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
 canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
 Perc_LTg22mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
-for (i in 1:length(canopy_ht_2019_4ha)) Perc_LargeTreeCover_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
+for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg22mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
 
 # for year, 2020:
 canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
 canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
 
 Perc_LTg22mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
-for (i in 1:length(canopy_ht_2020_4ha)) Perc_LargeTreeCover_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
+for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg22mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
 
 # [ ] fix hack's later
 
