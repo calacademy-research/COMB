@@ -13,6 +13,7 @@ library(tidyverse)
 library(googledrive) # connect to google drive
 library(purrr)
 library(raster)
+library(rgdal)
 
 # load functions
 source(here("comb_functions.R"))
@@ -133,27 +134,13 @@ LIDAR_int_134 <- projectRaster(LIDAR_int_134, crs = crs(canopy_imgStack))
 LIDAR_int_2 <- projectRaster(LIDAR_int_2, crs = crs(canopy_imgStack))
 LIDAR_int_58 <- projectRaster(LIDAR_int_58, crs = crs(canopy_imgStack))
 
-# fix extent by 'clipping' using extent.
-# set extents to be the max of mins and the mins of maxs so we can stack()
+#check extents
 extent(LIDAR_int_134)
 extent(LIDAR_int_2)
 extent(LIDAR_int_58)
 
-# get extent from 'smallest'
-LIDAR_extent <- extent(LIDAR_int_2)
-LIDAR_int_58 <- raster::stack(LIDAR_files[5:8])
-
-# fix CRS by reprojection
-LIDAR_int_134 <- projectRaster(LIDAR_int_134, crs = crs(canopy_imgStack))
-LIDAR_int_2 <- projectRaster(LIDAR_int_2, crs = crs(canopy_imgStack))
-LIDAR_int_58 <- projectRaster(LIDAR_int_58, crs = crs(canopy_imgStack))
-
 # fix extent by 'clipping' using extent.
 # set extents to be the max of mins and the mins of maxs so we can stack()
-extent(LIDAR_int_134)
-extent(LIDAR_int_2)
-extent(LIDAR_int_58)
-
 # get extent from 'smallest'
 LIDAR_extent <- extent(LIDAR_int_2)
 
@@ -164,17 +151,13 @@ LIDAR_int_134 <- setExtent(LIDAR_int_134, LIDAR_extent, keepres = TRUE)
 LIDAR_int_58 <- crop(LIDAR_int_58, LIDAR_extent)
 LIDAR_int_58 <- setExtent(LIDAR_int_58, LIDAR_extent, keepres = TRUE)
 
-LIDAR_imgStack <- stack(LIDAR_int_134, LIDAR_int_2, LIDAR_int_58)
-# will crop & re-project below
+#stack
+LIDAR_imgStack <- raster::stack(LIDAR_int_134, LIDAR_int_2, LIDAR_int_58)
 
-LIDAR_int_134 <- crop(LIDAR_int_134, LIDAR_extent)
-LIDAR_int_134 <- setExtent(LIDAR_int_134, LIDAR_extent, keepres = TRUE)
+#fix name for layer 2
+names(LIDAR_imgStack)[[4]]<-"Canopy_Rugosity"
 
-LIDAR_int_58 <- crop(LIDAR_int_58, LIDAR_extent)
-LIDAR_int_58 <- setExtent(LIDAR_int_58, LIDAR_extent, keepres = TRUE)
-
-LIDAR_imgStack <- stack(LIDAR_int_134, LIDAR_int_2, LIDAR_int_58)
-# will crop & re-project below
+names(LIDAR_imgStack)
 
 # **Do calculations**
 #

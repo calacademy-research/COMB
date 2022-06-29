@@ -39,7 +39,7 @@ if (dir.exists(here("spatial/output/rasters/")) == F) {
 }
 # run to ensure raster brick is loaded
 drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
-# read raster
+1# read raster
 
 if (exists(x = "canopy_fuel_nbr_dem_RAVG_LIDAR") == F) {
   canopy_fuel_nbr_dem_RAVG_LIDAR <- stack(here("spatial", "output", "rasters", "canopy_fuel_nbr_dem_RAVG_LIDAR.grd"))
@@ -70,6 +70,7 @@ fire_boundary <- sf::read_sf(here("spatial", "input", "shapefiles", "ca387241201
 fire_boundary <- st_transform(fire_boundary, crs(study_area)) # transformed crs
 
 # read in wildlife points
+#[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
 wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included
 names(wild_points) <- c(
   "point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2",
