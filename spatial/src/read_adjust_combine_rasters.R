@@ -224,3 +224,4 @@ drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https:
 # [ ]final drive sync doesn't work:
 # Error in curl::curl_fetch_memory(url, handle = handle) :
 # Error in the HTTP2 framing layer
+

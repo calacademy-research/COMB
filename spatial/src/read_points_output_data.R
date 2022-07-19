@@ -55,6 +55,7 @@ if (exists(x = "canopy_fuel_nbr_dem_RAVG_LIDAR") == F) {
 # -   Sampling points
 # -   wild_points
 # everything to be placed into WGS 84 / UTM zone 10N = crs = 32610
+# [ ] this might be reason for discrepancy see CRS 26910 ???
 #------------------------------------------------------------
 
 # get the data
@@ -84,6 +85,33 @@ wild_points <- st_transform(wild_points, crs(study_area)) # transformed crs
 # are points in the fire boundary area?
 wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, wild_points, sparse = FALSE))
 
+#fix with "plotID_UTM.csv" that is now in the input directory (so running "read_points_output_data.R" creates it)
+plotID_UTM <- read_csv(here("spatial", "input", "shapefiles", "plotID_UTM.csv"))
+
+# plotID_UTM$plotID_av are the bird_points
+# plotID_UTM$plotID_veg are the veg_points
+
+#building a bigger table
+new_wild_points <- left_join(wild_points, plotID_UTM, by = c("point_d" = "plotID_av"), keep = TRUE)
+
+#replace the 87th point (avian # 1072) that has an empty geometry see: 
+# https://gis.stackexchange.com/questions/244756/edit-sf-point-conditionally 
+#scroll all the way down
+
+#fix the 87th point and set the CRS
+new_point <- st_point(c(743246.3, 4287041.4)) %>% 
+  st_sfc(crs = 32610) 
+
+#conditionally replace it
+new_wild_points <- new_wild_points %>% 
+  mutate(geometry = st_sfc(ifelse(new_wild_points$plotID_av==1072, st_geometry(new_point), geometry))) %>%
+  st_set_crs(., crs(new_wild_points))
+
+#could do for all vegetation points (hold off until edited [ ])
+
+#write out fixed shapefile (might not fully work since need other parts to reimport?)
+sf::st_write(new_wild_points, dsn = here("spatial", "input", "shapefiles", "new_wild_points.shp"), append = FALSE)
+
 # make a 'study area' within which to plot
 buffer <- 400
 inner_boundary <- as.vector(extent(canopy_imgStack) + c(buffer, -buffer, buffer, -buffer))
@@ -98,8 +126,8 @@ inner_boundary <- rbind(inner_boundary, c(744000, 4289000))
 
 ## 50 & 100 meter buffer around sampling points = 1 & 4ha plots:
 ## (100m in all four directions from point center, 200m ditto)
-wldf_50 <- wild_points %>% sf::st_buffer(50, endCapStyle = "SQUARE")
-wldf_100 <- wild_points %>% sf::st_buffer(100, endCapStyle = "SQUARE")
+wldf_50 <- new_wild_points %>% sf::st_buffer(50, endCapStyle = "SQUARE")
+wldf_100 <- new_wild_points %>% sf::st_buffer(100, endCapStyle = "SQUARE")
 
 #------------------------------------------------------------
 # -   select these for each radius
@@ -304,7 +332,7 @@ Perc_NtoE_1ha$Binary_NtoE_1ha <- ifelse(Perc_NtoE_1ha$Perc_NtoE_1ha >= 0.5, 1, 0
 # binary at 100
 extract_aspect_bi_4ha <- exactextractr::exact_extract(aspect_bi, wldf_100, c("sum", "count"))
 Perc_NtoE_4ha <- extract_aspect_bi_4ha$sum / extract_aspect_bi_4ha$count
-Perc_NtoE_4ha <- as.data.frame(Perc.NtoE_4ha)
+Perc_NtoE_4ha <- as.data.frame(Perc_NtoE_4ha)
 Perc_NtoE_4ha$Binary_NtoE_2020_4ha <- ifelse(Perc_NtoE_4ha$Perc_NtoE_4ha >= 0.5, 1, 0)
 
 # dput(colnames(Perc.NtoE_1ha)) #add dummy year [change to 2018 for immutable variables]
@@ -325,10 +353,8 @@ wldf_50
 
 wide_forest_variables <- cbind(metadatavars, canopy, fuels, nbr, elevation, aspect_NE)
 
-
-
 #------------------------------------------------------------
-# -   Make clean tall dataset
+# -   Make clean tall dataset [ ] FIX 2022-07-20
 #------------------------------------------------------------
 
 wide_forest_variables %>% # make into a 'long or tall' dataset
@@ -359,6 +385,12 @@ tall_forest_variables %>%
     # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
     values_from = value
   ) -> wide_forest_variables_mean_perc_bin_4ha
+
+#error out ???
+tall_forest_variables %>%
+  dplyr::group_by(point_d, sum_fn, var, Year, scale) %>%
+  dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
+  dplyr::filter(n > 1L) %>% View()
 
 # write_clip(wide_forest_variables_mean_perc_bin_4ha) #[ ] should point directly to output (.csv and equivalent google sheet) [ ] FIX THIS
 
@@ -531,7 +563,7 @@ max_RAVGcbi4_20202021_4ha <- extract_RAVG_var_4ha$max.RAVGrdnbrcbi4_20202021
 # LargeTreeHeightFraction == the fraction of x_ha of CanopyHeight > 28
 # function what % of trees are > cutoff
 Perc_LargeTreeHeight_fn <- function(.canopy_ht, lg_tree_cut = 28) {
-  as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction / length(.canopy_ht$coverage_fraction)
+  (as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction ) / length(.canopy_ht$coverage_fraction)
 }
 
 # hard code each year as function doesn't play nice with different layers at 1x
@@ -724,7 +756,7 @@ Perc_LTg22mHt_2020_4ha <- std_layers[[12]] %>%
 
 # Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >22
 Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 22) {
-  .canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut] / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
+  (.canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut]) / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
 }
 
 # test
