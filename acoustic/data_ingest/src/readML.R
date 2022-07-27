@@ -121,7 +121,7 @@ plan(multisession, workers = 32)
 
 dataML <- future_map_dfr(
   files, 
-  ~ fread(.x, col.names = c("File_ID", "Start_Time", "End_Time", trimws(sixBirdcols$V2)))
+  ~ fread(.x, col.names = c("File_ID", "Start_Time", "End_Time", trimws(sixBirdcols$V3)))
 )
 
 # Add the survey point number where each recording took place ------------------------------------------------------------
@@ -152,10 +152,13 @@ dataML <- dataML %>%
 # Making dataML tall
 dataML.tall <- dataML %>% 
   data.table::melt(
-    measure.vars = sixBirdcols$V2,
+    measure.vars = sixBirdcols$V3,
     variable.name = "species",
     value.name = "logit"
-  )
+  ) %>% 
+  select(Date_Time, point, Start_Time, species, logit)
+
+# Getting rid of logits that are < -3
 
 
 # Save the new table and clean up ------------------------------------------------------------
@@ -169,7 +172,10 @@ if (dir.exists(here("acoustic/data_ingest/output/")) == F) {
  #   group_by(Date_Time) %>%
  #   slice_sample(prop = .01)
 
-fwrite(dataML.tall, here("acoustic/data_ingest/output/dataML_tall.csv"))
+dataML_m1.5 <- dataML %>% 
+  filter(logit > -1.5)
+
+fwrite(dataML_m1.5, here("acoustic/data_ingest/output/tall/dataML.tall_m1.5.csv"))
 
 #########################################
 # to create a subset of data with a given
