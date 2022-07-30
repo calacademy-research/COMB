@@ -31,7 +31,7 @@ source(here("comb_functions.R"))
 # source(here("/spatial/src/read_adjust_combine_rasters.R"))
 # -OR-
 # **Import raster brick** --> ok if already run ^^
-
+# [ ] 2022-07-29 update raster brick with new RnDBR from GEE
 # Creating the folder within inputs that contains the symlinks
 # that point to the output directory
 if (dir.exists(here("spatial/output/rasters/")) == F) {
@@ -59,8 +59,8 @@ if (exists(x = "canopy_fuel_nbr_dem_RAVG_LIDAR") == F) {
 #------------------------------------------------------------
 
 # get the data
-shapedir <- here("spatial", "input", "shapefiles")
-google_file_names <- "https://drive.google.com/drive/folders/15uXx-I1U9cDTzoI0ptNv_wpuDYju_IRv"
+shapedir <- here("spatial", "input", "shapefiles", "Monitoring2022")
+google_file_names <- "https://drive.google.com/drive/folders/1QQUS_Y8CjwPRJaNCG3s4AhZxhDf2WYcb"
 drive_sync(local_dir = shapedir, drive_folder = google_file_names)
 
 # read in study area
@@ -72,43 +72,98 @@ fire_boundary <- st_transform(fire_boundary, crs(study_area)) # transformed crs
 
 # read in wildlife points
 #[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
-wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included
-names(wild_points) <- c(
-  "point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2",
-  "Treatment", "geometry"
-)
+# wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
+# new_wild_points
+
+new_wild_points <- sf::read_sf(here(shapedir, "FinalCaplesMonitoringPlots2022.shp"))
+names(new_wild_points)
+
+# quick checks 
+# are all the points internally consistent
+
+library(tidyverse)
+
+#can pull out the coordinates as regular columns and compare
+new_wild_points %>%
+  dplyr::mutate(UTM_N_ck = sf::st_coordinates(.)[,2],
+                UTM_E_ck = sf::st_coordinates(.)[,1]) %>% 
+  select(UTM_N, UTM_N_ck, UTM_E, UTM_E_ck) -> tmp
+
+#check and sum result should be zero
+!(round(tmp$UTM_N_ck,1) == round(tmp$UTM_N,1)) %>% sum()
+# [1] FALSE no mismatches at 1 decimal place
+rm(tmp)
+
+#are all the new avian points in the old list?
+new_wild_points$Avian_Poin[!new_wild_points$Avian_Poin %in% wild_points$point_d]
+# [1]    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0
+# [21]    0    0    0 1072
+# 1072 is in the new, so that's an improvement
+
+#unique new points not in old list?
+wild_points$point_d[!wild_points$point_d %in% new_wild_points$Avian_Poin]
+# [1] 587
+# this is not a bird point so all AOK
+
+#join in the old metadata ... if possible
+#transfrom CRS
+temp_wild_points <- st_transform(wild_points, crs=st_crs(new_wild_points))
+
+#join (see https://github.com/r-spatial/sf/issues/1177)
+temp_new_wild_points <- left_join(new_wild_points, as.data.frame(temp_wild_points), by=c("Avian_Poin"="point_d"))
+
+#now compare actual coordinates in the geometries .x and .y
+temp_new_wild_points %>%
+  dplyr::mutate(UTM_N_x_ck = sf::st_coordinates(.$geometry.x)[,2],
+                UTM_E_x_ck = sf::st_coordinates(.$geometry.x)[,1],
+                UTM_N_y_ck = sf::st_coordinates(.$geometry.y)[,2],
+                UTM_E_y_ck = sf::st_coordinates(.$geometry.y)[,1]
+                ) %>%
+  select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> tmp
+
+!(round(tmp$UTM_N_x_ck,1) == round(tmp$UTM_N_y_ck,1)) %>% na.omit() %>% sum()
+!(round(tmp$UTM_E_x_ck,1) == round(tmp$UTM_E_y_ck,1)) %>% na.omit() %>% sum()
+#[1] FALSE
+#[1] FALSE
+# all equivalent locations where needed to be
+
+#make into final object
+new_wild_points <- temp_new_wild_points
+rm(temp_new_wild_points,temp_wild_points)
 
 # get the right coordinate reference system & transform
-st_crs(wild_points) <- 26910 # were collected using NAD83 coordinate
-wild_points <- st_transform(wild_points, crs(study_area)) # transformed crs
+st_crs(new_wild_points) # is 26910 # were collected using NAD83 coordinate
+new_wild_points <- st_transform(new_wild_points, crs(study_area)) # transformed crs to WGS84
 
 # are points in the fire boundary area?
-wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, wild_points, sparse = FALSE))
+new_wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, new_wild_points, sparse = FALSE))
 
-#fix with "plotID_UTM.csv" that is now in the input directory (so running "read_points_output_data.R" creates it)
-plotID_UTM <- read_csv(here("spatial", "input", "shapefiles", "plotID_UTM.csv"))
-
-# plotID_UTM$plotID_av are the bird_points
-# plotID_UTM$plotID_veg are the veg_points
-
-#building a bigger table
-new_wild_points <- left_join(wild_points, plotID_UTM, by = c("point_d" = "plotID_av"), keep = TRUE)
-
-#replace the 87th point (avian # 1072) that has an empty geometry see: 
-# https://gis.stackexchange.com/questions/244756/edit-sf-point-conditionally 
-#scroll all the way down
-
-#fix the 87th point and set the CRS
-new_point <- st_point(c(743246.3, 4287041.4)) %>% 
-  st_sfc(crs = 32610) 
-
-#conditionally replace it
-new_wild_points <- new_wild_points %>% 
-  mutate(geometry = st_sfc(ifelse(new_wild_points$plotID_av==1072, st_geometry(new_point), geometry))) %>%
-  st_set_crs(., crs(new_wild_points))
+#lines below deprecated, remove after commit  [ ]
+# #fix with "plotID_UTM.csv" that is now in the input directory (so running "read_points_output_data.R" creates it)
+# plotID_UTM <- read_csv(here("spatial", "input", "shapefiles", "plotID_UTM.csv"))
+# 
+# # plotID_UTM$plotID_av are the bird_points
+# # plotID_UTM$plotID_veg are the veg_points
+# 
+# #building a bigger table
+# new_wild_points <- left_join(wild_points, plotID_UTM, by = c("point_d" = "plotID_av"), keep = TRUE)
+# 
+# #replace the 87th point (avian # 1072) that has an empty geometry see: 
+# # https://gis.stackexchange.com/questions/244756/edit-sf-point-conditionally 
+# #scroll all the way down
+# 
+# #fix the 87th point and set the CRS
+# new_point <- st_point(c(743246.3, 4287041.4)) %>% 
+#   st_sfc(crs = 32610) 
+# 
+# #conditionally replace it
+# new_wild_points <- new_wild_points %>% 
+#   mutate(geometry = st_sfc(ifelse(new_wild_points$plotID_av==1072, st_geometry(new_point), geometry))) %>%
+#   st_set_crs(., crs(new_wild_points))
 
 #could do for all vegetation points (hold off until edited [ ])
 
+#don't remove from here down
 #write out fixed shapefile (might not fully work since need other parts to reimport?)
 sf::st_write(new_wild_points, dsn = here("spatial", "input", "shapefiles", "new_wild_points.shp"), append = FALSE)
 
@@ -154,9 +209,7 @@ dput(colnames(extract_canopy_1ha)) # adjust names [ ] adopt standard naming NEXT
 
 # variable pattern to hand-code for now
 # [ ] fix rasters upstream to mitigate this issue
-colnames(extract_canopy_1ha) <-
-  c(
-    "mean_CanopyBaseHeight_2018_1ha", "mean_CanopyBaseHeight_2019_1ha", "mean_CanopyBaseHeight_2020_1ha",
+colnames(extract_canopy_1ha) <-c("mean_CanopyBaseHeight_2018_1ha", "mean_CanopyBaseHeight_2019_1ha", "mean_CanopyBaseHeight_2020_1ha",
     "mean_CanopyBulkDensity_2018_1ha", "mean_CanopyBulkDensity_2019_1ha", "mean_CanopyBulkDensity_2020_1ha",
     "mean_CanopyLayerCount_2018_1ha", "mean_CanopyLayerCount_2019_1ha", "mean_CanopyLayerCount_2020_1ha",
     "mean_CanopyCover_2018_1ha", "mean_CanopyCover_2019_1ha", "mean_CanopyCover_2020_1ha",
@@ -185,8 +238,7 @@ colnames(extract_canopy_1ha) <-
     "count_CanopyLayerCount_2019_1ha", "count_CanopyLayerCount_2020_1ha", "count_CanopyCover_2018_1ha",
     "count_CanopyCover_2019_1ha", "count_CanopyCover_2020_1ha",
     "count_CanopyHeight_2018_1ha", "count_CanopyHeight_2019_1ha",
-    "count_CanopyHeight_2020_1ha"
-  )
+    "count_CanopyHeight_2020_1ha")
 
 colnames(extract_canopy_4ha) <-
   c(
@@ -343,12 +395,12 @@ colnames(Perc_NtoE_4ha) <- c("Perc_NtoE_2020_4ha", "Binary_NtoE_2020_4ha")
 aspect_NE <- cbind(Perc_NtoE_1ha, Perc_NtoE_4ha)
 
 # get metadata columns
-metadatavars <- wldf_50[, c(1:7, 9)]
+metadatavars <- wldf_50[, c(3:8,10:15,17)]
 st_geometry(metadatavars) <- NULL
 # collate into wide dataset
 # Put all together for 1ha 4ha
 
-# add in a flag if IN or OUT of the BURN perimeter
+# [X] add in a flag if IN or OUT of the BURN perimeter
 wldf_50
 
 wide_forest_variables <- cbind(metadatavars, canopy, fuels, nbr, elevation, aspect_NE)
@@ -357,6 +409,9 @@ wide_forest_variables <- cbind(metadatavars, canopy, fuels, nbr, elevation, aspe
 # -   Make clean tall dataset [ ] FIX 2022-07-20
 #------------------------------------------------------------
 
+#below includes ALL points including veg points without avian data
+#to remove we filter
+#filter(avian_point != 0) %>% #removes vegetation points
 wide_forest_variables %>% # make into a 'long or tall' dataset
   pivot_longer(
     cols = contains("ha"),
@@ -366,42 +421,51 @@ wide_forest_variables %>% # make into a 'long or tall' dataset
     values_to = "value",
     values_drop_na = TRUE
   ) %>%
-  mutate(point_d = as.factor(point_d)) %>%
+  mutate(veg_point = as.factor(CSE_ID)) %>%
+  mutate(avian_point = as.factor(Avian_Poin)) %>%
   # mutate(Treatment=Tretmnt) %>%
   separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
   mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
+  #^original estimate around for legacy purposes and QAQC
   dplyr::select(
-    point_d, sum_fn, var, Year, scale, value,
-    Cpls_Wt, Treatment, Size, Density
+    veg_point, avian_point, sum_fn, var, Year, scale, value,
+    Cpls_Wt, Treatment, Size, Density, in_Caples_burn = inside_fire_boundary
   ) -> tall_forest_variables
 
-NotIn <- function(x, y) !(x %in% y)
-
-tall_forest_variables %>%
-  dplyr::select(point_d, sum_fn, var, Year, scale, value) %>%
-  filter(sum_fn %in% c("max", "mean", "Perc", "Binary"), scale == "4ha", NotIn(var, c("dNBR", "NA"))) %>%
-  pivot_wider(
-    names_from = sum_fn:scale,
-    # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
-    values_from = value
-  ) -> wide_forest_variables_mean_perc_bin_4ha
+#above both tall and wide forest variables have
+#both vegetation and avian points
+# NotIn <- function(x, y) !(x %in% y)
 
 #error out ???
 tall_forest_variables %>%
-  dplyr::group_by(point_d, sum_fn, var, Year, scale) %>%
+  filter(avian_point != 0) %>% #removes vegetation points
+  dplyr::group_by(avian_point, sum_fn, var, Year, scale) %>%
   dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
   dplyr::filter(n > 1L) %>% View()
+#its empty! all good
 
 # write_clip(wide_forest_variables_mean_perc_bin_4ha) #[ ] should point directly to output (.csv and equivalent google sheet) [ ] FIX THIS
 
+#compute 1 and 4ha wide versions for next steps
 tall_forest_variables %>%
-  dplyr::select(point_d, sum_fn, var, Year, scale, value) %>%
+  dplyr::select(veg_point,avian_point, sum_fn, var, Year, scale, value) %>%
+  # filter(avian_point != 0) %>% #removes vegetation points
   filter(sum_fn %in% c("max", "mean", "Perc", "Binary"), scale == "1ha", NotIn(var, c("dNBR", "NA"))) %>%
   pivot_wider(
     names_from = sum_fn:scale,
     # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
     values_from = value
   ) -> wide_forest_variables_mean_perc_bin_1ha
+
+tall_forest_variables %>%
+  dplyr::select(veg_point,avian_point, sum_fn, var, Year, scale, value) %>%
+  # filter(avian_point != 0) %>% #removes vegetation points
+  filter(sum_fn %in% c("max", "mean", "Perc", "Binary"), scale == "4ha", NotIn(var, c("dNBR", "NA"))) %>%
+  pivot_wider(
+    names_from = sum_fn:scale,
+    # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
+    values_from = value
+  ) -> wide_forest_variables_mean_perc_bin_4ha
 
 #------------------------------------------------------------
 # -   conversion of continuous circular data is more complex
@@ -445,18 +509,18 @@ asp_rad_imgStack$aspect[88888] # 3.147309 !
 # extract radian data for points
 extract_rad_asp_100 <- exactextractr::exact_extract(asp_rad_imgStack, wldf_100)
 
-# need to calculate the weighted mean for each value, perhaps do the WM then convert to circular, or just do by hand:
-extract_rad_asp_100[[1]]$value %*% extract_rad_asp_100[[1]]$coverage_fraction / length(extract_rad_asp_100[[1]]$value)
+# need to calculate the weighted mean for each value
+# formula = sum of produce of value * weights == (value %*% weights) / sum(weights)
+# weights are the coverage fraction
+(extract_rad_asp_100[[1]]$value %*% extract_rad_asp_100[[1]]$coverage_fraction) / sum(extract_rad_asp_100[[1]]$coverage_fraction)
 #          [,1]
-# [1,] 4.417106
-# looks great!
+# [,1]
+# [1,] 5.102481
 
 # this can be calculated as follows (test by hand below) already in radians just need circular specs
 circular(weighted.mean(extract_rad_asp_100[[1]]$value, extract_rad_asp_100[[1]]$coverage_fraction), units = "radians", zero = pi / 2, rotation = "clock")
-# [1] 4.875364 -- works so ...
+# [1] 5.102481
 
-# wasn't able to get reasonable numbers out of the
-## circular::weighted.mean() == weighted.mean.circular() function [ ]#worth double checking why
 # make the weighted mean circular function
 wm <- function(.x) {
   circular(stats::weighted.mean(x = .x$value, w = .x$coverage_fraction), units = "radians", zero = pi / 2, rotation = "clock")
@@ -471,8 +535,8 @@ purrr::map(extract_rad_asp_100, wm)[[1]]
 # Modulo = asis
 # Zero = 1.570796
 # Rotation = clock
-# [1] 4.875364
-
+# [1] 5.102481
+# all equal!!!
 # it works!
 
 # use map to do all the weighted means at 1x
@@ -485,7 +549,8 @@ wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha <- wmDirVals_100[,
 # final test
 wide_forest_variables_mean_perc_bin_4ha$mean_aspCirc_2020_4ha[1]
 # structure.4.87536440614317..circularp...list.type....angles...
-#                                                       4.875364
+#                                                       5.102481
+# !nice
 
 extract_rad_asp_50 <- exactextractr::exact_extract(asp_rad_imgStack, wldf_50)
 
@@ -501,7 +566,7 @@ con_circular_deg <- function(rads) {
 } # not used?
 
 con_circular_deg(wide_forest_variables_mean_perc_bin_1ha$mean_aspCirc_2020_1ha)[[1]]
-# [1] 302.508, yay looks good and very close to the median
+# [1] 310.0679, yay looks good and very close to the median
 
 #------------------------------------------------------------
 # Final all-at-once pulling of these variables see
@@ -523,6 +588,8 @@ fixnames <- c(
   "elevation_181920", "RAVGdnbr_2018111820191118"
 )
 #
+# check if got right
+cbind(names(std_layers), fixnames) %>% View()
 # #fix the names
 names(std_layers) <- fixnames
 #
@@ -533,7 +600,7 @@ extract_std_var_4ha <- exactextractr::exact_extract(std_layers, wldf_100, c("mea
 # And add in the
 # special_vars <- c("RAVGdnbr_2018111820191118", LargeTreeHeightFraction","LargeTreeCoverFraction")
 
-# RAVG
+# RAVG for both fires
 RAVG_var <- names(canopy_fuel_nbr_dem_RAVG_LIDAR)[c(37, 46)]
 RAVG_layers <- subset(canopy_fuel_nbr_dem_RAVG_LIDAR, RAVG_var)
 names(RAVG_layers) <- c("RAVGrdnbrcbi4_20182019", "RAVGrdnbrcbi4_20202021")
@@ -563,7 +630,7 @@ max_RAVGcbi4_20202021_4ha <- extract_RAVG_var_4ha$max.RAVGrdnbrcbi4_20202021
 # LargeTreeHeightFraction == the fraction of x_ha of CanopyHeight > 28
 # function what % of trees are > cutoff
 Perc_LargeTreeHeight_fn <- function(.canopy_ht, lg_tree_cut = 28) {
-  (as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction ) / length(.canopy_ht$coverage_fraction)
+  (as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction ) / sum(.canopy_ht$coverage_fraction)
 }
 
 # hard code each year as function doesn't play nice with different layers at 1x
@@ -581,10 +648,10 @@ Perc_LTg28mHt_2019_4ha <- std_layers[[11]] %>%
 Perc_LTg28mHt_2020_4ha <- std_layers[[12]] %>%
   exactextractr::exact_extract(., wldf_100, Perc_LargeTreeHeight_fn, summarize_df = TRUE)
 
-# Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >28
-Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 28) {
-  .canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut] / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
-}
+# # Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >28
+# Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 28) {
+#   .canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut] / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
+# }
 
 # test
 # canopy_ht <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
@@ -600,56 +667,57 @@ Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 28) {
 
 # hardcode for each year 2018:2020
 # [ ] bad practice, having problems with mapX family of fcns for these raster extraction lists
-# for year, 2018:
-canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# # for year, 2018:
+# canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# # Perc_LTg28mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
+# # for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg28mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+# 
+# # for year, 2019:
+# canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
+# canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
 
-Perc_LTg28mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
-for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg28mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+# Perc_LTg28mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
+# for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg28mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
 
-# for year, 2019:
-canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
-canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
-
-Perc_LTg28mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
-for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg28mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
-
-# for year, 2020:
-canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
-canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
-
-Perc_LTg28mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
-for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg28mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
+# # for year, 2020:
+# canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
+# canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
+# 
+# Perc_LTg28mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
+# for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg28mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
 
 # 4ha
 # foryear, 2018:
-canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
-
-Perc_LTg28mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
-for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg28mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
-
-# for year, 2019:
-canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
-canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
-
-Perc_LTg28mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
-for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg28mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
-
-# for year, 2020:
-canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
-canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
-
-Perc_LTg28mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
-for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg28mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
-#------------------------------------------------------------
+# canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# Perc_LTg28mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
+# for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg28mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
+# 
+# # for year, 2019:
+# canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
+# canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
+# 
+# Perc_LTg28mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
+# for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg28mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
+# 
+# # for year, 2020:
+# canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
+# canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
+# 
+# Perc_LTg28mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
+# for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg28mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
+# #------------------------------------------------------------
 # hack for 25
 #------------------------------------------------------------
 # Large trees
 # LargeTreeHeightFraction == the fraction of x_ha of CanopyHeight > 25
 # function what % of trees are > cutoff
+
 Perc_LargeTreeHeight_fn <- function(.canopy_ht, lg_tree_cut = 25) {
-  as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction / length(.canopy_ht$coverage_fraction)
+  (as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction ) / sum(.canopy_ht$coverage_fraction)
 }
 
 # hard code each year as function doesn't play nice with different layers at 1x
@@ -667,10 +735,10 @@ Perc_LTg25mHt_2019_4ha <- std_layers[[11]] %>%
 Perc_LTg25mHt_2020_4ha <- std_layers[[12]] %>%
   exactextractr::exact_extract(., wldf_100, Perc_LargeTreeHeight_fn, summarize_df = TRUE)
 
-# Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >25
-Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 25) {
-  .canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut] / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
-}
+# # Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >25
+# Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 25) {
+#   .canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut] / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
+# }
 
 # test
 # canopy_ht <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
@@ -687,47 +755,47 @@ Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 25) {
 # hardcode for each year 2018:2020
 # [ ] bad practice, having problems with mapX family of fcns for these raster extraction lists
 # for year, 2018:
-canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
-
-Perc_LTg25mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
-for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg25mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
-
-# for year, 2019:
-canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
-canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
-
-Perc_LTg25mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
-for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg25mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
-
-# for year, 2020:
-canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
-canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
-
-Perc_LTg25mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
-for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg25mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
-
-# 4ha
-# foryear, 2018:
-canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
-
-Perc_LTg25mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
-for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg25mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
-
-# for year, 2019:
-canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
-canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
-
-Perc_LTg25mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
-for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg25mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
-
-# for year, 2020:
-canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
-canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
-
-Perc_LTg25mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
-for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg25mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
+# canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# Perc_LTg25mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
+# for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg25mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+# 
+# # for year, 2019:
+# canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
+# canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
+# 
+# Perc_LTg25mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
+# for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg25mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
+# 
+# # for year, 2020:
+# canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
+# canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
+# 
+# Perc_LTg25mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
+# for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg25mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
+# 
+# # 4ha
+# # foryear, 2018:
+# canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# Perc_LTg25mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
+# for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg25mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
+# 
+# # for year, 2019:
+# canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
+# canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
+# 
+# Perc_LTg25mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
+# for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg25mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
+# 
+# # for year, 2020:
+# canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
+# canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
+# 
+# Perc_LTg25mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
+# for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg25mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
 
 #------------------------------------------------------------
 # hack for 22
@@ -736,7 +804,7 @@ for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg25mCv_2020_4ha[i] <- Perc_LargeT
 # LargeTreeHeightFraction == the fraction of x_ha of CanopyHeight > 22
 # function what % of trees are > cutoff
 Perc_LargeTreeHeight_fn <- function(.canopy_ht, lg_tree_cut = 21) {
-  as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction / length(.canopy_ht$coverage_fraction)
+  (as.numeric(.canopy_ht$value >= lg_tree_cut) %*% .canopy_ht$coverage_fraction ) / sum(.canopy_ht$coverage_fraction)
 }
 
 # hard code each year as function doesn't play nice with different layers at 1x
@@ -754,68 +822,68 @@ Perc_LTg22mHt_2019_4ha <- std_layers[[11]] %>%
 Perc_LTg22mHt_2020_4ha <- std_layers[[12]] %>%
   exactextractr::exact_extract(., wldf_100, Perc_LargeTreeHeight_fn, summarize_df = TRUE)
 
-# Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >22
-Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 22) {
-  (.canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut]) / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
-}
-
-# test
-# canopy_ht <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-# canopy_cov <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
-
-# works OK for the 'by hand' function on parallel elements of two lists
-# canopy_cov[[3]]$value[canopy_ht[[3]]$value >= 22]%*%canopy_cov[[3]]$coverage_fraction[canopy_ht[[3]]$value >= 22]/length(canopy_cov[[3]]$coverage_fraction[canopy_ht[[3]]$value >= 22])
-# equivalent to function
-# LargeTreeCoverFraction(canopy_ht[[3]], canopy_cov[[3]])
-
-# [ ] not sure why map function doesn't work, fix later
-# purrr::map2_chr(.x = canopy_ht, .y = canopy_cov, .f = LargeTreeCoverFraction(.canopy_ht = .canopy_ht, .canopy_cov = .canopy_cov))
-
-# hardcode for each year 2018:2020
-# [ ] bad practice, having problems with mapX family of fcns for these raster extraction lists
-# for year, 2018:
-canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
-
-Perc_LTg22mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
-for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg22mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
-
-# for year, 2019:
-canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
-canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
-
-Perc_LTg22mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
-for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg22mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
-
-# for year, 2020:
-canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
-canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
-
-Perc_LTg22mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
-for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg22mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
-
-# 4ha
-# foryear, 2018:
-canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
-canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
-
-Perc_LTg22mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
-for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg22mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
-
-# for year, 2019:
-canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
-canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
-
-Perc_LTg22mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
-for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg22mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
-
-# for year, 2020:
-canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
-canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
-
-Perc_LTg22mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
-for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg22mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
-
+# # Perc_LargeTreeCover == Actual canopy cover of pixels where CanopyHeight >22
+# Perc_LargeTreeCover <- function(.canopy_ht, .canopy_cov, lg_tree_cut = 22) {
+#   (.canopy_cov$value[.canopy_ht$value >= lg_tree_cut] %*% .canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut]) / length(.canopy_cov$coverage_fraction[.canopy_ht$value >= lg_tree_cut])
+# }
+# 
+# # test
+# # canopy_ht <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# # canopy_cov <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# # works OK for the 'by hand' function on parallel elements of two lists
+# # canopy_cov[[3]]$value[canopy_ht[[3]]$value >= 22]%*%canopy_cov[[3]]$coverage_fraction[canopy_ht[[3]]$value >= 22]/length(canopy_cov[[3]]$coverage_fraction[canopy_ht[[3]]$value >= 22])
+# # equivalent to function
+# # LargeTreeCoverFraction(canopy_ht[[3]], canopy_cov[[3]])
+# 
+# # [ ] not sure why map function doesn't work, fix later
+# # purrr::map2_chr(.x = canopy_ht, .y = canopy_cov, .f = LargeTreeCoverFraction(.canopy_ht = .canopy_ht, .canopy_cov = .canopy_cov))
+# 
+# # hardcode for each year 2018:2020
+# # [ ] bad practice, having problems with mapX family of fcns for these raster extraction lists
+# # for year, 2018:
+# canopy_ht_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# canopy_cov_2018_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# Perc_LTg22mCv_2018_1ha <- 1:length(canopy_ht_2018_1ha)
+# for (i in 1:length(canopy_ht_2018_1ha)) Perc_LTg22mCv_2018_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_1ha[[i]], canopy_cov_2018_1ha[[i]])
+# 
+# # for year, 2019:
+# canopy_ht_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
+# canopy_cov_2019_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
+# 
+# Perc_LTg22mCv_2019_1ha <- 1:length(canopy_ht_2019_1ha)
+# for (i in 1:length(canopy_ht_2019_1ha)) Perc_LTg22mCv_2019_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_1ha[[i]], canopy_cov_2019_1ha[[i]])
+# 
+# # for year, 2020:
+# canopy_ht_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
+# canopy_cov_2020_1ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
+# 
+# Perc_LTg22mCv_2020_1ha <- 1:length(canopy_ht_2020_1ha)
+# for (i in 1:length(canopy_ht_2020_1ha)) Perc_LTg22mCv_2020_1ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_1ha[[i]], canopy_cov_2020_1ha[[i]])
+# 
+# # 4ha
+# # foryear, 2018:
+# canopy_ht_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2018, wldf_50)
+# canopy_cov_2018_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2018, wldf_50)
+# 
+# Perc_LTg22mCv_2018_4ha <- 1:length(canopy_ht_2018_4ha)
+# for (i in 1:length(canopy_ht_2018_4ha)) Perc_LTg22mCv_2018_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2018_4ha[[i]], canopy_cov_2018_4ha[[i]])
+# 
+# # for year, 2019:
+# canopy_ht_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2019, wldf_50)
+# canopy_cov_2019_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2019, wldf_50)
+# 
+# Perc_LTg22mCv_2019_4ha <- 1:length(canopy_ht_2019_4ha)
+# for (i in 1:length(canopy_ht_2019_4ha)) Perc_LTg22mCv_2019_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2019_4ha[[i]], canopy_cov_2019_4ha[[i]])
+# 
+# # for year, 2020:
+# canopy_ht_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyHeight_2020, wldf_50)
+# canopy_cov_2020_4ha <- exactextractr::exact_extract(std_layers$CanopyCover_2020, wldf_50)
+# 
+# Perc_LTg22mCv_2020_4ha <- 1:length(canopy_ht_2020_4ha)
+# for (i in 1:length(canopy_ht_2020_4ha)) Perc_LTg22mCv_2020_4ha[i] <- Perc_LargeTreeCover(canopy_ht_2020_4ha[[i]], canopy_cov_2020_4ha[[i]])
+# 
 # [ ] fix hack's later
 
 #------------------------------------------------------------
@@ -835,21 +903,21 @@ wide1havars <- cbind(
   Perc_LTg28mHt_2018_1ha,
   Perc_LTg28mHt_2019_1ha,
   Perc_LTg28mHt_2020_1ha,
-  Perc_LTg28mCv_2018_1ha,
-  Perc_LTg28mCv_2019_1ha,
-  Perc_LTg28mCv_2020_1ha,
+  # Perc_LTg28mCv_2018_1ha,
+  # Perc_LTg28mCv_2019_1ha,
+  # Perc_LTg28mCv_2020_1ha,
   Perc_LTg25mHt_2018_1ha,
   Perc_LTg25mHt_2019_1ha,
   Perc_LTg25mHt_2020_1ha,
-  Perc_LTg25mCv_2018_1ha,
-  Perc_LTg25mCv_2019_1ha,
-  Perc_LTg25mCv_2020_1ha,
+  # Perc_LTg25mCv_2018_1ha,
+  # Perc_LTg25mCv_2019_1ha,
+  # Perc_LTg25mCv_2020_1ha,
   Perc_LTg22mHt_2018_1ha,
   Perc_LTg22mHt_2019_1ha,
-  Perc_LTg22mHt_2020_1ha,
-  Perc_LTg22mCv_2018_1ha,
-  Perc_LTg22mCv_2019_1ha,
-  Perc_LTg22mCv_2020_1ha
+  Perc_LTg22mHt_2020_1ha #,
+  # Perc_LTg22mCv_2018_1ha,
+  # Perc_LTg22mCv_2019_1ha,
+  # Perc_LTg22mCv_2020_1ha
 )
 
 wide4havars <- cbind(
@@ -863,32 +931,37 @@ wide4havars <- cbind(
   Perc_LTg28mHt_2018_4ha,
   Perc_LTg28mHt_2019_4ha,
   Perc_LTg28mHt_2020_4ha,
-  Perc_LTg28mCv_2018_4ha,
-  Perc_LTg28mCv_2019_4ha,
-  Perc_LTg28mCv_2020_4ha,
+  # Perc_LTg28mCv_2018_4ha,
+  # Perc_LTg28mCv_2019_4ha,
+  # Perc_LTg28mCv_2020_4ha,
   Perc_LTg25mHt_2018_4ha,
   Perc_LTg25mHt_2019_4ha,
   Perc_LTg25mHt_2020_4ha,
-  Perc_LTg25mCv_2018_4ha,
-  Perc_LTg25mCv_2019_4ha,
-  Perc_LTg25mCv_2020_4ha,
+  # Perc_LTg25mCv_2018_4ha,
+  # Perc_LTg25mCv_2019_4ha,
+  # Perc_LTg25mCv_2020_4ha,
   Perc_LTg22mHt_2018_4ha,
   Perc_LTg22mHt_2019_4ha,
-  Perc_LTg22mHt_2020_4ha,
-  Perc_LTg22mCv_2018_4ha,
-  Perc_LTg22mCv_2019_4ha,
-  Perc_LTg22mCv_2020_4ha
+  Perc_LTg22mHt_2020_4ha #,
+  # Perc_LTg22mCv_2018_4ha,
+  # Perc_LTg22mCv_2019_4ha,
+  # Perc_LTg22mCv_2020_4ha
 )
 
 #------------------------------------------------------------
 # Make final objects tall for analysis
 #------------------------------------------------------------
 
+
 # make into a 'long or tall' dataset, 1ha
 metadatavars %>%
-  mutate(point_d = as.factor(point_d)) %>%
+  filter(Avian_Poin > 0) %>% 
+  mutate(veg_point = as.factor(CSE_ID)) %>% 
+  mutate(avian_point = as.factor(Avian_Poin)) %>%  
+  separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>% 
+  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>% 
   left_join(., wide1havars) %>%
-  pivot_longer(
+    pivot_longer(
     cols = contains("ha"),
     names_to = c("sum_fn", "var", "Year", "scale"),
     # min.Elevation_NA_4ha
@@ -896,17 +969,19 @@ metadatavars %>%
     names_pattern = "(.*)_(.*)_(.*)_(.*)",
     values_to = "value",
     values_drop_na = TRUE
-  ) %>%
-  # mutate(point_d=as.factor(point_d)) %>%
-  # mutate(Treatment=Tretmnt) %>%
-  separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
-  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
-  dplyr::select(point_d, sum_fn, var, Year, scale, value, Cpls_Wt, Treatment, Size, Density, inside_fire_boundary) -> tall_forest_variables_1ha
+  ) %>% 
+  dplyr::select(
+  veg_point, avian_point, sum_fn, var, Year, scale, value,
+  Cpls_Wt, Treatment, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_1ha
 
 # make into a 'long or tall' dataset, 4ha
 metadatavars %>%
-  mutate(point_d = as.factor(point_d)) %>%
-  left_join(., wide4havars) %>% # make into a 'long or tall' dataset
+  filter(Avian_Poin > 0) %>% 
+  mutate(veg_point = as.factor(CSE_ID)) %>% 
+  mutate(avian_point = as.factor(Avian_Poin)) %>%  
+  separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>% 
+  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>% 
+  left_join(., wide4havars) %>%
   pivot_longer(
     cols = contains("ha"),
     names_to = c("sum_fn", "var", "Year", "scale"),
@@ -915,12 +990,10 @@ metadatavars %>%
     names_pattern = "(.*)_(.*)_(.*)_(.*)",
     values_to = "value",
     values_drop_na = TRUE
-  ) %>%
-  # mutate(point_d=as.factor(point_d)) %>%
-  # mutate(Treatment=Tretmnt) %>%
-  separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
-  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
-  dplyr::select(point_d, sum_fn, var, Year, scale, value, Cpls_Wt, Treatment, Size, Density, inside_fire_boundary) -> tall_forest_variables_4ha
+  ) %>% 
+  dplyr::select(
+    veg_point, avian_point, sum_fn, var, Year, scale, value,
+    Cpls_Wt, Treatment, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_4ha
 
 #------------------------------------------------------------
 # output of wide & tall forest variables

@@ -192,7 +192,7 @@ wide1havars %>%
   ylab("Change in surface fuel (2020-2018)") +
   facet_wrap(~RAVG) 
 
-  # , aes(deltacov, color=mean_RAVGcbi4_20182019_4ha)) +
+  # , aes(deltacov, c/olor=mean_RAVGcbi4_20182019_4ha)) +
   # geom_point(size=mean_RAVGcbi4_20182019_4ha+2) +
   # xlim(0, .5) +
   # ylim(0, .5) +
