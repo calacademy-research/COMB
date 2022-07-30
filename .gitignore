@@ -58,3 +58,7 @@ output/
 #notebook renderings
 *.html
 *.pdf
+
+#
+.DS_Store
+spatial/.DS_Store
