@@ -1027,5 +1027,5 @@ tallvars_filename <- paste0("tallvars", ".csv")
 fwrite(tall_forest_variables, here("spatial", "output", "tables", tallvars_filename))
 
 # sync up to Google drive, if not already, 'sunk' :)
-drive_sync(here("spatial", "output", "tables"), drive_folder = as_id(drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV"))[1])
+drive_sync(here("spatial", "output", "tables"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")[[1]])
 # currently ^ not working for upload, [ ]?'
