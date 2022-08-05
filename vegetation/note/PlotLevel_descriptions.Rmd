@@ -1,0 +1,1432 @@
+---
+title: "Plot Level Vegetation Change"
+author: "sjj"
+date: "7/23/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(out.extra = '', eval = TRUE, echo = TRUE)
+opts <- options(knitr.kable.NA="")
+
+
+library(tidyverse)
+library(gridExtra)
+library(cowplot)
+library(patchwork)
+library(kableExtra)
+library(here)
+library(googledrive)
+
+#fix syncing stuff
+# drive_ls(as_id("https://drive.google.com/drive/folders/1U7okWTl_JwLEdXlT1rXJkFWJAJSop5EG"))
+# 
+# drive_sync(here("vegetation","note"), drive_folder = as_id(drive_ls("https://drive.google.com/drive/folders/1U7okWTl_JwLEdXlT1rXJkFWJAJSop5EG")$id))
+# 
+# # drive_ls("https://drive.google.com/drive/folders/1U7okWTl_JwLEdXlT1rXJkFWJAJSop5EG?usp=sharing")$id[2][1])
+
+testData <- read_csv(here("vegetation","input","Caples_PlotData_20220225.csv"),col_types = "nnnccnnnccncnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn")
+colnames(testData)[2] <- "plotID_veg"
+
+# add avian plot numbers
+avianID <- read_csv(here("vegetation","input", "identifiersLookup.csv"))
+#colnames(avianID) <- c("point_d","CSE_ID")
+testData <- left_join(testData, avianID, by = "plotID_veg")
+colnames(testData)[119] <- "point_d"
+
+# add converted coordinates (now in decimal degrees lat/long)
+# convertedDD <- read_csv("../Caples Project/eastingNorthing_converted.csv")
+# colnames(convertedDD) <- c("point_d","Zone", "Easting","Northing","UnitOfMeasure","Northing Easting Interpreted", "Latitude", "Longitude","lat1","lat2","lng1","lng2")
+# testData <- left_join(testData, convertedDD[,c(1,7:12)], by = "point_d")
+
+# make sure columns are coded correctly
+testData <- testData %>% 
+  mutate(Total_Live_Shrub_Ht = replace(Total_Live_Shrub_Ht, Total_Live_Shrub_Ht == "999", NA)) %>%
+  mutate(Live_Shrub_Tall_Height = replace(Live_Shrub_Tall_Height, Live_Shrub_Tall_Height == "999", NA)) %>%
+  mutate(Live_Shrub_Medium_Height = replace(Live_Shrub_Medium_Height, Live_Shrub_Medium_Height == "999", NA)) %>%
+  mutate(Live_Shrub_Low_Height = replace(Live_Shrub_Low_Height, Live_Shrub_Low_Height == "999", NA)) %>%
+  mutate(Herb_Ht = replace(Herb_Ht, Herb_Ht == "999", NA)) %>%
+  mutate(Gram_Ht = replace(Gram_Ht, Gram_Ht == "999", NA)) %>%
+  mutate(Caples_Severity_Class = replace(Caples_Severity_Class, Caples_Severity_Class == "Unburned" & Caples_Perim == "Y", "Unburned_In")) %>%
+  mutate(Caples_Severity_Class = replace(Caples_Severity_Class, Caples_Severity_Class == "Unburned" & Caples_Perim == "N", "Unburned_Out"))
+
+```
+
+There are two types of plots in this document - scatterplots and barcharts. The *scatterplots* depict the difference in the variable before and after the burn treatment. Each plot is represented by a point. The black line at zero represents no change in the variable between pre-treatment and post-treatment; points that fall above the line indicate a gain and points that fall below the line indicate a loss.
+
+The *barcharts* illustrate the relative gain and loss of a variable before and after the burn treatment.
+
+
+## HORIZONTAL view ... how does the plot change from an on-the-ground perspective.
+Considering a position within the plot looking at the vegetation, the height of trees (at various size classes), shrubs (at different heights), and sizes and decay class of coarse woody debris can describe the vegetative composition of the plot.  
+
+The following plots describe overall change, and change broken down by size classes, of each of these components:  
+
+* Trees and Snags - how do the quantities of these change, for multiple size classes, pre- and post-fire
+* Shrubs - how does the quanity of shrubs at various heights change, pre- and post-fire
+* Density of Coarse Woody Debris - how does the density of both rotten and soft CWD, at different size classes, change pre- and post-fire
+
+
+***
+
+### Tree and Snag Height
+
+```{r TreeHeight, echo=FALSE, warning=FALSE, message=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = Total_Tree_Ht[Treatment_Interval == "Post-Caples"] - Total_Tree_Ht[Treatment_Interval == "Pre-Caples"]) %>%  
+  select(plotID_veg, Treatment_Interval, Total_Tree_Ht, diff, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60,size = 3)) +
+  xlab("plot ID") +
+  ylab("difference") +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Total Tree Height between Pre- and Post- treatment visits")
+
+```
+  
+At all plots we see both a loss and gain of tree height.  
+
+### Trees (left) and Snags (right) per plot
+
+```{r Trees_Snags_PerPlot, fig.show="hold", echo=FALSE, warning=FALSE, message=FALSE, out.width="45%"}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = TPH[Treatment_Interval == "Post-Caples"]/24.71 - TPH[Treatment_Interval == "Pre-Caples"]/24.71) %>%
+  select(plotID_veg, Treatment_Interval, TPH, diff, Caples_Severity_Class, Elevation, Easting, Northing) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 3),
+        axis.title.x = element_blank(),
+        #axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank()) +
+  theme(legend.position = 'none') +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Trees per hectare (TPH) Pre- and Post- treatment visits")
+
+
+
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = SnagsPH[Treatment_Interval == "Post-Caples"]/24.71 - SnagsPH[Treatment_Interval == "Pre-Caples"]/24.71) %>%
+  select(plotID_veg, Treatment_Interval, SnagsPH, diff, Caples_Severity_Class, Elevation, Easting, Northing) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 3),
+        axis.title.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank()) +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Snags per hectare (TPH) Pre- and Post- treatment visits")
+
+
+
+```
+  
+We generally see a loss of trees in burned plots, with some sites in the low burn severity having no change. Unburned plots are largely no change or experienced a loss of trees. We occasionally see a gain of trees in the unburned plots. We see a similar, but opposite trend across snags. There is a general increase in snags at each plot, across burn severity, with a few instances of "No Change" in the moderate and low burn severity plots.  
+  
+Next, we plot the change in trees and snags at each plot, distinguishing among different size classes.  
+
+```{r TPH_SNAG_bySizeClass_RelativeChange, warning = FALSE, fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+
+TPHdata <- testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(biggest = TPHMore78.7/24.71) %>%
+  mutate(sixty = TPH61.0to78.7/24.71) %>%
+  mutate(forty = TPH40.6to61.0/24.71) %>%
+  mutate(twenty = TPH20.3to40.6/24.71) %>%
+  mutate(smallest = TPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:3), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, Caples_Severity_Class, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
+
+Snagdata <- testData %>%
+  filter(Veg_Type != "RFR") %>%  
+  group_by(plotID_veg) %>%
+  mutate(biggest = SnagsPHMore78.7/24.71) %>%
+  mutate(sixty = SnagsPH61.0to78.7/24.71) %>%
+  mutate(forty = SnagsPH40.6to61.0/24.71) %>%
+  mutate(twenty = SnagsPH20.3to40.6/24.71) %>%
+  mutate(smallest = SnagsPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:3), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, Caples_Severity_Class, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
+
+TPHdata$gID <- rep("TPH", nrow(TPHdata))
+Snagdata$gID <- rep("Snag", nrow(Snagdata))
+combinedData <- rbind(TPHdata, Snagdata)
+
+fct1<- levels(fct_reorder(as.factor(TPHdata$plotID_veg), TPHdata$Caples_Severity_Class))
+fct2 <- levels(factor(combinedData$TPH_Snags, levels = c("biggest", "sixty","forty","twenty","smallest")))
+fct3 <- levels(factor(combinedData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
+facetLabels <- c(biggest = "More than \n78.7", 
+                 sixty = "Between 61 \nand 78.7", 
+                 forty = "Between 40.6 and 61", 
+                 twenty = "Between 20.3 and 40.6", 
+                 smallest = "Less than 20.3",
+                 Mod = "Moderate burn severity",
+                 Low = "Low burn severity",
+                 High = "High burn severity",
+                 Unburned_Out = "Unburned - out",
+                 Unburned_In = "Unburned - in")
+
+#fct_reorder(as.factor(plotID_veg), Caples_Severity_Class)
+plot1 <- ggplot(combinedData) +
+  geom_bar(data = combinedData,
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_orig, 
+               group = factor(gID, levels = c("TPH","Snag")), 
+               fill = factor(gID, levels = c("TPH","Snag"))),
+           stat = 'identity', width = 0.75,
+           position = 'dodge', alpha = 0.5) +
+  geom_bar(data = combinedData,
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_after, 
+               group = factor(gID, levels = c("TPH","Snag")), 
+               fill = factor(gID, levels = c("TPH","Snag"))),
+           stat = 'identity', color = 'darkgrey', width = 0.75,
+           position = 'dodge', alpha = 0.95)  +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 6),
+        legend.title = element_blank(),
+        panel.grid = element_blank()) +
+  facet_grid(rows = vars(factor(combinedData$TPH_Snags, levels = fct2)),
+             cols = vars(factor(combinedData$Caples_Severity_Class, levels = fct3)),
+             labeller = as_labeller(facetLabels),
+             scales = "free", space = "free") +
+  xlab("Plot ID") +
+  ylab("Count") +
+  theme(strip.text = element_text(size = 5, color = "dark blue")) +
+  ggtitle("Change in Trees & Snags per hectare (TPH) Pre- and Post- treatment visits")
+
+
+plot1
+
+```
+  
+**Small size classes (<= 40.6):**  
+Here we find that the majority of tree loss was experienced in the smallest size classes (light pink shading (measure before treatment), relative to darker pink (measure after treatment)) and in the plots that burned (High, Moderate, and Low burn severity). This was generally accompanied by an increase in snags of the smallest size classes in these same plots (light blue shading (measure before treatment) relative to darker blue shading (after treatment)), suggesting a replacement of living, small diameter trees with snags of the same size. There was a general loss of smaller size class trees across plots that did not burn, but this was not always accompanied by a gain of snags  
+
+**Larger size classes (>= 40.6 cm diameter):**  
+In the larger size classes we see both losses of larger trees or no change at plots that burned. We see a similar pattern in the presence of snags; occasional loss of snags in plots that burned, as well as no apparent change in the number of larger snags at some plots. There was a general loss of larger sized trees across plots that did not burn.  
+  
+With this data we can see that larger trees appear to be less susceptible to, though not completely unaffected by, burning (with the exception of the one plot (#28) that experienced high burn severity and apparently lost all standing trees and snags, and plot #4 that lost all living trees). Fewer larger diameter trees were lost in plots that burned.   
+
+***  
+
+
+### Shrub Height
+
+```{r ShrubHeight, echo=FALSE, warning=FALSE, message=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = Total_Live_Shrub_Ht[Treatment_Interval == "Post-Caples"] - Total_Live_Shrub_Ht[Treatment_Interval == "Pre-Caples"]) %>%  
+  select(plotID_veg, Treatment_Interval, Total_Live_Shrub_Ht, diff, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60,size = 3)) +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Total Shrub Height between Pre- and Post- treatment visits")
+
+```
+  
+At most plots we see no extraordinary loss or gain of shrub height, aside from gains and losses at three plots (one in low burn severity, and two from unburned plots outside of the treatment area).  
+
+
+Next, we plot the change in shrubs at one of three height designations at each plot.  
+
+```{r ShrubHeight_bySizeClass_relativeChange, warning=FALSE, message=FALSE, error=FALSE, out.width="100%", echo=FALSE}
+
+shrubData <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(plotID_veg != "21" & plotID_veg != "133" & plotID_veg != "104" & plotID_veg != "130") %>% 
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        Live_Shrub_Tall_Height,Live_Shrub_Medium_Height,Live_Shrub_Low_Height) %>%
+  pivot_longer(-c(1:3), names_to = "Shrubs", values_to = "value") %>% 
+  group_by(plotID_veg, Caples_Severity_Class, Shrubs) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
+  
+fct1<- levels(fct_reorder(as.factor(shrubData$plotID_veg), shrubData$Caples_Severity_Class))
+fct2 <- levels(factor(shrubData$Shrubs, levels = c("Live_Shrub_Tall_Height", "Live_Shrub_Medium_Height","Live_Shrub_Low_Height")))
+fct3 <- levels(factor(shrubData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
+facetLabels <- c(Live_Shrub_Tall_Height = "Tall shrubs \n(>1.8m)", 
+                 Live_Shrub_Medium_Height = "Medium shrubs \n(0.5-1.8m)", 
+                 Live_Shrub_Low_Height = "Low \nshrubs \n(<0.5m)", 
+                 Mod = "Moderate burn severity",
+                 Low = "Low burn severity",
+                 High = "High burn severity",
+                 Unburned_Out = "Unburned - out",
+                 Unburned_In = "Unburned - in")
+  
+  ggplot(shrubData) +
+  geom_bar(
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_orig),
+           stat = 'identity', width = 0.75,
+           position = 'dodge', alpha = 0.5, size = 0.05) +
+  geom_bar(
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_after), 
+           stat = 'identity', color = 'dark grey', width = 0.75, fill = 'black',
+           position = 'dodge', alpha = 0.75, size = 0.05) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 4),
+        axis.text.y = element_text(size = 6),
+        legend.title = element_blank(),
+        panel.grid = element_blank()) +
+  facet_grid(rows = vars(factor(shrubData$Shrubs, levels = fct2)),
+             cols = vars(factor(shrubData$Caples_Severity_Class, levels = fct3)),
+             labeller = as_labeller(facetLabels),
+             scales = "free", space = "free") +
+  xlab("Plot ID") +
+  ylab("Count") +
+  theme(strip.text = element_text(size = 5, color = "dark blue"))
+
+
+```
+  
+We see a general loss of shrubs at plots that burned, with almost complete loss of medium and taller shrubs in plots that burned at moderate and high severity. In these moderate and high burn plots there are a few examples of gains in shrubs - they happen at the low shrub height class, in the moderate intensity burn plots (#20 and #65). Low burn severity plots experienced both loss and gain of shrubs at medium and low height, similar to that seen in the unburned plots.  
+
+***
+
+
+### Coarse Woody Debris
+
+```{r CWDDens, warning = FALSE, message=FALSE, echo=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff2 = CWDdensity_ha_all[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_ha_all[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  select(plotID_veg, Treatment_Interval, CWDvol_ha_all, CWDdensity_ha_all, diff2, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg))) + 
+  geom_point(aes(y = diff2, color = Caples_Severity_Class), pch = 20, size = 2) +
+  scale_color_manual(name = "Burn severity", values = c("#F8766D", "#7CAE00", "#00BFC4", "#C77CFF", "#e76bf3")) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 3),
+        axis.title.x = element_blank(),
+        #axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank()) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned")))
+```
+  
+We see a general loss of coarse woody debris across all sites that burned and both loss and gain of CWD at unburned sites.  
+  
+Broken down by size classes ...  
+
+```{r relativeChangeCWDdensity, warning = FALSE, message=FALSE, echo=FALSE, out.width="100%"}
+
+cwdData <- testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(CWDdensity_3to12_R = CWDdensity_3to12_R/24.7) %>%
+  mutate(CWDdensity_3to12_S = CWDdensity_3to12_S/24.7) %>%
+  mutate(CWDdensity_12to24_R = CWDdensity_12to24_R/24.7) %>%
+  mutate(CWDdensity_12to24_S = CWDdensity_12to24_S/24.7) %>%
+  mutate(CWDdensity_24plus_R = CWDdensity_24plus_R/24.7) %>%
+  mutate(CWDdensity_24plus_S = CWDdensity_24plus_S/24.7) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        CWDdensity_3to12_R,CWDdensity_3to12_S,CWDdensity_12to24_R,CWDdensity_12to24_S,CWDdensity_24plus_R,CWDdensity_24plus_S) %>%
+  pivot_longer(-c(1:3)) %>%
+  group_by(plotID_veg, Caples_Severity_Class, name) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
+
+fct1<- levels(fct_reorder(as.factor(cwdData$plotID_veg), cwdData$Caples_Severity_Class))
+fct2 <- levels(factor(cwdData$name, levels = c("CWDdensity_24plus_R","CWDdensity_24plus_S","CWDdensity_12to24_R", "CWDdensity_12to24_S","CWDdensity_3to12_R", "CWDdensity_3to12_S")))
+fct3 <- levels(factor(cwdData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
+facetLabels <- c(CWDdensity_3to12_R = "Rotten 3 to 12", 
+                 CWDdensity_3to12_S = "Soft 3 to 12", 
+                 CWDdensity_12to24_R = "Rotten \n12 to 24",
+                 CWDdensity_12to24_S = "Soft 12 to 24",
+                 CWDdensity_24plus_R = "Rotten \n24+",
+                 CWDdensity_24plus_S = "Soft 24+",
+                 Mod = "Moderate burn severity",
+                 Low = "Low burn severity",
+                 High = "High burn severity",
+                 Unburned_Out = "Unburned - out",
+                 Unburned_In = "Unburned - in")
+
+  ggplot(cwdData) +
+  geom_bar(
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_orig),
+           stat = 'identity', width = 0.75,
+           position = 'dodge', alpha = 0.5, size = 0.05) +
+  geom_bar(
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_after), 
+           stat = 'identity', color = 'dark grey', width = 0.75, fill = 'black',
+           position = 'dodge', alpha = 0.75, size = 0.05) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 4),
+        axis.text.y = element_text(size = 6),
+        legend.title = element_blank(),
+        panel.grid = element_blank()) +
+  facet_grid(rows = vars(factor(cwdData$name, levels = fct2)),
+             cols = vars(factor(cwdData$Caples_Severity_Class, levels = fct3)),
+             labeller = as_labeller(facetLabels),
+             scales = "free", space = "free") +
+  xlab("Plot ID") +
+  ylab("Count") +
+  theme(strip.text = element_text(size = 5, color = "dark blue"))
+
+```
+  
+We generally see a loss of CWD at all sites that burn, as well as some of the unburned sites. There are occasional gains of rotten debris in the same size class that experienced loss of soft debris. For example, plot 7 (moderate burn), size class 3 to 12 loses a quantity of soft debris and gains a quantity of rotten debris. This is also seen in plot 84 (unburned-out), size class 3 to 12, but not all gains/losses fit into this type of scenario. Its unlikely (?) that the same pieces of debris were measured from one year to the next, so I'm not sure this is even worth noting.  
+
+***  
+
+## BIRDS-EYE view ... how does the plot change from a cover perspective.  
+Considering a position above the plot looking down, the cover of living vegetation, tree cover, and shrub cover (at various size classes) can describe the  composition of the plot.  
+
+The following plots describe overall change, and change broken down by size classes (in shrubs only), of each of these components:  
+
+* Total Live veg cover - how does coverage change pre- and post-fire
+* Total tree cover - how does coverage change pre- and post-fire
+* Total live shrub cover - how does it change, broken down by two size classes
+* Total herb cover
+
+***
+
+### Total Live Veg Cover
+
+```{r LiveVeg, echo=FALSE, warning=FALSE, message=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = Total_Live_Veg_Cover[Treatment_Interval == "Post-Caples"] - Total_Live_Veg_Cover[Treatment_Interval == "Pre-Caples"]) %>%  
+  select(plotID_veg, Treatment_Interval, Total_Live_Veg_Cover, diff, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60,size = 3)) +
+  xlab("plot ID") +
+  ylab("difference") +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Total Live Veg Cover between Pre- and Post- treatment visits")
+
+```
+  
+We see a general loss of living vegetative cover at the high burn severity sites. Moderate burn sites have both loss and gain, as do low burn intensity sites. There's a general loss of cover at the unburned, out-of-Caples perimeter sites.  
+
+
+
+### Total Tree Cover
+
+```{r treeCover, echo=FALSE, warning=FALSE, message=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = Total_Tree_Cover[Treatment_Interval == "Post-Caples"]/24.7 - Total_Tree_Cover[Treatment_Interval == "Pre-Caples"]/24.7) %>%  
+  select(plotID_veg, Treatment_Interval, Total_Tree_Cover, diff, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60,size = 3)) +
+  xlab("plot ID") +
+  ylab("difference") +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Total Tree Cover between Pre- and Post- treatment visits")
+
+```
+  
+We see a similar, but perhaps less extreme pattern with total tree cover suggesting that change in tree coverage contributed to the overall change in living vegetation  
+
+
+### Total Shrub Cover
+
+```{r shrubCover, echo=FALSE, warning=FALSE, message=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff = Total_Live_Shrub_Cover[Treatment_Interval == "Post-Caples"] - Total_Live_Shrub_Cover[Treatment_Interval == "Pre-Caples"]) %>%  
+  select(plotID_veg, Treatment_Interval, Total_Live_Shrub_Cover, diff, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) + 
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60,size = 3)) +
+  xlab("plot ID") +
+  ylab("difference") +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Total Shrub Cover between Pre- and Post- treatment visits")
+
+```
+  
+We see a similar, and less extreme pattern with total shrub cover suggesting that change in shrub coverage contributed to the overall change in living vegetation, but not as much in the high intensity burn sites.  
+
+
+### Total Herbaceous Cover
+
+```{r herbCover, echo=FALSE, warning=FALSE, message=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>%
+  group_by(plotID_veg) %>%
+  mutate(diff = Herb_Cover[Treatment_Interval == "Post-Caples"] - Herb_Cover[Treatment_Interval == "Pre-Caples"]) %>%
+  select(plotID_veg, Treatment_Interval, Herb_Cover, diff, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg), y = diff, color = Caples_Severity_Class)) +
+  geom_point() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60,size = 3)) +
+  xlab("plot ID") +
+  ylab("difference") +
+  guides(color = guide_legend("Burn Severity")) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned"))) +
+  ggtitle("Change in Herbaceous Cover between Pre- and Post- treatment visits")
+
+```
+  
+We see a gain in herbaceous cover at sites that burned at moderate and low intensity.  
+
+### Coarse Woody Debris Cover
+
+```{r CWDcover, warning = FALSE, message=FALSE, echo=FALSE}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(diff2 = CWD_cover[Treatment_Interval == "Post-Caples"] - CWD_cover[Treatment_Interval == "Pre-Caples"]) %>%
+  select(plotID_veg, Treatment_Interval, CWD_cover, diff2, Caples_Severity_Class) %>%
+  ggplot(aes(x = as.factor(plotID_veg))) + 
+  geom_point(aes(y = diff2, color = Caples_Severity_Class), pch = 20, size = 2) +
+  scale_color_manual(name = "Burn severity", values = c("#F8766D", "#7CAE00", "#00BFC4", "#C77CFF", "#e76bf3")) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 3),
+        axis.title.x = element_blank(),
+        #axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid = element_blank()) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned")))
+```
+  
+We see a general loss of coverage in coarse woody debris across all sites that burned and both loss and gain of CWD at unburned sites.  
+  
+Next, we plot the change in tree, shrub (at three height ranges), herbaceous and CWD cover at each plot to see how the coverage attributed to shorter plot elements changes between pre- and post-fire.  
+
+```{r ShrubCover_bySizeClass_relativeChange, warning=FALSE, message=FALSE, error=FALSE, out.width="100%", echo=FALSE}
+
+shrubCoverData <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  #filter(plotID_veg != "21" & plotID_veg != "133" & plotID_veg != "104" & plotID_veg != "130") %>% 
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        Total_Tree_Cover,Live_Shrub_Tall_Cover,Live_Shrub_Medium_Cover,Live_Shrub_Low_Cover,Herb_Cover,CWD_cover) %>%
+  pivot_longer(-c(1:3), names_to = "ShrubCover", values_to = "value") %>% 
+  group_by(plotID_veg, Caples_Severity_Class, ShrubCover) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
+  
+fct1<- levels(fct_reorder(as.factor(shrubCoverData$plotID_veg), shrubCoverData$Caples_Severity_Class))
+fct2 <- levels(factor(shrubCoverData$ShrubCover, levels = c("Total_Tree_Cover","Live_Shrub_Tall_Cover","Live_Shrub_Medium_Cover", "Live_Shrub_Low_Cover","Herb_Cover","CWD_cover")))
+fct3 <- levels(factor(shrubCoverData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
+facetLabels <- c(Total_Tree_Cover = "Tree Cover",
+                 Live_Shrub_Tall_Cover = "Tall shrubs \n(>1.8m)",
+                 Live_Shrub_Medium_Cover = "Medium shrubs \n(0.5-1.8m)", 
+                 Live_Shrub_Low_Cover = "Low \nshrubs \n(<0.5m)", 
+                 Herb_Cover = "Herbaceous",
+                 CWD_cover = "CWD \ncover",
+                 Mod = "Moderate burn severity",
+                 Low = "Low burn severity",
+                 High = "High burn severity",
+                 Unburned_Out = "Unburned - out",
+                 Unburned_In = "Unburned - in")
+  
+  ggplot(shrubCoverData) +
+  geom_bar(
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_orig),
+           stat = 'identity', width = 0.75,
+           position = 'dodge', alpha = 0.5, size = 0.05) +
+  geom_bar(
+           aes(x = factor(plotID_veg, levels = fct1),
+               y = Value_after), 
+           stat = 'identity', color = 'dark grey', width = 0.75, fill = 'black',
+           position = 'dodge', alpha = 0.75, size = 0.05) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60,size = 4),
+        axis.text.y = element_text(size = 6),
+        legend.title = element_blank(),
+        panel.grid = element_blank()) +
+  facet_grid(rows = vars(factor(shrubCoverData$ShrubCover, levels = fct2)),
+             cols = vars(factor(shrubCoverData$Caples_Severity_Class, levels = fct3)),
+             labeller = as_labeller(facetLabels),
+             scales = "free", space = "free") +
+  xlab("Plot ID") +
+  ylab("Count") +
+  theme(strip.text = element_text(size = 5, color = "dark blue"))
+
+
+```
+  
+We see a general loss of shrub coverage across plots that burned. There were some gains of shrub coverage in plots that burned with low (both medium and short shrub coverage) to moderate (low shrub coverage only) intensity. Herbaceous cover either stayed the same, or had very little gain, in high intensity burn plots; in contrast, herbaceous cover increased - sometimes dramatically - in sites that burned with low to moderate intensity.  
+
+
+## PLOT LEVEL DESCRIPTIONS
+
+### Plots that burn with high severity
+```{r HighBurnSummary_height_treeSnag, echo=FALSE, message=FALSE, warning=FALSE,fig.height=4}
+# plot mean TPH and snag loss/gain
+
+avgTPH <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "High") %>%
+  group_by(plotID_veg) %>% 
+  mutate(biggest = TPHMore78.7/24.71) %>%
+  mutate(sixty = TPH61.0to78.7/24.71) %>%
+  mutate(forty = TPH40.6to61.0/24.71) %>%
+  mutate(twenty = TPH20.3to40.6/24.71) %>%
+  mutate(smallest = TPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:2), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% 
+  group_by(TPH_Snags) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgTPH_table <- avgTPH 
+avgTPH_table$order <- c(1,3,2,5,4) #order tallest to shortest
+avgTPH_table[,1] <- c("> 78.7","40.6 - 61","61 - 78.7","< 20.3","20.3 - 40.6")
+avgTPH_table <- avgTPH_table %>% arrange(order)
+
+#######
+avgSnag <- testData %>%
+  filter(Veg_Type != "RFR") %>%
+  filter(Caples_Severity_Class == "High") %>%
+  group_by(plotID_veg) %>%
+  mutate(biggest = SnagsPHMore78.7/24.71) %>%
+  mutate(sixty = SnagsPH61.0to78.7/24.71) %>%
+  mutate(forty = SnagsPH40.6to61.0/24.71) %>%
+  mutate(twenty = SnagsPH20.3to40.6/24.71) %>%
+  mutate(smallest = SnagsPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:2), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% 
+  group_by(TPH_Snags) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgSnag_table <- avgSnag 
+avgSnag_table$order <- c(1,3,2,5,4) #order tallest to shortest
+avgSnag_table[,1] <- c("> 78.7","40.6 - 61","61 - 78.7","< 20.3","20.3 - 40.6")
+avgSnag_table <- avgSnag_table %>% arrange(order)
+
+
+#######
+fct1 <- levels(factor(avgTPH$TPH_Snags, levels = c("biggest", "sixty","forty","twenty","smallest")))
+
+p1 <- ggplot() +
+  geom_bar(data = avgTPH, aes(x = factor(TPH_Snags, levels = fct1), y = `mean(diff)`), stat = 'identity', fill = "#F8766D", color = "darkgrey") +
+  geom_bar(data = avgSnag, aes(x = factor(TPH_Snags, levels = fct1), y = `mean(diff)`), stat = 'identity', fill = "#00BFC4", color = "darkgrey") +
+  scale_x_discrete(labels = c("> 78.7","61 - 78.7","40.6 - 61","20.3 - 40.6", "< 20.3")) +
+  geom_text(data = avgTPH, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  geom_text(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.25, color = 'black', size = 2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  xlab("Loss of TPH (pink) and gain of Snag (blue)") + 
+  ylab("Mean gain/loss") +
+  ggtitle("Average gain of snags (blue) and loss of trees (pink)")
+  
+p1
+knitr::kable(avgTPH_table[,c(1:5)], caption = "Trees", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+knitr::kable(avgSnag_table[,c(1:5)], caption = "Snags", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = "left")
+
+```
+  
+At high burn plots, there is a greater proportional loss of smaller trees (96% and 68% loss of 20.3-40.6 cm diameter and < 20.3 cm diameter, respectively). There is also an increased loss at the 61-78.7 cm diameter size class, relative to larger trees. We see a concomitant gain of snags in the smaller size classes (1.8 and 3-fold gain in 20.3-40.6 cm diameter and < 20.3 cm diameter, respectively), as well as 44% gain at the 61-78.7 diameter size class. This suggests a general pattern of replacement of living trees with snags; however, this data can't distinguish between snags that were present in the plot pre-treatment and newly added snags post-fire.  
+
+```{r HighBurnSummary_height_shrub, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}  
+# plot mean shrub change by size class
+avgShrub <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "High") %>%
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Live_Shrub_Tall_Height,Live_Shrub_Medium_Height,Live_Shrub_Low_Height) %>%
+  pivot_longer(-c(1:2), names_to = "Shrubs", values_to = "value") %>% 
+  group_by(plotID_veg, Shrubs) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(Shrubs) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+
+avgShrub_table <- avgShrub
+avgShrub_table$order <- c(1,2,3) #order tall to short
+avgShrub_table[,1] <- c("> 1.8m","0.5 - 1.8m","< 0.5m")
+avgShrub_table <- avgShrub_table %>% arrange(order)
+
+fct2 <- levels(factor(avgShrub$Shrubs, levels = c("Live_Shrub_Tall_Height", "Live_Shrub_Medium_Height","Live_Shrub_Low_Height")))
+
+p2 <- ggplot(avgShrub) +
+  geom_bar(aes(x = factor(Shrubs, levels = fct2),y = `mean(diff)`),stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'black') +
+  geom_bar(aes(x = factor(Shrubs, levels = fct2), y = `mean(Value_orig)`), stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'darkgrey') +
+  #scale_x_discrete(labels = c("> 1.8m","0.5 - 1.8m","< 0.5m")) +
+  geom_text(aes(x = Shrubs, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = Shrubs, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1),
+        axis.title.y = element_blank()) + 
+  xlab("Shrubs") +
+  ggtitle("Average loss of shrubs (black) relative to average pre-treatment measure (grey)")
+  
+tbl3 <- kbl(avgShrub) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p2
+knitr::kable(avgShrub_table[,c(1:5)], caption = "Shrub Height", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+
+```
+  
+On average we see 100% loss of medium height shrubs (0.5-1.8 m) in high severity burn plots, and 79% loss of shorter shrubs (<0.5 m). In these plots, there were no tall shrubs.  
+
+```{r HighBurnSummary_height_cwd, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}
+# plot mean cwd change by size class
+avgCWD <- testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "High") %>%
+  group_by(plotID_veg) %>%
+  mutate(CWDdensity_3to12_R = CWDdensity_3to12_R/24.7) %>%
+  mutate(CWDdensity_3to12_S = CWDdensity_3to12_S/24.7) %>%
+  mutate(CWDdensity_12to24_R = CWDdensity_12to24_R/24.7) %>%
+  mutate(CWDdensity_12to24_S = CWDdensity_12to24_S/24.7) %>%
+  mutate(CWDdensity_24plus_R = CWDdensity_24plus_R/24.7) %>%
+  mutate(CWDdensity_24plus_S = CWDdensity_24plus_S/24.7) %>%
+  select(plotID_veg, Treatment_Interval, CWDdensity_3to12_R, CWDdensity_3to12_S, CWDdensity_12to24_R, CWDdensity_12to24_S, CWDdensity_24plus_R, CWDdensity_24plus_S) %>%
+  pivot_longer(-c(1:2)) %>%
+  group_by(plotID_veg, name) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(name) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgCWD_table <- avgCWD
+avgCWD_table$order <- c(3,4,1,2,5,6) #order large pieces to smaller; rotten first
+avgCWD_table[,1] <- c("Rotten 12 to 24", "Soft 12 to 24","Rotten 24+", "Soft 24+","Rotten 3 to 12", "Soft 3 to 12")
+avgCWD_table <- avgCWD_table %>% arrange(order)
+
+fct3 <- levels(factor(avgCWD$name, levels = c("CWDdensity_24plus_R", "CWDdensity_24plus_S", "CWDdensity_12to24_R", "CWDdensity_12to24_S", "CWDdensity_3to12_R", "CWDdensity_3to12_S")))
+
+p3 <- ggplot(avgCWD) +
+  geom_bar(aes(x = factor(name, levels = fct3),y = `mean(diff)`),stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'black') +
+  geom_bar(aes(x = factor(name, levels = fct3), y = `mean(Value_orig)`), stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'darkgrey') +
+  scale_x_discrete(labels = c("Rotten 3 to 12", "Soft 3 to 12", "Rotten \n12 to 24", "Soft 12 to 24", "Rotten \n24+", "Soft 24+")) +
+  geom_text(aes(x = name, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = name, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1),
+        axis.title.y = element_blank()) + 
+  xlab("Density of Coarse Woody Debris") +
+  ggtitle("Average loss of CWD density (black) relative to pre-treatment measure (grey)")
+
+tbl4 <- kbl(avgCWD) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p3
+knitr::kable(avgCWD_table[,c(1:5)], caption = "Density Coarse Woody Debris", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+
+```
+  
+In the high severity burn plots, we see almost 100% loss of all coarse woody debris with one exception. The density of CWD designated as "Soft 24+" was only reduced by 56%.  
+
+```{r HighBurnSummary_cover, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}
+# plot change in tree cover, shrubs(at three levels) and herbaceous cover
+avgCover <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "High") %>%
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Total_Tree_Cover, Live_Shrub_Tall_Cover, Live_Shrub_Medium_Cover, Live_Shrub_Low_Cover, Herb_Cover,CWD_cover) %>%
+  pivot_longer(-c(1:2), names_to = "avgCover", values_to = "value") %>% 
+  group_by(plotID_veg, avgCover) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(avgCover) %>%
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgCover_table <- avgCover
+avgCover_table$order <- c(6,5,4,3,2,1)
+avgCover_table[,1] <- c("CWD","Herbaceous cover","Low shrub", "Medium shrub", "Tall shrub","Tree")
+avgCover_table <- avgCover_table %>% arrange(order)
+
+fct4 <- levels(factor(avgCover$avgCover, levels = c("Total_Tree_Cover","Live_Shrub_Tall_Cover", "Live_Shrub_Medium_Cover", "Live_Shrub_Low_Cover","Herb_Cover","CWD_cover")))
+
+p4 <- ggplot(avgCover) +
+  geom_bar(aes(x = factor(avgCover, levels = fct4),y = `mean(diff)`),stat = 'identity', width = 0.75,fill = "black", alpha = 0.75, size = 0.05) +
+  geom_bar(aes(x = factor(avgCover, levels = fct4),y = `mean(Value_orig)`),stat = 'identity', width = 0.75,fill = "darkgrey", alpha = 0.75, size = 0.05) +
+  scale_x_discrete(labels = c("Tree", "Tall shrub", "Medium shrub", "Low shrub", "Herbaceous cover", "CWD")) +
+  geom_text(aes(x = avgCover, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = avgCover, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  ylab("Mean change") +
+  xlab("Cover Variables") +
+  ggtitle("Average loss of cover (black) \n relative to pre-treatment measures (grey)")
+
+tbl5 <- kbl(avgCover) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p4
+knitr::kable(avgCover_table[,c(1:5)], caption = "Cover of trees, shrubs, herbs, and CWD", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+```
+  
+With respect to cover, at high burn severity plots, reduction of vegetative cover is highest in tree cover (loss by 57%), medium shrub cover (100%) and coarse woody debris (81% loss). There was no change in cover by low shrubs eventhough we saw a general loss of shrubs (from the height measure above). Perhaps this is due to newly sprouted, young shrubs - as in trees/snag measures above, these data can't distinguish between low shrubs (and probably medium shrubs, too?) that were there before treatment and newly added low lying shrubs that sprouted post-treatment.  
+  
+In sum, at high burn severity plots, we see a general pattern of replacement of smaller trees with snags of the same size, and an almost complete loss of shrubs and coarse woody debris. We don't see a ton of new growth in the plot within the one or two years after treatment. Based on individual plot level data above, some plots burned pretty severely (e.g. plot 28) and it's possible that there hasn't been enough time for regrowth in these areas.  
+
+
+***
+
+***
+
+
+
+
+### Plots that burn with moderate severity
+```{r ModBurnSummary_height_treeSnag, echo=FALSE, message=FALSE, warning=FALSE,fig.height=4}
+# plot mean TPH and snag loss/gain
+
+avgTPH <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Mod") %>%
+  group_by(plotID_veg) %>% 
+  mutate(biggest = TPHMore78.7/24.71) %>%
+  mutate(sixty = TPH61.0to78.7/24.71) %>%
+  mutate(forty = TPH40.6to61.0/24.71) %>%
+  mutate(twenty = TPH20.3to40.6/24.71) %>%
+  mutate(smallest = TPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:2), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% 
+  group_by(TPH_Snags) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgTPH_table <- avgTPH 
+avgTPH_table$order <- c(1,3,2,5,4) #order tallest to shortest
+avgTPH_table[,1] <- c("> 78.7","40.6 - 61","61 - 78.7","< 20.3","20.3 - 40.6")
+avgTPH_table <- avgTPH_table %>% arrange(order)
+
+#######
+avgSnag <- testData %>%
+  filter(Veg_Type != "RFR") %>%
+  filter(Caples_Severity_Class == "Mod") %>%
+  group_by(plotID_veg) %>%
+  mutate(biggest = SnagsPHMore78.7/24.71) %>%
+  mutate(sixty = SnagsPH61.0to78.7/24.71) %>%
+  mutate(forty = SnagsPH40.6to61.0/24.71) %>%
+  mutate(twenty = SnagsPH20.3to40.6/24.71) %>%
+  mutate(smallest = SnagsPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:2), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% 
+  group_by(TPH_Snags) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgSnag_table <- avgSnag 
+avgSnag_table$order <- c(1,3,2,5,4) #order tallest to shortest
+avgSnag_table[,1] <- c("> 78.7","40.6 - 61","61 - 78.7","< 20.3","20.3 - 40.6")
+avgSnag_table <- avgSnag_table %>% arrange(order)
+
+
+#######
+fct1 <- levels(factor(avgTPH$TPH_Snags, levels = c("biggest", "sixty","forty","twenty","smallest")))
+
+p1 <- ggplot() +
+  geom_bar(data = avgTPH, aes(x = factor(TPH_Snags, levels = fct1), y = `mean(diff)`), stat = 'identity', fill = "#F8766D", color = "darkgrey") +
+  geom_bar(data = avgSnag, aes(x = factor(TPH_Snags, levels = fct1), y = `mean(diff)`), stat = 'identity', fill = "#00BFC4", color = "darkgrey") +
+  scale_x_discrete(labels = c("> 78.7","61 - 78.7","40.6 - 61","20.3 - 40.6", "< 20.3")) +
+  geom_text(data = avgTPH, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  geom_text(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.25, color = 'black', size = 2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  xlab("Loss of TPH (pink) and gain of Snag (blue)") + 
+  ylab("Mean gain/loss") +
+  ggtitle("Average gain of snags (blue) and loss of trees (pink)")
+  
+p1
+knitr::kable(avgTPH_table[,c(1:5)], caption = "Trees", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+knitr::kable(avgSnag_table[,c(1:5)], caption = "Snags", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+```
+  
+At moderate burn plots, there is a greater proportional loss of smaller trees (.79 of 20.3-40.6 cm diameter) and a lower proportional loss of 20.3-40.6 diameter trees (.37 loss). We see a concomitant gain of snags in the smaller size classes (3-fold and .63 gain in the < 20.3 cm diameter and 20.3-40.6 cm diameter size classes, respectively), as well as 2-fold gain at the 40.6-61 diameter size class. This suggests a general pattern of replacement of living trees with snags; however, this data can't distinguish between snags that were present in the plot pre-treatment and newly added snags post-fire.  
+
+```{r ModBurnSummary_height_shrub, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}  
+# plot mean shrub change by size class
+avgShrub <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Mod") %>%
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Live_Shrub_Tall_Height,Live_Shrub_Medium_Height,Live_Shrub_Low_Height) %>%
+  pivot_longer(-c(1:2), names_to = "Shrubs", values_to = "value") %>% 
+  group_by(plotID_veg, Shrubs) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(Shrubs) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+
+avgShrub_table <- avgShrub
+avgShrub_table$order <- c(1,2,3) #order tall to short
+avgShrub_table[,1] <- c("> 1.8m","0.5 - 1.8m","< 0.5m")
+avgShrub_table <- avgShrub_table %>% arrange(order)
+
+fct2 <- levels(factor(avgShrub$Shrubs, levels = c("Live_Shrub_Tall_Height", "Live_Shrub_Medium_Height","Live_Shrub_Low_Height")))
+
+p2 <- ggplot(avgShrub) +
+  geom_bar(aes(x = factor(Shrubs, levels = fct2),y = `mean(diff)`),stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'black') +
+  geom_bar(aes(x = factor(Shrubs, levels = fct2), y = `mean(Value_orig)`), stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'darkgrey') +
+  #scale_x_discrete(labels = c("> 1.8m","0.5 - 1.8m","< 0.5m")) +
+  geom_text(aes(x = Shrubs, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = Shrubs, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1),
+        axis.title.y = element_blank()) + 
+  xlab("Shrubs") +
+  ggtitle("Average loss of shrubs (black) relative to average pre-treatment measure (grey)")
+  
+tbl3 <- kbl(avgShrub) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p2
+knitr::kable(avgShrub_table[,c(1:5)], caption = "Shrub Height", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+
+```
+  
+On average we see complete loss of low  shrubs (<0.5 m) in moderate severity burn plots, and .83 loss of medium height shrubs (0.5-1.8 m). In these plots, a lower proportion of tall shrubs were lost (0.27).  
+
+```{r ModBurnSummary_height_cwd, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}
+# plot mean cwd change by size class
+avgCWD <- testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Mod") %>%
+  group_by(plotID_veg) %>%
+  mutate(CWDdensity_3to12_R = CWDdensity_3to12_R/24.7) %>%
+  mutate(CWDdensity_3to12_S = CWDdensity_3to12_S/24.7) %>%
+  mutate(CWDdensity_12to24_R = CWDdensity_12to24_R/24.7) %>%
+  mutate(CWDdensity_12to24_S = CWDdensity_12to24_S/24.7) %>%
+  mutate(CWDdensity_24plus_R = CWDdensity_24plus_R/24.7) %>%
+  mutate(CWDdensity_24plus_S = CWDdensity_24plus_S/24.7) %>%
+  select(plotID_veg, Treatment_Interval, CWDdensity_3to12_R, CWDdensity_3to12_S, CWDdensity_12to24_R, CWDdensity_12to24_S, CWDdensity_24plus_R, CWDdensity_24plus_S) %>%
+  pivot_longer(-c(1:2)) %>%
+  group_by(plotID_veg, name) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(name) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgCWD_table <- avgCWD
+avgCWD_table$order <- c(3,4,1,2,5,6) #order large pieces to smaller; rotten first
+avgCWD_table[,1] <- c("Rotten 12 to 24", "Soft 12 to 24","Rotten 24+", "Soft 24+","Rotten 3 to 12", "Soft 3 to 12")
+avgCWD_table <- avgCWD_table %>% arrange(order)
+
+fct3 <- levels(factor(avgCWD$name, levels = c("CWDdensity_24plus_R", "CWDdensity_24plus_S", "CWDdensity_12to24_R", "CWDdensity_12to24_S", "CWDdensity_3to12_R", "CWDdensity_3to12_S")))
+
+p3 <- ggplot(avgCWD) +
+  geom_bar(aes(x = factor(name, levels = fct3),y = `mean(diff)`),stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'black') +
+  geom_bar(aes(x = factor(name, levels = fct3), y = `mean(Value_orig)`), stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'darkgrey') +
+  scale_x_discrete(labels = c("Rotten 3 to 12", "Soft 3 to 12", "Rotten \n12 to 24", "Soft 12 to 24", "Rotten \n24+", "Soft 24+")) +
+  geom_text(aes(x = name, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = name, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1),
+        axis.title.y = element_blank()) + 
+  xlab("Density of Coarse Woody Debris") +
+  ggtitle("Average loss of CWD density (black) relative to pre-treatment measure (grey)")
+
+tbl4 <- kbl(avgCWD) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p3
+knitr::kable(avgCWD_table[,c(1:5)], caption = "Density Coarse Woody Debris", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+
+```
+  
+In the moderate severity burn plots, we see almost 100% loss of all rotten coarse woody debris with one exception - pieces in the size range 3-12 were reduced by 70%. The density of CWD designated as "Soft" was reduced by between 59% and 79%  
+
+```{r ModBurnSummary_cover, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}
+# plot change in tree cover, shrubs(at three levels) and herbaceous cover
+avgCover <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Mod") %>%
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Total_Tree_Cover, Live_Shrub_Tall_Cover, Live_Shrub_Medium_Cover, Live_Shrub_Low_Cover, Herb_Cover,CWD_cover) %>%
+  pivot_longer(-c(1:2), names_to = "avgCover", values_to = "value") %>% 
+  group_by(plotID_veg, avgCover) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(avgCover) %>%
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgCover_table <- avgCover
+avgCover_table$order <- c(6,5,4,3,2,1)
+avgCover_table[,1] <- c("CWD","Herbaceous cover","Low shrub", "Medium shrub", "Tall shrub","Tree")
+avgCover_table <- avgCover_table %>% arrange(order)
+
+fct4 <- levels(factor(avgCover$avgCover, levels = c("Total_Tree_Cover","Live_Shrub_Tall_Cover", "Live_Shrub_Medium_Cover", "Live_Shrub_Low_Cover","Herb_Cover","CWD_cover")))
+
+p4 <- ggplot(avgCover) +
+  geom_bar(aes(x = factor(avgCover, levels = fct4),y = `mean(diff)`),stat = 'identity', width = 0.75,fill = "black", alpha = 0.75, size = 0.05) +
+  geom_bar(aes(x = factor(avgCover, levels = fct4),y = `mean(Value_orig)`),stat = 'identity', width = 0.75,fill = "darkgrey", alpha = 0.75, size = 0.05) +
+  scale_x_discrete(labels = c("Tree", "Tall shrub", "Medium shrub", "Low shrub", "Herbaceous cover", "CWD")) +
+  geom_text(aes(x = avgCover, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = avgCover, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  ylab("Mean change") +
+  xlab("Cover Variables") +
+  ggtitle("Average loss of cover (black) relative to \npre-treatment measures (grey)")
+
+tbl5 <- kbl(avgCover) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p4
+knitr::kable(avgCover_table[,c(1:5)], caption = "Cover of trees, shrubs, herbs, and CWD", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+```
+  
+With respect to cover, at moderate burn severity plots, proportional reduction of vegetative cover is highest in tall and medium shrub cover (100% and 99%, respectively) and coarse woody debris (78% loss). There was a gain of cover by low shrubs (65% gain) even though we saw a complete loss of shrubs (from the height measure above). Perhaps this is due to newly sprouted, young shrubs - as in trees/snag measures above, these data can't distinguish between low shrubs (and probably medium shrubs, too?) that were there before treatment and newly added low lying shrubs that sprouted post-treatment. We see a 15-fold gain of herbaceous cover where before there wasn't much (on average).  
+  
+In sum, at moderate burn severity plots, we see a general pattern of replacement of smaller trees with snags of the same size, and an almost complete loss of shrubs and coarse woody debris. We do see new growth in the plot within the one or two years after treatment. We see this in low-lying shrubs and, especially, in increased herbaceous cover.  
+
+***
+
+***
+
+
+
+### Plots that burn with low severity
+```{r LowBurnSummary_height_treeSnag, echo=FALSE, message=FALSE, warning=FALSE,fig.height=4}
+# plot mean TPH and snag loss/gain
+
+avgTPH <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Low") %>%
+  group_by(plotID_veg) %>% 
+  mutate(biggest = TPHMore78.7/24.71) %>%
+  mutate(sixty = TPH61.0to78.7/24.71) %>%
+  mutate(forty = TPH40.6to61.0/24.71) %>%
+  mutate(twenty = TPH20.3to40.6/24.71) %>%
+  mutate(smallest = TPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:2), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% 
+  group_by(TPH_Snags) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgTPH_table <- avgTPH 
+avgTPH_table$order <- c(1,3,2,5,4) #order tallest to shortest
+avgTPH_table[,1] <- c("> 78.7","40.6 - 61","61 - 78.7","< 20.3","20.3 - 40.6")
+avgTPH_table <- avgTPH_table %>% arrange(order)
+
+#######
+avgSnag <- testData %>%
+  filter(Veg_Type != "RFR") %>%
+  filter(Caples_Severity_Class == "Low") %>%
+  group_by(plotID_veg) %>%
+  mutate(biggest = SnagsPHMore78.7/24.71) %>%
+  mutate(sixty = SnagsPH61.0to78.7/24.71) %>%
+  mutate(forty = SnagsPH40.6to61.0/24.71) %>%
+  mutate(twenty = SnagsPH20.3to40.6/24.71) %>%
+  mutate(smallest = SnagsPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:2), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% 
+  group_by(TPH_Snags) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgSnag_table <- avgSnag 
+avgSnag_table$order <- c(1,3,2,5,4) #order tallest to shortest
+avgSnag_table[,1] <- c("> 78.7","40.6 - 61","61 - 78.7","< 20.3","20.3 - 40.6")
+avgSnag_table <- avgSnag_table %>% arrange(order)
+
+
+#######
+fct1 <- levels(factor(avgTPH$TPH_Snags, levels = c("biggest", "sixty","forty","twenty","smallest")))
+
+p1 <- ggplot() +
+  geom_bar(data = avgTPH, aes(x = factor(TPH_Snags, levels = fct1), y = `mean(diff)`), stat = 'identity', fill = "#F8766D", color = "darkgrey") +
+  geom_bar(data = avgSnag, aes(x = factor(TPH_Snags, levels = fct1), y = `mean(diff)`), stat = 'identity', fill = "#00BFC4", color = "darkgrey") +
+  scale_x_discrete(labels = c("> 78.7","61 - 78.7","40.6 - 61","20.3 - 40.6", "< 20.3")) +
+  geom_text(data = avgTPH, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  geom_text(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.25, color = 'black', size = 2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  xlab("Loss of TPH (pink) and gain of Snag (blue)") + 
+  ylab("Mean gain/loss") +
+  ggtitle("Average gain of snags (blue) and loss of trees (pink)")
+  
+p1
+knitr::kable(avgTPH_table[,c(1:5)], caption = "Trees", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+knitr::kable(avgSnag_table[,c(1:5)], caption = "Snags", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+```
+  
+At low severity burn plots, there is the greatest proportional loss of the smallest trees (.46 <20.3 cm diameter) and a loss of 20.3-40.6 diameter trees (.17 loss). We also see a gain of 50% in trees at the 61-78.7 cm diameter size.  
+  
+We see a concomitant gain of snags in the smaller size classes (~2-fold gain in the < 20.3 cm diameter and 20.3-40.6 cm diameter size classes). This suggests a general pattern of replacement of living trees with snags; however, this data can't distinguish between snags that were present in the plot pre-treatment and newly added snags post-fire.  
+
+```{r LowBurnSummary_height_shrub, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}  
+# plot mean shrub change by size class
+avgShrub <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Low") %>%
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Live_Shrub_Tall_Height,Live_Shrub_Medium_Height,Live_Shrub_Low_Height) %>%
+  pivot_longer(-c(1:2), names_to = "Shrubs", values_to = "value") %>% 
+  group_by(plotID_veg, Shrubs) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(Shrubs) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+
+avgShrub_table <- avgShrub
+avgShrub_table$order <- c(1,2,3) #order tall to short
+avgShrub_table[,1] <- c("> 1.8m","0.5 - 1.8m","< 0.5m")
+avgShrub_table <- avgShrub_table %>% arrange(order)
+
+fct2 <- levels(factor(avgShrub$Shrubs, levels = c("Live_Shrub_Tall_Height", "Live_Shrub_Medium_Height","Live_Shrub_Low_Height")))
+
+p2 <- ggplot(avgShrub) +
+  geom_bar(aes(x = factor(Shrubs, levels = fct2),y = `mean(diff)`),stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'black') +
+  geom_bar(aes(x = factor(Shrubs, levels = fct2), y = `mean(Value_orig)`), stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'darkgrey') +
+  #scale_x_discrete(labels = c("> 1.8m","0.5 - 1.8m","< 0.5m")) +
+  geom_text(aes(x = Shrubs, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = Shrubs, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1),
+        axis.title.y = element_blank()) + 
+  xlab("Shrubs") +
+  ggtitle("Average loss of shrubs (black) relative to average pre-treatment measure (grey)")
+  
+tbl3 <- kbl(avgShrub) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p2
+knitr::kable(avgShrub_table[,c(1:5)], caption = "Shrub Height", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+
+```
+  
+On average we see a loss of ~50% in low  shrubs, 35% loss in medium shrubs, and 43% loss in tall shrubs at low severity burn plots.  
+
+```{r LowBurnSummary_height_cwd, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}
+# plot mean cwd change by size class
+avgCWD <- testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Low") %>%
+  group_by(plotID_veg) %>%
+  mutate(CWDdensity_3to12_R = CWDdensity_3to12_R/24.7) %>%
+  mutate(CWDdensity_3to12_S = CWDdensity_3to12_S/24.7) %>%
+  mutate(CWDdensity_12to24_R = CWDdensity_12to24_R/24.7) %>%
+  mutate(CWDdensity_12to24_S = CWDdensity_12to24_S/24.7) %>%
+  mutate(CWDdensity_24plus_R = CWDdensity_24plus_R/24.7) %>%
+  mutate(CWDdensity_24plus_S = CWDdensity_24plus_S/24.7) %>%
+  select(plotID_veg, Treatment_Interval, CWDdensity_3to12_R, CWDdensity_3to12_S, CWDdensity_12to24_R, CWDdensity_12to24_S, CWDdensity_24plus_R, CWDdensity_24plus_S) %>%
+  pivot_longer(-c(1:2)) %>%
+  group_by(plotID_veg, name) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(name) %>% 
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgCWD_table <- avgCWD
+avgCWD_table$order <- c(3,4,1,2,5,6) #order large pieces to smaller; rotten first
+avgCWD_table[,1] <- c("Rotten 12 to 24", "Soft 12 to 24","Rotten 24+", "Soft 24+","Rotten 3 to 12", "Soft 3 to 12")
+avgCWD_table <- avgCWD_table %>% arrange(order)
+
+fct3 <- levels(factor(avgCWD$name, levels = c("CWDdensity_24plus_R", "CWDdensity_24plus_S", "CWDdensity_12to24_R", "CWDdensity_12to24_S", "CWDdensity_3to12_R", "CWDdensity_3to12_S")))
+
+p3 <- ggplot(avgCWD) +
+  geom_bar(aes(x = factor(name, levels = fct3),y = `mean(diff)`),stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'black') +
+  geom_bar(aes(x = factor(name, levels = fct3), y = `mean(Value_orig)`), stat = 'identity', width = 0.75, alpha = 0.75, size = 0.05, fill = 'darkgrey') +
+  scale_x_discrete(labels = c("Rotten 3 to 12", "Soft 3 to 12", "Rotten \n12 to 24", "Soft 12 to 24", "Rotten \n24+", "Soft 24+")) +
+  geom_text(aes(x = name, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = name, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1),
+        axis.title.y = element_blank()) + 
+  xlab("Density of Coarse Woody Debris") +
+  ggtitle("Average loss of CWD density (black) relative to pre-treatment measure (grey)")
+
+tbl4 <- kbl(avgCWD) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p3
+knitr::kable(avgCWD_table[,c(1:5)], caption = "Density Coarse Woody Debris", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+
+```
+  
+In the low severity burn plots, we see 100% loss of all rotten coarse woody debris and most soft woody debris, with one exception - soft pieces in the size range 3-12 were reduced by 57%. We see a two-fold increase in soft woody debris at the size range of 12-24.  
+
+```{r LowBurnSummary_cover, echo=FALSE, message=FALSE, warning=FALSE,out.width="50%"}
+# plot change in tree cover, shrubs(at three levels) and herbaceous cover
+avgCover <- testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(Caples_Severity_Class == "Low") %>%
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Total_Tree_Cover, Live_Shrub_Tall_Cover, Live_Shrub_Medium_Cover, Live_Shrub_Low_Cover, Herb_Cover,CWD_cover) %>%
+  pivot_longer(-c(1:2), names_to = "avgCover", values_to = "value") %>% 
+  group_by(plotID_veg, avgCover) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>%
+  group_by(avgCover) %>%
+  summarise(mean(diff), mean(Value_orig), mean(Value_after), (mean(Value_after)-mean(Value_orig))/mean(Value_orig))
+
+avgCover_table <- avgCover
+avgCover_table$order <- c(6,5,4,3,2,1)
+avgCover_table[,1] <- c("CWD","Herbaceous cover","Low shrub", "Medium shrub", "Tall shrub","Tree")
+avgCover_table <- avgCover_table %>% arrange(order)
+
+fct4 <- levels(factor(avgCover$avgCover, levels = c("Total_Tree_Cover","Live_Shrub_Tall_Cover", "Live_Shrub_Medium_Cover", "Live_Shrub_Low_Cover","Herb_Cover","CWD_cover")))
+
+p4 <- ggplot(avgCover) +
+  geom_bar(aes(x = factor(avgCover, levels = fct4),y = `mean(diff)`),stat = 'identity', width = 0.75,fill = "black", alpha = 0.75, size = 0.05) +
+  geom_bar(aes(x = factor(avgCover, levels = fct4),y = `mean(Value_orig)`),stat = 'identity', width = 0.75,fill = "darkgrey", alpha = 0.75, size = 0.05) +
+  scale_x_discrete(labels = c("Tree", "Tall shrub", "Medium shrub", "Low shrub", "Herbaceous cover", "CWD")) +
+  geom_text(aes(x = avgCover, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = -0.5, color = 'lightgrey', size = 2) +
+  geom_text(aes(x = avgCover, y = `mean(Value_orig)`, label = round(`mean(Value_orig)`, digits = 2 )), vjust = 1.5, color = 'black', size = 2) +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  ylab("Mean change") +
+  xlab("Cover Variables") +
+  ggtitle("Average loss of cover (black) relative to \npre-treatment measures (grey)")
+
+tbl5 <- kbl(avgCover) %>% kable_styling(full_width = FALSE, font_size = 6, position = 'left')
+
+p4
+knitr::kable(avgCover_table[,c(1:5)], caption = "Cover of trees, shrubs, herbs, and CWD", digits = 2, 
+             col.names = c("size","Mean difference","Mean pre-treatment","Mean post-treatment","Proportion gained/lost"))  %>% 
+  kable_styling(font_size = 8, full_width = FALSE, position = 'left')
+
+```
+  
+With respect to cover, at low burn severity plots, proportional reduction of vegetative cover is highest in tall and medium shrub cover (88% and 62%, respecitvely) and coarse woody debris (77% loss). We see a 7-fold gain of herbaceous cover where before there wasn't much (on average).  
+
+In sum, at low burn severity plots, we see a general pattern of replacement of smaller trees with snags of the same size, and a moderate loss of shrubs and complete loss of coarse woody debris. We do see new growth in the plot within the one or two years after treatment. We see this in low-lying shrubs and, especially, in increased herbaceous cover.  
+
+***
+
+***
+
+
+# TESTING PLOTS and/or stuff to not delete just yet
+
+```{r meanChangeTPH_Snags, echo=FALSE, warning=FALSE, message=FALSE, out.width="80%"}
+facetLabels <- c(biggest = "More than \n78.7", 
+                 sixty = "Between 61 \nand 78.7", 
+                 forty = "Between 40.6 and 61", 
+                 twenty = "Between 20.3 and 40.6", 
+                 smallest = "Less than 20.3",
+                 Mod = "Moderate burn severity",
+                 Low = "Low burn severity",
+                 High = "High burn severity",
+                 Unburned_Out = "Unburned - out",
+                 Unburned_In = "Unburned - in")
+
+avgTPH <- testData %>% filter(Veg_Type != "RFR") %>% 
+    group_by(plotID_veg) %>%
+    mutate(biggest = TPHMore78.7/24.71) %>%
+    mutate(sixty = TPH61.0to78.7/24.71) %>%
+    mutate(forty = TPH40.6to61.0/24.71) %>%
+    mutate(twenty = TPH20.3to40.6/24.71) %>%
+    mutate(smallest = TPHLess20.3/24.71) %>%
+    select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+           biggest,sixty,forty,twenty,smallest) %>%
+    pivot_longer(-c(1:3), names_to = "TPH_Snags", values_to = "value") %>%
+    group_by(plotID_veg, Caples_Severity_Class, TPH_Snags) %>%
+    arrange(desc(Treatment_Interval)) %>%
+    summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% group_by(Caples_Severity_Class, TPH_Snags) %>% summarise(mean(diff))
+  
+
+
+avgSnag <- testData %>%
+  filter(Veg_Type != "RFR") %>%  
+  group_by(plotID_veg) %>%
+  mutate(biggest = SnagsPHMore78.7/24.71) %>%
+  mutate(sixty = SnagsPH61.0to78.7/24.71) %>%
+  mutate(forty = SnagsPH40.6to61.0/24.71) %>%
+  mutate(twenty = SnagsPH20.3to40.6/24.71) %>%
+  mutate(smallest = SnagsPHLess20.3/24.71) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        biggest,sixty,forty,twenty,smallest) %>%
+  pivot_longer(-c(1:3), names_to = "TPH_Snags", values_to = "value") %>%
+  group_by(plotID_veg, Caples_Severity_Class, TPH_Snags) %>%
+  arrange(desc(Treatment_Interval)) %>%
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2]) %>% group_by(Caples_Severity_Class, TPH_Snags) %>% summarise(mean(diff))
+
+
+  ggplot() +
+  geom_bar(data = avgTPH, aes(x = TPH_Snags, y = `mean(diff)`), stat = 'identity', fill = "#F8766D", color = "darkgrey") +
+  geom_bar(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`), stat = 'identity', fill = "#00BFC4", color = "darkgrey") +
+  scale_x_discrete(labels = c("> 78.7","61 - 78.7","40.6 - 61","20.3 - 40.6", "< 20.3")) +
+  geom_text(data = avgTPH, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  geom_text(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  facet_wrap(vars(Caples_Severity_Class), nrow = 1, ncol = 5, labeller = as_labeller(facetLabels)) +
+  xlab("TPH (pink) and Snag (blue) size classes") + ylab("Mean change")
+
+
+```
+
+```{r }
+testData %>% 
+  filter(Veg_Type != "RFR") %>% 
+  filter(plotID_veg != "21" & plotID_veg != "133" & plotID_veg != "104" & plotID_veg != "130") %>% 
+  group_by(plotID_veg) %>%
+  select(plotID_veg, Treatment_Interval, Caples_Severity_Class,
+        Live_Shrub_Tall_Height,Live_Shrub_Medium_Height,Live_Shrub_Low_Height) %>%
+  pivot_longer(-c(1:3), names_to = "Shrubs", values_to = "value") %>% 
+  group_by(plotID_veg, Caples_Severity_Class, Shrubs) %>% 
+  arrange(desc(Treatment_Interval)) %>% 
+  summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])%>% group_by(Caples_Severity_Class, Shrubs) %>% summarise(mean(diff)) %>%
+  ggplot() +
+  geom_bar(aes(x = Shrubs, y = `mean(diff)`), stat = 'identity', fill = "lightgrey", color = "darkgrey") +
+  #geom_bar(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`), stat = 'identity', fill = "#00BFC4", color = "darkgrey") +
+  scale_x_discrete(labels = c("> 1.8m","0.5 - 1.8m","< 0.5m")) +
+  geom_text(aes(x = Shrubs, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  #geom_text(data = avgSnag, aes(x = TPH_Snags, y = `mean(diff)`, label = round(`mean(diff)`, digits = 2 )), vjust = 0.25, color = 'black', size = 2) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, size = 6, hjust = 1)) +
+  facet_wrap(vars(Caples_Severity_Class), nrow = 1, ncol = 5) +
+  xlab("Shrub height classes") + ylab("Mean change")
+  
+
+```
+
+
+### Difference in CWD density  
+
+
+
+
+
+### Change in density of CWD 
+
+```{r DeltaDensCWD}
+testData %>%
+  filter(Veg_Type != "RFR") %>% 
+  group_by(plotID_veg) %>%
+  mutate(SizeDiffd_3_12R = CWDdensity_3to12_R[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_3to12_R[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  mutate(SizeDiffd_3_12S = CWDdensity_3to12_S[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_3to12_S[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  mutate(SizeDiffd_12_24R = CWDdensity_12to24_R[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_12to24_R[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  mutate(SizeDiffd_12_24S = CWDdensity_12to24_S[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_12to24_S[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  mutate(SizeDiffd_24plusR = CWDdensity_24plus_R[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_24plus_R[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  mutate(SizeDiffd_24plusS = CWDdensity_24plus_S[Treatment_Interval == "Post-Caples"]/24.7 - CWDdensity_24plus_S[Treatment_Interval == "Pre-Caples"]/24.7) %>%
+  select(plotID_veg, Treatment_Interval,
+         CWDdensity_3to12_R, SizeDiffd_3_12R,
+         CWDdensity_3to12_S, SizeDiffd_3_12S,
+         CWDdensity_12to24_R, SizeDiffd_12_24R,
+         CWDdensity_12to24_S, SizeDiffd_12_24S,
+         CWDdensity_24plus_R, SizeDiffd_24plusR,
+         CWDdensity_24plus_S, SizeDiffd_24plusS,
+         Caples_Severity_Class) %>%
+  filter(Treatment_Interval == "Pre-Caples") %>%
+  pivot_longer(cols = c(4,6,8,10,12,14), names_to = "SizeDiff", values_to = "values") %>%
+  mutate(SizeDiff = factor(SizeDiff, levels = c("SizeDiffd_3_12R", "SizeDiffd_3_12S","SizeDiffd_12_24R","SizeDiffd_12_24S","SizeDiffd_24plusR","SizeDiffd_24plusS"))) %>%
+  ggplot(aes(as.factor(plotID_veg), SizeDiff)) + 
+  geom_tile(aes(fill = values), color = "black", lwd = 0.1, linetype = 1) + 
+  scale_fill_gradient2(low = "#1b7837", mid = "#f7f7f7", high = "#762a83",
+                       name = "Change") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 60, size = 4),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+  facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned")), ncol = 1, nrow = 4) +
+  ggtitle("Magnitude in the change in CWD density \nat each size class at each plot")
+
+```
+
+
+
+
+
