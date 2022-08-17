@@ -782,9 +782,9 @@ wide_forest_variables_mean_perc_bin_4ha$mean_aspDeg_2020_4ha<-con_circular_deg(w
 
 # wide_forest_variables_mean_perc_bin_4ha$mean_aspDeg_4ha<-NULL
 
-#write out to sheet by copy paste in google drive (change this [ ]!)
-
-drive_sync(here("spatial","output"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1vNSUlaz34OA4uYNDjOkT_lToY60y0BPo")$id[2][1])
+# #write out to sheet by copy paste in google drive (change this [ ]!)
+# 
+# drive_sync(here("spatial","output"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1vNSUlaz34OA4uYNDjOkT_lToY60y0BPo")$id[2][1])
 
 
 # 
@@ -793,11 +793,23 @@ drive_sync(here("spatial","output"), drive_folder = drive_ls("https://drive.goog
 
 wide_forest_variables_mean_perc_bin_4ha %>% knitr::kable() #[ ] problems with new RAVG '21 data
 
+wide_forest_variables_mean_perc_bin_4ha %>% #make into a 'long or tall' dataset
+  select(-mean_aspDeg_2020_4ha) %>%
+  pivot_longer(
+    cols = contains("ha"),
+    names_to = c("sum_fn", "var", "Year", "scale"),
+# min.Elevation_NA_4ha
+    names_pattern = "(.*)_(.*)_(.*)_(.*)",
+    values_to = "value",
+    values_drop_na = TRUE
+  ) %>%
+  filter(avian_point != 0) -> tall_forest_variables_4ha_final
+
 # wide_forest_variables_mean_perc_bin_1ha %>%
 #   dplyr::select(-point_d,-Binary_NtoE_2020_1ha, -mean_aspCirc_2020_1ha) %>% #head()
 #   ggpairs() -> pairsplts
 # 
-# show(pairsplts)
+ # show(pairsplts)
 ```
 
 **Overall RASTER PCA**
