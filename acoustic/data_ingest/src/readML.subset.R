@@ -40,7 +40,7 @@ if (file.exists(here("acoustic/data_ingest/input/aru2point.csv")) == F) {
 
 # READ IN THE ARU to actual point key value pair file from the file: 2020_ARU_data.soundfilelist.csv
 aru2point <- fread(here("acoustic/data_ingest/input/aru2point.csv"), header = TRUE, sep = ",") %>%
-  separate(Filename, into = c("File_ID", "filetype"), sep = "\\.", remove = FALSE) %>%
+  separate(filename, into = c("File_ID", "filetype"), sep = "\\.", remove = FALSE) %>%
   filter(!is.na(as.numeric(point))) %>% # throws out all that are NA or have text and are not on a point
   filter(as.numeric(point) > 0)
 
@@ -143,3 +143,4 @@ dataML_point <- dataML_sample %>%
 p <- ggplot(data = dataML_point, aes(x = n)) +
   geom_histogram(binwidth = 6)
 p
+
