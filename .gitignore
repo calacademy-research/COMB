@@ -38,9 +38,27 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# Project Specific - gitignoring inputs and outputs as they are too big for git and can be built through code
+# Project Specific - gitignoring inputs as they are too big for git and can be built through code
+acoustic/**/input/
+point_counts/**/input/
+# Data dependency symlinks
+models/input/*
+!models/input/aru2point.csv
+!models/input/dataML_tall.csv
+!models/input/latlong.csv
+!models/input/PC_delinted.csv
+
+# Project Specific - gitignoring outputs as they are too big for git and can be built through code
 input/
 output/
 
 # Jupyter scratch directory
 .ipynb_checkpoints/
+
+#notebook renderings
+*.html
+*.pdf
+
+#
+.DS_Store
+spatial/.DS_Store
