@@ -1,1 +1,3 @@
-This directory is where we can put 
+This directory is where we can put notebooks that bring together various data, scripts and functions into complete analyses for the different figures, tables and values calculated for our paper.
+
+We will add details and methods to syncronize these notebooks ASAP.
