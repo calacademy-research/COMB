@@ -22,7 +22,6 @@ year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 
-
 # data --------------------------------------------------------------------
 #drive_auth(email = TRUE) # do not prompt when only one email has token
 #drive_sync(
@@ -53,7 +52,7 @@ model {
 
   # Priors
   psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-  p10 ~ dunif(0, 0.01) # p10 = Pr(y = 1 | z = 0)
+  p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
   p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
   lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
