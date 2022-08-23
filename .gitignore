@@ -59,5 +59,6 @@ output/
 *.html
 *.pdf
 
-#mac hidden files
+#
 .DS_Store
+spatial/.DS_Store
