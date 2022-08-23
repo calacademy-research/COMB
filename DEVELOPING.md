@@ -45,16 +45,22 @@ statement.
 
 ### Removing redundant calls to packages
 
-Sometimes when rewriting scripts don't call all the packages that are loaded. To figure out what packages or functions you need in a script so you can eliminate any unnecessary library calls use ```NCmisc```.  First install the package:
+Sometimes when rewriting scripts don't call all the packages that are loaded.
+To figure out what packages or functions you need in a script so you can
+eliminate any unnecessary library calls use ```NCmisc```.  First install the
+package:
 
 1. ```install.packages("NCmisc")```
 2. ```library(NCmisc)```
 
-Then run following command, for example on one particular script ```eda_forest_data_points```:
+Then run following command, for example on one particular script
+```eda_forest_data_points```:
 
 3. ```NCmisc::list.functions.in.file(here("spatial/src/eda_forest_data_points.R"))```
 
-And compare the output to the list of library calls in the script or other code. This is not strictly necessary but helps when breaking scripts down into sub-parts to optimize our code.
+And compare the output to the list of library calls in the script or other
+code. This is not strictly necessary but helps when breaking scripts down into
+sub-parts to optimize our code.
 
 ### Jupyter Notebook
 
@@ -72,8 +78,15 @@ the rest:
 
 ### Other issues
 
-Data are stored in Google Drive and synchronized to your local computer using code (see our drive_sync() function).
+Data are stored in Google Drive and synchronized to your local computer using
+code (see our drive_sync() function).
 
-All 'raw' data would be synchronized (copied from Google Drive) into a relevant local ```/input/``` directory.  Outputs are also synchronized (copied to) the relevant ```/output``` directory and mirrored on Google Drive.  Subsequent downstream steps symlink from previous ```/output``` directories to ```/input``` directories and in general ```/output```(s) that are synchronized to Google Drive are not read back in except for extremely computationally expensive steps we won't want to regenerate each time we run the code.
+All 'raw' data would be synchronized (copied from Google Drive) into a relevant
+local ```/input/``` directory.  Outputs are also synchronized (copied to) the
+relevant ```/output``` directory and mirrored on Google Drive.  Subsequent
+downstream steps symlink from previous ```/output``` directories to
+```/input``` directories and in general ```/output```(s) that are synchronized
+to Google Drive are not read back in except for extremely computationally
+expensive steps we won't want to regenerate each time we run the code.
 
 
