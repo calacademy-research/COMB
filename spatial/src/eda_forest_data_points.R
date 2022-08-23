@@ -124,32 +124,42 @@ wide1havars %>%
   mutate(RAVG = rev(cut(mean_RAVGcbi4_20182019_1ha, 4, labels = c("unburned", "low", "moderate", "high")))) -> wide1havars
 
 wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltacov, color = RAVG)) +
+  ggplot(aes(x = point_d, y = deltacov, color = RAVG)) +
+  # scale_colour_brewer(palette="YlOrRd", direction=1) +
+  scale_colour_manual(values = c("Dark Green", "Orange", "Red", "Dark Red")) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 0) +
+  ggtitle(c("Canopy cover change before and after fire (2020-2018) versus burn severity (RAVG)")) +
+  xlab("Survey point") +
+  ylab("Change in canopy cover (2020-2018)") +
+  facet_wrap(~RAVG)
+
+wide1havars %>%
+  ggplot(aes(x = point_d, y = deltaht, color = RAVG)) +
+  # scale_colour_brewer(palette="YlOrRd", direction=1) +
+  scale_colour_manual(values = c("Dark Green", "Orange", "Red", "Dark Red")) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 0) +
+  ggtitle(c("Canopy height change before and after fire (2020-2018) versus burn severity (RAVG)")) +
+  xlab("Survey point") +
+  ylab("Change in canopy height (2020-2018)") +
+  facet_wrap(~RAVG)
+
+wide1havars %>%
+  ggplot(aes(x = point_d, y = deltabsht, color = RAVG)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
   facet_wrap(~RAVG)
 
 wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltaht, color = RAVG)) +
-  geom_point() +
-  geom_abline(intercept = 0, slope = 0) +
-  facet_wrap(~RAVG)
-
-wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltabsht, color = RAVG)) +
-  geom_point() +
-  geom_abline(intercept = 0, slope = 0) +
-  facet_wrap(~RAVG)
-
-wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltaht, color = RAVG)) +
+  ggplot(aes(x = point_d, y = deltabd, color = RAVG)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
   facet_wrap(~RAVG)
 # facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned")))
 
 wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltalf, color = RAVG)) +
+  ggplot(aes(x = point_d, y = deltalf, color = RAVG)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
   facet_wrap(~RAVG)
@@ -162,6 +172,7 @@ wide1havars %>%
 
 wide1havars %>%
   ggplot(aes(x = deltalf, y = deltabsht, color = RAVG)) +
+  scale_colour_manual(values = c("Dark Green", "Orange", "Red", "Dark Red")) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
@@ -173,6 +184,7 @@ wide1havars %>%
 
 wide1havars %>%
   ggplot(aes(x = deltaht, y = deltacov, color = RAVG)) +
+  scale_colour_manual(values = c("Dark Green", "Orange", "Red", "Dark Red")) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
@@ -184,6 +196,7 @@ wide1havars %>%
 
 wide1havars %>%
   ggplot(aes(x = deltalf, y = deltasf, color = RAVG)) +
+  scale_colour_manual(values = c("Dark Green", "Orange", "Red", "Dark Red")) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
