@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.2.0",
+    "Version": "4.2.1",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -251,6 +251,14 @@
         "tibble"
       ]
     },
+    "chron": {
+      "Package": "chron",
+      "Version": "2.3-57",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "fa640a982e1e726d5e0498361dab220a",
+      "Requirements": []
+    },
     "circular": {
       "Package": "circular",
       "Version": "0.4-95",
@@ -309,6 +317,16 @@
       "Repository": "CRAN",
       "Hash": "c5f8447373ec2a0f593c694024e5b7ee",
       "Requirements": []
+    },
+    "coda": {
+      "Package": "coda",
+      "Version": "0.19-4",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "24b6d006b8b2343876cf230687546932",
+      "Requirements": [
+        "lattice"
+      ]
     },
     "codetools": {
       "Package": "codetools",
@@ -887,6 +905,17 @@
       "Hash": "7ab57a6de7f48a8dc84910d1eca42883",
       "Requirements": []
     },
+    "jagsUI": {
+      "Package": "jagsUI",
+      "Version": "1.5.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2f8cefa42cee48f7ae71cd52db8d5553",
+      "Requirements": [
+        "coda",
+        "rjags"
+      ]
+    },
     "jquerylib": {
       "Package": "jquerylib",
       "Version": "0.1.4",
@@ -1425,6 +1454,16 @@
       "Hash": "7e8f18c3a55c90a44ea05e0620c05a7e",
       "Requirements": [
         "sp"
+      ]
+    },
+    "rjags": {
+      "Package": "rjags",
+      "Version": "4-13",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "0fd952ba9f2ff8006975e5ba1286d00a",
+      "Requirements": [
+        "coda"
       ]
     },
     "rlang": {
