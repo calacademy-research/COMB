@@ -49,7 +49,16 @@ models/input/*
 !models/input/PC_delinted.csv
 
 # Project Specific - gitignoring outputs as they are too big for git and can be built through code
+input/
 output/
 
 # Jupyter scratch directory
 .ipynb_checkpoints/
+
+#notebook renderings
+*.html
+*.pdf
+
+#
+.DS_Store
+spatial/.DS_Store
