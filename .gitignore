@@ -58,3 +58,6 @@ output/
 #notebook renderings
 *.html
 *.pdf
+
+#mac hidden files
+.DS_Store
