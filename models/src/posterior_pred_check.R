@@ -1,16 +1,16 @@
-
-# attach(jagsResult_WEWP$sims.list)
-nIter <- length(jagsResult_WEWP$sims.list$p11)
+jagsResult
+# attach(jagsResult$sims.list)
+nIter <- length(jagsResult$sims.list$p11)
 Tobs <- numeric(nIter)
 Tsim <- numeric(nIter)
-n <- rowSums(!is.na(data$y.ind[, 1:4])) # n = number of visits
-y <- rowSums(data$y.ind[, 1:4], na.rm = TRUE)
+n <- rowSums(!is.na(data$y.ind[, 1:3])) # n = number of visits
+y <- rowSums(data$y.ind[, 1:3], na.rm = TRUE)
 for (iter in 1:nIter) {
-  Tobs[iter] <- sum((sqrt(y) - sqrt((jagsResult_WEWP$sims.list$z[iter, ] * jagsResult_WEWP$sims.list$p11[iter] + (1 - jagsResult_WEWP$sims.list$z[iter, ]) * jagsResult_WEWP$sims.list$p10[iter]) * n))^2)
-  ySim <- rbinom(84, n, jagsResult_WEWP$sims.list$z[iter, ] * jagsResult_WEWP$sims.list$p11[iter] + (1 - jagsResult_WEWP$sims.list$z[iter, ]) * jagsResult_WEWP$sims.list$p10[iter])
-  Tsim[iter] <- sum((sqrt(ySim) - sqrt((jagsResult_WEWP$sims.list$z[iter, ] * jagsResult_WEWP$sims.list$p11[iter] + (1 - jagsResult_WEWP$sims.list$z[iter, ]) * jagsResult_WEWP$sims.list$p10[iter]) * n))^2)
+  Tobs[iter] <- sum((sqrt(y) - sqrt((jagsResult$sims.list$z[iter, ] * jagsResult$sims.list$p11[iter] + (1 - jagsResult$sims.list$z[iter, ]) * jagsResult$sims.list$p10[iter]) * n))^2)
+  ySim <- rbinom(84, n, jagsResult$sims.list$z[iter, ] * jagsResult$sims.list$p11[iter] + (1 - jagsResult$sims.list$z[iter, ]) * jagsResult$sims.list$p10[iter])
+  Tsim[iter] <- sum((sqrt(ySim) - sqrt((jagsResult$sims.list$z[iter, ] * jagsResult$sims.list$p11[iter] + (1 - jagsResult$sims.list$z[iter, ]) * jagsResult$sims.list$p10[iter]) * n))^2)
 }
-# detach(jagsResult_WEWP$sims.list)
+# detach(jagsResult$sims.list)
 
 MASS::eqscplot(Tobs, Tsim,
                xlim = range(Tobs, Tsim), ylim = range(Tobs, Tsim),
