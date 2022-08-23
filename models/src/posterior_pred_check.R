@@ -1,3 +1,5 @@
+library(MASS)
+
 jagsResult
 # attach(jagsResult$sims.list)
 nIter <- length(jagsResult$sims.list$p11)
