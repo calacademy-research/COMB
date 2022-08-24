@@ -30,7 +30,7 @@ data <- readCombined(
   beginTime = dhours(6),
   endTime = dhours(10),
   visitLimit = aruVisitLimit,
-  visitAggregation = "day",
+  visitAggregation = "file",
   thresholdOptions = list(
     value = threshold,
     is.quantile = F
@@ -46,7 +46,6 @@ model {
 
   # Priors
   psi ~ dunif(0, 1) # psi = Pr(Occupancy)
- # p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
   p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
   lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
@@ -64,7 +63,7 @@ model {
     z[i] ~ dbern(psi) # Latent occupancy states
 
     # Point count
-    p[i] <- z[i]*p11 # Detection probability
+    p[i] <- z[i]*p11
     for(j in 1:nsurveys.pc) {
       y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
@@ -129,4 +128,3 @@ jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
 )
-
