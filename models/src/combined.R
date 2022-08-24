@@ -17,7 +17,7 @@ source(here("models/src/model_read_lib.R"))
 
 
 # parameters --------------------------------------------------------------
-speciesCode <- "NOFL" # must match prefiltering of dataML_model.csv
+speciesCode <- "HAWO" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
