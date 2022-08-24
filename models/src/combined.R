@@ -66,16 +66,22 @@ model {
   for (i in 1:nsites) { # Loop over sites
     z[i] ~ dbern(psi) # Latent occupancy states
     p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability
-    site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species)
+
+    # Point counts
     for(j in 1:nsurveys.pc) { # Loop over occasions
       y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
+
+    # ARU counts
     for(j in 1:nsurveys.aru) { # Loop over occasions
       y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
     }
   }
 
-  # Likelihood part 2: feature score data
+  # ARU scores
+  for (i in 1:nsites) { # Loop over sites
+    site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species)
+  }
   for(k in 1:nsamples) {
     # Sample specific covariate
     score[k] ~ dnorm(mu[g[k]], tau) # parameters are group specific
@@ -115,9 +121,9 @@ nt <- 1
 nb <- 1000
 nc <- 3
 
-# TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
-# Discuss team preferences on whether to omit it, nest the return value of
-# readCombined, or some other alternative.
+# TODO(matt.har.vey): JAGS does not like indices in the list, since it's
+# non-numeric. Discuss team preferences on whether to omit it, nest the return
+# value of readCombined, or some other alternative.
 jagsData <- within(data, rm(indices))
 
 jagsResult <- jags(jagsData, inits, monitored, modelFile,
