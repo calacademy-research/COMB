@@ -17,7 +17,7 @@ source(here("models/src/model_read_lib.R"))
 
 
 # parameters --------------------------------------------------------------
-speciesCode <- "NOFL" # must match prefiltering of dataML_model.csv
+speciesCode <- "HAWO" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -65,16 +65,16 @@ model {
 
   # Likelihood part 1: detection data and ARU counts
   for (i in 1:nsites) { # Loop over sites
-    z[i] ~ dbern(psi[i]) # Latent occupancy states
-    
+    z[i] ~ dbern(psi) # Latent occupancy states
+
     p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability including over-detections
-    
+
     for(j in 1:nsurveys.pc) { # Loop over occasions
       y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
-    
+
     site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species) ... probability that a logit score came from a true detection
-    
+
     for(j in 1:nsurveys.aru) { # Loop over occasions
       y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
     }
@@ -131,9 +131,3 @@ jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
   seed = 123
 )
-plot(jagsResult)
-
-
-# EDA
-# "naive occupancy probability" from point count data only
-sum(data$y.ind[rowSums(data$y.ind, na.rm=TRUE) != 0])/84
