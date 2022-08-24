@@ -17,25 +17,27 @@ source(here("models/src/model_read_lib.R"))
 
 
 # parameters --------------------------------------------------------------
-speciesCode <- "RBNU" # must match prefiltering of dataML_model.csv
+speciesCode <- "NOFL" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0.5
-aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered)
-
+aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 
 # data --------------------------------------------------------------------
-drive_auth(email = TRUE) # do not prompt when only one email has token
-drive_sync(
-  here("acoustic/data_ingest/output/"),
-  "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
-)
+#drive_auth(email = TRUE) # do not prompt when only one email has token
+#drive_sync(
+#  here("acoustic/data_ingest/output/"),
+#  "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
+#)
 
 
 # JAGS structuring --------------------------------------------------------
 data <- readCombined(
   species = c(speciesCode),
   years = c(year),
+  beginTime = dhours(6),
+  endTime = dhours(10),
   visitLimit = aruVisitLimit,
+  visitAggregation = "file",
   thresholdOptions = list(
     value = threshold,
     is.quantile = F
@@ -63,12 +65,16 @@ model {
 
   # Likelihood part 1: detection data and ARU counts
   for (i in 1:nsites) { # Loop over sites
-    z[i] ~ dbern(psi) # Latent occupancy states
-    p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability
-    site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species)
+    z[i] ~ dbern(psi[i]) # Latent occupancy states
+    
+    p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability including over-detections
+    
     for(j in 1:nsurveys.pc) { # Loop over occasions
       y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
+    
+    site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species) ... probability that a logit score came from a true detection
+    
     for(j in 1:nsurveys.aru) { # Loop over occasions
       y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
     }
@@ -90,6 +96,7 @@ model {
 ")
 
 # initialization
+
 zst <- rep(1, data$nsites)
 gst <- sample(1:2, data$nsamples, replace = TRUE)
 gst[data$score > threshold] <- 1
@@ -121,5 +128,12 @@ jagsData <- within(data, rm(indices))
 
 jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
-  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE
+  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
+  seed = 123
 )
+plot(jagsResult)
+
+
+# EDA
+# "naive occupancy probability" from point count data only
+sum(data$y.ind[rowSums(data$y.ind, na.rm=TRUE) != 0])/84
