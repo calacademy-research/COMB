@@ -73,7 +73,7 @@ model {
   {mu_1}
   {mu_2}
   {sigma_element}
-  tau <- 1 / (sigma * sigma)
+  tau <- 1 / (sigma_element * sigma_element)
 
   # Likelihood part 1: detection data and ARU counts
   for (i in 1:nsites) { # Loop over sites
