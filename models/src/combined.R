@@ -11,6 +11,7 @@ library(here)
 library(jagsUI)
 library(lubridate)
 library(tidyverse)
+library(glue)
 
 source(here("comb_functions.R"))
 source(here("models/src/model_read_lib.R"))
@@ -46,21 +47,32 @@ data <- readCombined(
 )
 
 # JAGS specification ------------------------------------------------------
+
+# making objects for all of the elements of the model
+psi_element <- "psi ~ dunif(0, 1) # psi = Pr(Occupancy)"
+p10_element <- "p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)"
+p11_element <- "p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)"
+lam_element <- "lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected"
+ome_element <- "ome ~ dunif(0, 1000) # omega: rate of non-target detections"
+mu_1 <- "mu[1] ~ dnorm(0, 0.01)"
+mu_2 <- "mu[2] ~ dnorm(0, 0.01)"
+sigma_element <- "sigma ~ dunif(0, 10)"
+
 modelFile <- tempfile()
-cat(file = modelFile, "
+cat(file = modelFile, glue("
 model {
 
   # Priors
-  psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-  p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
-  p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
-  lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
-  ome ~ dunif(0, 1000) # omega: rate of non-target detections
+  {psi_element}
+  {p10_element}
+  {p11_element}
+  {lam_element}
+  {ome_element}
 
   # Parameters of the observation model for the scores
-  mu[1] ~ dnorm(0, 0.01)
-  mu[2] ~ dnorm(0, 0.01)
-  sigma ~ dunif(0, 10)
+  {mu_1}
+  {mu_2}
+  {sigma_element}
   tau <- 1 / (sigma * sigma)
 
   # Likelihood part 1: detection data and ARU counts
@@ -93,7 +105,7 @@ model {
   # Derived quantities
   Npos <- sum(N1[])
 }
-")
+"), .trim = F, sep = "\n")
 
 # initialization
 
