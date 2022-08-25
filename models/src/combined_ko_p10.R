@@ -17,7 +17,11 @@ source(here("models/src/model_read_lib.R"))
 
 
 # parameters --------------------------------------------------------------
+<<<<<<< HEAD
 speciesCode <- "NOFL" # must match prefiltering of dataML_model.csv
+=======
+speciesCode <- "HAWO" # must match prefiltering of dataML_model.csv
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -30,7 +34,11 @@ data <- readCombined(
   beginTime = dhours(6),
   endTime = dhours(10),
   visitLimit = aruVisitLimit,
+<<<<<<< HEAD
   visitAggregation = "file",
+=======
+  visitAggregation = "day",
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0
   thresholdOptions = list(
     value = threshold,
     is.quantile = F
@@ -46,7 +54,11 @@ model {
 
   # Priors
   psi ~ dunif(0, 1) # psi = Pr(Occupancy)
+<<<<<<< HEAD
   # p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
+=======
+ # p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0
   p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
   lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
@@ -64,7 +76,11 @@ model {
     z[i] ~ dbern(psi) # Latent occupancy states
 
     # Point count
+<<<<<<< HEAD
     p[i] <- z[i]*p11 # + (1-z[i])*p10 # Detection probability
+=======
+    p[i] <- z[i]*p11 # Detection probability
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0
     for(j in 1:nsurveys.pc) {
       y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
@@ -101,9 +117,13 @@ gst[data$score <= threshold] <- 2
 inits <- function() {
   list(
     mu = c(1, 0.6), sigma = c(1, 0.1), z = zst,
+<<<<<<< HEAD
     psi = runif(1), 
     #p10 = runif(1, 0, 0.05), 
     p11 = runif(1, 0.5, 0.8),
+=======
+    psi = runif(1), p11 = runif(1, 0.5, 0.8),
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0
     lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
   )
 }
@@ -111,6 +131,7 @@ inits <- function() {
 
 # JAGS execution ----------------------------------------------------------
 
+<<<<<<< HEAD
 monitored <- c("psi", 
                # "p10", 
                "p11", 
@@ -119,6 +140,9 @@ monitored <- c("psi",
                "mu", 
                "sigma", 
                "Npos")
+=======
+monitored <- c("psi", "p11", "lam", "ome", "mu", "sigma", "Npos")
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0
 
 # MCMC settings
 na <- 1000
@@ -138,3 +162,7 @@ jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
 )
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0d7c2f8b5d720325044882eac1491d11a858c7d0

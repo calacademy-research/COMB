@@ -129,3 +129,4 @@ jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
 )
+
