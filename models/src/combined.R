@@ -127,25 +127,43 @@ runTrial <- function(speciesCode) {
   nb <- 1000
   nc <- 1
 
-  # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
-  # Discuss team preferences on whether to omit it, nest the return value of
-  # readCombined, or some other alternative.
+  # TODO(matt.har.vey): JAGS does not like indices in the list, since it's
+  # non-numeric. Discuss team preferences on whether to omit it, nest the return
+  # value of readCombined, or some other alternative.
   jagsData <- within(data, rm(indices))
-
-  set.seed(123)
 
   jagsResult <- jags(jagsData, inits, monitored, modelFile,
     n.adapt = na,
     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
   )
 
-  return(jagsResult)
+  resultFrame <- function(result) {
+    meanFrame <- data.frame(result$mean) %>% unnest_wider(mu, names_sep="_")
+    rhatFrame <- data.frame(result$Rhat)
+    names(rhatFrame) <- map(
+      names(meanFrame),
+      function(t) {
+        paste("Rhat", t, sep=".")
+      }
+    )
+    return(meanFrame)
+    # TODO(matt.har.vey): Figure out why rhatFrame is all NA when run in furrr,
+    # and change to the following:
+    # return(cbind(meanFrame, rhatFrame))
+  }
+
+  return(cbind(
+    data.frame(species = speciesCode),
+    resultFrame(jagsResult)
+  ))
 }
 
-plan(multisession, workers=6)
-trialResults <- future_map(speciesCodes, runTrial)
-names(trialResults) <- speciesCodes
-
-means <- lapply(trialResults, function(r) { return(rbind(r$mean))})
-trialResultFrame <- data.frame(
-  do.call(rbind, means), row.names=names(trialResults))
+plan(multisession, workers = 8)
+trialsFrame <- do.call(
+  rbind,
+  future_map(
+    speciesCodes,
+    runTrial,
+    .options = furrr_options(scheduling = F, stdout = T, seed = 123)
+  )
+)
