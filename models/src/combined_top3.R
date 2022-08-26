@@ -52,8 +52,8 @@ model {
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
 
   # Parameters of the observation model for the scores
-  mu[1] ~ dunif(-3, 15)
-  mu[2] ~ dunif(-3, 15)
+  mu[1] ~ dunif(-1, 15)
+  mu[2] ~ dunif(-3, -0.5)
   sigma[1] ~ dunif(0, 10)
   tau[1] <- 1 / (sigma[1] * sigma[1])
   sigma[2] ~ dunif(0, 10)
@@ -101,9 +101,9 @@ gst[data$score > hit_threshold] <- 1
 gst[data$score <= hit_threshold] <- 2
 inits <- function() {
   list(
-    mu = c(1, 0.6), sigma = c(1, 0.1), z = zst,
+    mu = c(1, -1), sigma = c(1, 0.1), z = zst,
     psi = runif(1), p10 = runif(1, 0, 0.05), p11 = runif(1, 0.5, 0.8),
-    lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
+    lam = runif(1, 1, 6), ome = runif(1, 0, 0.4), g = gst
   )
 }
 
