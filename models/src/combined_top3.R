@@ -95,9 +95,9 @@ model {
 
 # initialization
 zst <- rep(1, data$nsites)
-gst <- sample(1:2, data$nsamples, replace = TRUE)
-gst[data$score > threshold] <- 1
-gst[data$score <= threshold] <- 2
+gst <- 0.5 # sample(1:2, data$nsamples, replace = TRUE)
+# gst[data$score > threshold] <- 1
+# gst[data$score <= threshold] <- 2
 inits <- function() {
   list(
     mu = c(1, 0.6), sigma = c(1, 0.1), z = zst,
@@ -116,7 +116,7 @@ na <- 1000
 ni <- 4000
 nt <- 1
 nb <- 1000
-nc <- 6
+nc <- 6 
 
 # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
 # Discuss team preferences on whether to omit it, nest the return value of
