@@ -122,7 +122,7 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
   }
 
   # fixing part where it tries to download folders (which throws an error)
-  z <- google_files %>% 
+  google_files <- google_files %>% 
     filter(
       unlist(map(1:length(google_files$drive_resource), 
           ~ google_files$drive_resource[[.x]][["mimeType"]] != "application/vnd.google-apps.folder"))
