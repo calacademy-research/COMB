@@ -13,7 +13,7 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib_top3.R"))
+source(here("models/src/model_read_lib_top1.R"))
 
 
 # parameters --------------------------------------------------------------
@@ -45,9 +45,7 @@ cat(file = modelFile, "
 model {
 
   # Priors
-  #psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-  beta0 ~ dnorm(0, 1)
-  beta1 ~ dnorm(0, 1)
+  psi ~ dunif(0, 1) # psi = Pr(Occupancy)
   p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
   lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
@@ -63,8 +61,7 @@ model {
   # Likelihood part 1: detection data and ARU counts
   for (i in 1:nsites) { # Loop over sites
     z[i] ~ dbern(psi) # Latent occupancy states
-    logit(psi[i]) <- beta0 + beta1*veg[i]
-
+    
     # Point count
     p[i] <- z[i]*p11 # Detection probability
     for(j in 1:nsurveys.pc) {
