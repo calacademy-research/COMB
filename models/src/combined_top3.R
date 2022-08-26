@@ -52,8 +52,8 @@ model {
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
 
   # Parameters of the observation model for the scores
-  mu[1] ~ dnorm(-1.3, 1)T(0.5,)     # -1.3, sig 1
-  mu[2] ~ dnorm(-1.75, 0.1)T(0.5,)    # -1.75, sig 0.125
+  mu[1] ~ dunif(-3, 15)
+  mu[2] ~ dunif(-3, 15)
   sigma[1] ~ dunif(0, 10)
   tau[1] <- 1 / (sigma[1] * sigma[1])
   sigma[2] ~ dunif(0, 10)
