@@ -19,8 +19,7 @@ source(here("models/src/model_read_lib.R"))
 
 
 # parameters --------------------------------------------------------------
-speciesCodes <- c("HAWO", "BBWO", "WHWO", "PIWO", "NOFL", "RBSA", "WISA")
-
+speciesCodes <- c("RBNU", "HAWO", "BUSH")
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -125,7 +124,7 @@ runTrial <- function(speciesCode) {
   ni <- 4000
   nt <- 1
   nb <- 1000
-  nc <- 1
+  nc <- 2
 
   # TODO(matt.har.vey): JAGS does not like indices in the list, since it's
   # non-numeric. Discuss team preferences on whether to omit it, nest the return
@@ -137,33 +136,34 @@ runTrial <- function(speciesCode) {
     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
   )
 
-  resultFrame <- function(result) {
-    meanFrame <- data.frame(result$mean) %>% unnest_wider(mu, names_sep="_")
-    rhatFrame <- data.frame(result$Rhat)
-    names(rhatFrame) <- map(
-      names(meanFrame),
-      function(t) {
-        paste("Rhat", t, sep=".")
-      }
-    )
-    return(meanFrame)
-    # TODO(matt.har.vey): Figure out why rhatFrame is all NA when run in furrr,
-    # and change to the following:
-    # return(cbind(meanFrame, rhatFrame))
+  jagsTibble <- function(s) {
+    return(data.frame(rbind(s)) %>% unnest_wider(names(s), names_sep = "_"))
   }
 
-  return(cbind(
-    data.frame(species = speciesCode),
-    resultFrame(jagsResult)
-  ))
+  means <- jagsTibble(jagsResult$mean)
+  rhats <- jagsTibble(jagsResult$Rhat)
+  names(rhats) <- as.character(
+    map(names(rhats), function(n) {
+      paste("rhat", n, sep = "_")
+    })
+  )
+
+  return(bind_cols(tibble(species = speciesCode), means, rhats))
 }
 
-plan(multisession, workers = 8)
-trialsFrame <- do.call(
-  rbind,
-  future_map(
-    speciesCodes,
-    runTrial,
-    .options = furrr_options(scheduling = F, stdout = T, seed = 123)
-  )
+plan(multisession, workers = 4)
+trialFutures <- sapply(
+  speciesCodes,
+  function(s) {
+    future(
+      {
+        runTrial(s)
+      },
+      scheduling = F,
+      stdout = T,
+      seed = 123
+    )
+  }
 )
+
+trialsFrame <- do.call(rbind, lapply(trialFutures, value))
