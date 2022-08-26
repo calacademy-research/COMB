@@ -94,10 +94,11 @@ model {
 ")
 
 # initialization
+hit_threshold <- 0.5
 zst <- rep(1, data$nsites)
-gst <- 0.5 # sample(1:2, data$nsamples, replace = TRUE)
-# gst[data$score > threshold] <- 1
-# gst[data$score <= threshold] <- 2
+gst <- sample(1:2, data$nsamples, replace = TRUE)
+gst[data$score > hit_threshold] <- 1
+gst[data$score <= hit_threshold] <- 2
 inits <- function() {
   list(
     mu = c(1, 0.6), sigma = c(1, 0.1), z = zst,
