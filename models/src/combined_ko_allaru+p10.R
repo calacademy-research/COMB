@@ -19,7 +19,7 @@ source(here("models/src/model_read_lib.R"))
 # parameters --------------------------------------------------------------
 speciesCode <- "HAWO" # must match prefiltering of dataML_model.csv
 year <- 2021
-threshold <- 0.5
+threshold <- -2.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 
 
@@ -97,3 +97,4 @@ jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
 )
+
