@@ -110,7 +110,7 @@ inits <- function() {
 
 # JAGS execution ----------------------------------------------------------
 
-monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
+monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos", "z")
 
 # MCMC settings
 na <- 1000
