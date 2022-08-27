@@ -18,6 +18,12 @@ source(here("comb_functions.R"))
 source(here("models/src/model_read_lib.R"))
 
 
+guilds <- read_csv(
+  "models/input/bird_guilds.csv",
+  col_names = c("name", "code6", "code4", "guild")
+)
+speciesCodes <- guilds$code4
+
 # parameters --------------------------------------------------------------
 speciesCodes <- c("RBNU", "HAWO", "BUSH")
 year <- 2021
@@ -131,39 +137,41 @@ runTrial <- function(speciesCode) {
   # value of readCombined, or some other alternative.
   jagsData <- within(data, rm(indices))
 
-  jagsResult <- jags(jagsData, inits, monitored, modelFile,
+  jags(jagsData, inits, monitored, modelFile,
     n.adapt = na,
     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
   )
+}
 
-  jagsTibble <- function(s) {
-    return(data.frame(rbind(s)) %>% unnest_wider(names(s), names_sep = "_"))
+plan(multisession)
+results <- reduce(
+  future_map(
+    speciesCodes,
+    runTrial,
+    .options = furrr_options(scheduling = F, stdout = T, seed = 123)
+  ),
+  function(r, c) {
+    append(c, r)
   }
+)
 
-  means <- jagsTibble(jagsResult$mean)
-  rhats <- jagsTibble(jagsResult$Rhat)
+flatResult <- function(r) {
+  means <- unlist(r$mean)
+  rhats <- unlist(r$Rhat)
   names(rhats) <- as.character(
     map(names(rhats), function(n) {
       paste("rhat", n, sep = "_")
     })
   )
-
-  return(bind_cols(tibble(species = speciesCode), means, rhats))
+  append(means, rhats)
 }
 
-plan(multisession, workers = 4)
-trialFutures <- sapply(
-  speciesCodes,
-  function(s) {
-    future(
-      {
-        runTrial(s)
-      },
-      scheduling = F,
-      stdout = T,
-      seed = 123
-    )
-  }
+resultsFrame <- bind_rows(
+  map2(
+    speciesCodes,
+    results,
+    function(s, r) {
+      append(list(species = s), flatResult(r))
+    }
+  )
 )
-
-trialsFrame <- do.call(rbind, lapply(trialFutures, value))
