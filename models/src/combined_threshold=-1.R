@@ -19,15 +19,8 @@ source(here("models/src/model_read_lib.R"))
 # parameters --------------------------------------------------------------
 speciesCode <- "HAWO" # must match prefiltering of dataML_model.csv
 year <- 2021
-threshold <- 0.5
+threshold <- -1
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
-
-# data --------------------------------------------------------------------
-#drive_auth(email = TRUE) # do not prompt when only one email has token
-#drive_sync(
-#  here("acoustic/data_ingest/output/"),
-#  "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
-#)
 
 
 # JAGS structuring --------------------------------------------------------
@@ -45,6 +38,7 @@ data <- readCombined(
   squeeze = T
 )
 
+
 # JAGS specification ------------------------------------------------------
 modelFile <- tempfile()
 cat(file = modelFile, "
@@ -58,8 +52,8 @@ model {
   ome ~ dunif(0, 1000) # omega: rate of non-target detections
 
   # Parameters of the observation model for the scores
-  mu[1] ~ dnorm(-1.3, 1)T(0.5,)     # -1.3, sig 1
-  mu[2] ~ dnorm(-1.75, 0.1)T(0.5,)    # -1.75, sig 0.125
+  mu[1] ~ dnorm(-1.3, 1)T(-1,)     # -1.3, sig 1
+  mu[2] ~ dnorm(-1.75, 0.1)T(-1,)    # -1.75, sig 0.125
   sigma[1] ~ dunif(0, 10)
   tau[1] <- 1 / (sigma[1] * sigma[1])
   sigma[2] ~ dunif(0, 10)
@@ -69,13 +63,14 @@ model {
   for (i in 1:nsites) { # Loop over sites
     z[i] ~ dbern(psi) # Latent occupancy states
 
-    p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability including over-detections
-
-    for(j in 1:nsurveys.pc) { # Loop over occasions
+    # Point count
+    p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability
+    for(j in 1:nsurveys.pc) {
       y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
     }
 
-    for(j in 1:nsurveys.aru) { # Loop over occasions
+    # ARU
+    for(j in 1:nsurveys.aru) {
       y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
     }
   }
@@ -99,7 +94,6 @@ model {
 ")
 
 # initialization
-
 zst <- rep(1, data$nsites)
 gst <- sample(1:2, data$nsamples, replace = TRUE)
 gst[data$score > threshold] <- 1
@@ -115,7 +109,7 @@ inits <- function() {
 
 # JAGS execution ----------------------------------------------------------
 
-monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos", "z")
+monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
 
 # MCMC settings
 na <- 1000
@@ -133,5 +127,6 @@ set.seed(123)
 
 jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
-  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE
+  n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
 )
+
