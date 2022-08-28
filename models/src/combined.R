@@ -20,7 +20,13 @@ source(here("models/src/model_read_lib.R"))
 
 guilds <- read_csv(
   "models/input/bird_guilds.csv",
-  col_names = c("name", "code6", "code4", "guild")
+  col_names = c("name", "code6", "code4", "guild"),
+  col_types = cols(
+    name = col_character(),
+    code6 = col_character(),
+    code4 = col_character(),
+    guild = col_character()
+  )
 )
 speciesCodes <- guilds$code4
 
