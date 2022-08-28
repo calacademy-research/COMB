@@ -143,15 +143,10 @@ runTrial <- function(speciesCode) {
 }
 
 plan(multisession)
-results <- reduce(
-  future_map(
-    speciesCodes,
-    runTrial,
-    .options = furrr_options(scheduling = F, stdout = T, seed = 123)
-  ),
-  function(r, c) {
-    append(c, r)
-  }
+results <- future_map(
+  speciesCodes,
+  runTrial,
+  .options = furrr_options(scheduling = F, stdout = T, seed = 123)
 )
 
 flatMeanAndRhat <- function(r) {
