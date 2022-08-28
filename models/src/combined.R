@@ -89,8 +89,6 @@ runTrial <- function(speciesCode) {
         y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
       }
 
-      site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species) ... probability that a logit score came from a true detection
-
       for(j in 1:nsurveys.aru) { # Loop over occasions
         y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
       }
