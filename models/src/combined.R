@@ -75,7 +75,7 @@ runTrial <- function(speciesCode) {
 
     # Likelihood part 1: detection data and ARU counts
     for (i in 1:nsites) { # Loop over sites
-      z[i] ~ dbern(psi[i]) # Latent occupancy states
+      z[i] ~ dbern(psi) # Latent occupancy states
 
       p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability including over-detections
 
