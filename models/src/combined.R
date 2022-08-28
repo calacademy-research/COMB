@@ -25,7 +25,6 @@ guilds <- read_csv(
 speciesCodes <- guilds$code4
 
 # parameters --------------------------------------------------------------
-speciesCodes <- c("RBNU", "HAWO", "BUSH")
 year <- 2021
 threshold <- 0.5
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -155,7 +154,7 @@ results <- reduce(
   }
 )
 
-flatResult <- function(r) {
+flatMeanAndRhat <- function(r) {
   means <- unlist(r$mean)
   rhats <- unlist(r$Rhat)
   names(rhats) <- as.character(
@@ -171,7 +170,7 @@ resultsFrame <- bind_rows(
     speciesCodes,
     results,
     function(s, r) {
-      append(list(species = s), flatResult(r))
+      append(list(species = s), flatMeanAndRhat(r))
     }
   )
 )
