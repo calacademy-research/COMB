@@ -139,15 +139,13 @@ runTrial <- function(speciesCode) {
     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
   )
 
-  result <- list(jagsResult)
-  names(result) <- speciesCode
-  return(result)
+  return(jagsResult)
 }
 
-plan(multisession, workers = 6)
-trialResults <- reduce(
-  future_map(speciesCodes, runTrial),
-  function(entry, collection) {
-    return(append(collection, entry))
-  }
-)
+plan(multisession, workers=6)
+trialResults <- future_map(speciesCodes, runTrial)
+names(trialResults) <- speciesCodes
+
+means <- lapply(trialResults, function(r) { return(rbind(r$mean))})
+trialResultFrame <- data.frame(
+  do.call(rbind, means), row.names=names(trialResults))
