@@ -139,9 +139,21 @@ runTrial <- function(speciesCode) {
   # value of readCombined, or some other alternative.
   jagsData <- within(data, rm(indices))
 
-  jags(jagsData, inits, monitored, modelFile,
-    n.adapt = na,
-    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
+  tryCatch(
+    {
+      stop("test error")
+      jagsResult <- jags(jagsData, inits, monitored, modelFile,
+        n.adapt = na,
+        n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
+      )
+      kv <- list(result=jagsResult)
+      names(kv) <- speciesCode
+      return(kv)
+    },
+    error = function(cnd) {
+      warning(paste(speciesCode, "JAGS run failed:", conditionMessage(cnd)))
+      return(list())
+    }
   )
 }
 
@@ -150,7 +162,7 @@ results <- future_map(
   speciesCodes,
   runTrial,
   .options = furrr_options(scheduling = F, stdout = T, seed = 123)
-)
+) %>% reduce(c)
 
 flatMeanAndRhat <- function(r) {
   means <- unlist(r$mean)
@@ -165,10 +177,10 @@ flatMeanAndRhat <- function(r) {
 
 resultsFrame <- bind_rows(
   map2(
-    speciesCodes,
+    names(results),
     results,
-    function(s, r) {
-      append(list(species = s), flatMeanAndRhat(r))
+    function(speciesCode, jagsResult) {
+      append(list(species = speciesCode), flatMeanAndRhat(jagsResult))
     }
   )
 )
