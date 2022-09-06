@@ -6,12 +6,12 @@
 
 
 # libraries ---------------------------------------------------------------
+library(future)
 library(googledrive)
 library(here)
 library(jagsUI)
 library(lubridate)
-library(furrr)
-library(purrr)
+library(promises)
 library(tidyverse)
 
 source(here("comb_functions.R"))
@@ -32,7 +32,7 @@ speciesCodes <- guilds$code4
 
 # parameters --------------------------------------------------------------
 year <- 2021
-threshold <- 0.5
+threshold <- -3
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 
 # data --------------------------------------------------------------------
@@ -72,8 +72,8 @@ runTrial <- function(speciesCode) {
     ome ~ dunif(0, 1000) # omega: rate of non-target detections
 
     # Parameters of the observation model for the scores
-    mu[1] ~ dnorm(-1.3, 1)T(0.5,)     # -1.3, sig 1
-    mu[2] ~ dnorm(-1.75, 0.1)T(0.5,)    # -1.75, sig 0.125
+    mu[1] ~ dnorm(1, 1)
+    mu[2] ~ dnorm(-2, 0.5)
     sigma[1] ~ dunif(0, 10)
     tau[1] <- 1 / (sigma[1] * sigma[1])
     sigma[2] ~ dunif(0, 10)
@@ -139,34 +139,31 @@ runTrial <- function(speciesCode) {
   # value of readCombined, or some other alternative.
   jagsData <- within(data, rm(indices))
 
-  tryCatch(
-    {
-      stop("test error")
-      jagsResult <- jags(jagsData, inits, monitored, modelFile,
-        n.adapt = na,
-        n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
-      )
-      kv <- list(result=jagsResult)
-      names(kv) <- speciesCode
-      return(kv)
+  jagsResult <- jags(jagsData, inits, monitored, modelFile,
+    n.adapt = na,
+    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
+  )
+  kv <- list(result=jagsResult)
+  names(kv) <- speciesCode
+  return(kv)
+}
+
+trialResults <- list()
+plan(multisession, workers=20)
+for (speciesCode in speciesCodes) {
+  promise <- future_promise({ runTrial(speciesCode) }, seed=123)
+  then(
+    promise,
+    onFulfilled=function (kv) {
+      trialResults <<- c(trialResults, kv)
     },
-    error = function(cnd) {
-      warning(paste(speciesCode, "JAGS run failed:", conditionMessage(cnd)))
-      return(list())
-    }
+    onRejected=function(err) { warning(speciesCode, " failed: ", err) }
   )
 }
 
-plan(multisession)
-results <- future_map(
-  speciesCodes,
-  runTrial,
-  .options = furrr_options(scheduling = F, stdout = T, seed = 123)
-) %>% reduce(c)
-
-flatMeanAndRhat <- function(r) {
-  means <- unlist(r$mean)
-  rhats <- unlist(r$Rhat)
+flatMeanAndRhat <- function(jagsResult) {
+  means <- unlist(jagsResult$mean)
+  rhats <- unlist(jagsResult$Rhat)
   names(rhats) <- as.character(
     map(names(rhats), function(n) {
       paste("rhat", n, sep = "_")
@@ -175,12 +172,7 @@ flatMeanAndRhat <- function(r) {
   append(means, rhats)
 }
 
-resultsFrame <- bind_rows(
-  map2(
-    names(results),
-    results,
-    function(speciesCode, jagsResult) {
-      append(list(species = speciesCode), flatMeanAndRhat(jagsResult))
-    }
-  )
-)
+getCurrentResults <- function() {
+  table <- t(sapply(trialResults, flatMeanAndRhat))
+  data.frame(table) %>% rownames_to_column("species")
+}
