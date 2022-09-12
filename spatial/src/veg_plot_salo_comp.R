@@ -4,10 +4,11 @@
 # 
 # [] build new script to fix shape file for ALL points
 # install.packages("rgdal")
-# library(rgdal)
+library(rgdal)
 library(sf)
 library(here)
 library(tidyverse)
+library(raster)
 
 # read in wildlife points
 #[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
