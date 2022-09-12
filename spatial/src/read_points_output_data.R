@@ -39,7 +39,7 @@ if (dir.exists(here("spatial/output/rasters/")) == F) {
 }
 # run to ensure raster brick is loaded
 drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
-1# read raster
+# read raster
 
 if (exists(x = "canopy_fuel_nbr_dem_RAVG_LIDAR") == F) {
   canopy_fuel_nbr_dem_RAVG_LIDAR <- stack(here("spatial", "output", "rasters", "canopy_fuel_nbr_dem_RAVG_LIDAR.grd"))
@@ -72,7 +72,8 @@ fire_boundary <- st_transform(fire_boundary, crs(study_area)) # transformed crs
 
 # read in wildlife points
 #[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
-# wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
+wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
+st_crs(wild_points) <- 26910
 # new_wild_points
 
 new_wild_points <- sf::read_sf(here(shapedir, "FinalCaplesMonitoringPlots2022.shp"))
@@ -107,6 +108,8 @@ wild_points$point_d[!wild_points$point_d %in% new_wild_points$Avian_Poin]
 
 #join in the old metadata ... if possible
 #transfrom CRS
+
+
 temp_wild_points <- st_transform(wild_points, crs=st_crs(new_wild_points))
 
 #join (see https://github.com/r-spatial/sf/issues/1177)
@@ -431,7 +434,7 @@ wide_forest_variables %>% # make into a 'long or tall' dataset
   #^original estimate around for legacy purposes and QAQC
   dplyr::select(
     veg_point, avian_point, sum_fn, var, Year, scale, value,
-    Cpls_Wt, Treatment, Size, Density, in_Caples_burn = inside_fire_boundary
+    Cpls_Wt, Treatment = Tretmnt, Size, Density, in_Caples_burn = inside_fire_boundary
   ) -> tall_forest_variables
 
 #above both tall and wide forest variables have
@@ -974,7 +977,7 @@ metadatavars %>%
   ) %>% 
   dplyr::select(
   veg_point, avian_point, sum_fn, var, Year, scale, value,
-  Cpls_Wt, Treatment, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_1ha
+  Cpls_Wt, Treatment = Tretmnt, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_1ha
 
 # make into a 'long or tall' dataset, 4ha
 metadatavars %>%
@@ -995,7 +998,7 @@ metadatavars %>%
   ) %>% 
   dplyr::select(
     veg_point, avian_point, sum_fn, var, Year, scale, value,
-    Cpls_Wt, Treatment, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_4ha
+    Cpls_Wt, Treatment = Tretmnt, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_4ha
 
 #------------------------------------------------------------
 # output of wide & tall forest variables
