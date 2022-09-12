@@ -1,6 +1,9 @@
+### Caples_Tidy_20220221.R ###
+### Ask SJ if most up to date [ ]
 library(dplyr)
 library(tidyverse)
 library(tidyr)
+library(readxl)
 library(writexl)
 library(vegan)
 library(here)
@@ -20,14 +23,14 @@ if (dir.exists(here("vegetation/data_ingest/input/")) == FALSE) {
 drive_sync(here("vegetation/data_ingest/input/"), "https://drive.google.com/drive/folders/1nIbMrSgsoU2Zekk5NJ-oG440HwgcZ6V4")
 
 #Import tables from Access database.  Includes data for 158 plot visits associated with avian plots (SMC + RFR).
-Caples_PlotVisits_20220207 <- read_excel(here("Caples_PlotVisits.xlsx"))
-TreeData_forExport_20220207c <- read_excel(here("TreeData_forExport.xlsx"))
-VegetationData_forExport_20220207c <- read_excel(here("VegetationData_forExport.xlsx"))
+Caples_PlotVisits_20220207 <- read_excel(here("vegetation/data_ingest/input/Caples_PlotVisits.xlsx"))
+TreeData_forExport_20220207c <- read_excel(here("vegetation/data_ingest/input/TreeData_forExport.xlsx"))
+VegetationData_forExport_20220207c <- read_excel(here("vegetation/data_ingest/input/VegetationData_forExport.xlsx"))
 #Seedling and Sapling data does not crosswalk from RFR plots
-RegenData_forExport_20220128 <- read_excel(here("RegenData_forExport.xlsx"))
-SpeciesComp_forExport_20220201 <- read_excel(here("SpeciesComp_forExport.xlsx"))
+RegenData_forExport_20220128 <- read_excel(here("vegetation/data_ingest/input/RegenData_forExport.xlsx"))
+SpeciesComp_forExport_20220201 <- read_excel(here("vegetation/data_ingest/input/SpeciesComp_forExport.xlsx"))
 #CWD in RFR?
-CWD_Data_forExport_20220216 <- read_excel(here("CWD_Data_forExport.xlsx"))
+CWD_Data_forExport_20220217 <- read_excel(here("vegetation/data_ingest/input/CWD_Data_forExport.xlsx"))
 
 
 #Let's make some nicknames
@@ -47,7 +50,7 @@ SMCPlotVisits<-PlotVisits%>%
 #################################################
 
 #retain all variables, but detach Notes and other variables not collected in all years
-Veg2<-select(Veg,-c(6,7,8:11,14,15,26,27))
+Veg2<-dplyr::select(Veg, -c(6,7,8:11,14,15,26,27))
 #Retain NA values.  Note that heights are"0" when cover of veg classes are 0. 
 
 ###CWD
@@ -105,7 +108,7 @@ CWD_vol_ha<-bind_rows(CWD_vol_ha_SMC2,CWD_vol_ha_RFR2)%>%
   rename("CWDvol_24plus_R"="24more_rotten")%>%
   rename("CWDvol_24plus_S"="24more_sound")%>%
   rename("CWDvol_ha_all"="CWD_vol_All_ha" )%>%
-  select(-c("3to12_NA"))#one missing decay class value -- captured in CWDvol_ha_all
+  dplyr::select(-c("3to12_NA"))#one missing decay class value -- captured in CWDvol_ha_all
   
 #SMC CWD - pieces per hectare
 CWD_density_SMC<-CWD2%>%
@@ -145,7 +148,7 @@ CWD_density_ha<-bind_rows(CWD_density_SMC2,CWD_density_RFR2)%>%
   rename("CWDdensity_24plus_R"="24more_rotten")%>%
   rename("CWDdensity_24plus_S"="24more_sound")%>%
   rename("CWDdensity_ha_all"="CWD_All_ha" )%>%
-  select(-c("3to12_NA"))#one missing decay class value -- captured in CWDdensity_ha_all
+  dplyr::select(-c("3to12_NA"))#one missing decay class value -- captured in CWDdensity_ha_all
 
 #SMC - CWD cover
 CWD_cover_SMC<-CWD2%>%
@@ -163,7 +166,7 @@ CWD_cover_RFR<-CWD2%>%
 
 CWD_cover<-bind_rows(CWD_cover_SMC,CWD_cover_RFR)%>%
   replace(is.na(.), 0)%>%
-  select(-c(2))
+  dplyr::select(-c(2))
 
 ###TREE DENSITIES BY DBH
 ############################################################
@@ -185,7 +188,7 @@ LiveTreeTPH<-Trees %>%
   mutate(TPH40.6to61.0 = if_else(Veg_Type == "SMC", Count40.6to61.0*24.71, Count40.6to61.0*20.01))%>%
   mutate(TPH61.0to78.7 = if_else(Veg_Type == "SMC", Count61.0to78.7*24.71, Count61.0to78.7*20.01))%>%
   mutate(TPHMore78.7 = if_else(Veg_Type == "SMC", CountMore78.7*24.71, CountMore78.7*20.01))%>%
-  select(-c(Veg_Type,CountAllTrees,CountLess20.3, Count20.3to40.6,Count40.6to61.0,Count61.0to78.7,CountMore78.7))%>%
+  dplyr::select(-c(Veg_Type,CountAllTrees,CountLess20.3, Count20.3to40.6,Count40.6to61.0,Count61.0to78.7,CountMore78.7))%>%
   replace(is.na(.), 0)
 
 #Snag Densities by DBH and plot visit
@@ -205,7 +208,7 @@ SnagTPH<-Trees %>%
   mutate(SnagsPH40.6to61.0 = if_else(Veg_Type == "SMC", Count40.6to61.0Snags*24.71, Count40.6to61.0Snags*20.01))%>%
   mutate(SnagsPH61.0to78.7 = if_else(Veg_Type == "SMC", Count61.0to78.7Snags*24.71, Count61.0to78.7Snags*20.01))%>%
   mutate(SnagsPHMore78.7 = if_else(Veg_Type == "SMC", CountMore78.7Snags*24.71, CountMore78.7Snags*20.01))%>%
-  select(-c(Veg_Type,CountAllSnags,CountLess20.3Snags, Count20.3to40.6Snags,Count40.6to61.0Snags,Count61.0to78.7Snags,CountMore78.7Snags))%>%
+  dplyr::select(-c(Veg_Type,CountAllSnags,CountLess20.3Snags, Count20.3to40.6Snags,Count40.6to61.0Snags,Count61.0to78.7Snags,CountMore78.7Snags))%>%
   replace(is.na(.), 0)
 
 ###TREE SPECIES COMPOSITION BY PLOT (live)
@@ -229,7 +232,7 @@ SnagTPH<-Trees %>%
     mutate(PILA_TPH = if_else(Veg_Type == "SMC", PILA*24.71, PILA*20.01))%>%
     mutate(PIMO_TPH = if_else(Veg_Type == "SMC", PIMO*24.71, PIMO*20.01))%>%
     mutate(TSME_TPH = if_else(Veg_Type == "SMC", TSME*24.71, TSME*20.01))%>%
-      select(-c(2:12))
+      dplyr::select(-c(2:12))
     
 ###REGEN DENSITIES 
 ############################################################
@@ -269,7 +272,7 @@ SnagTPH<-Trees %>%
     summarise(CC_MaxHeight=max(Height))%>%
     spread(Crown_Class, CC_MaxHeight)%>%
     replace(is.na(.), 0)
-  XTabCC_MaxHt<-select(XTabCC_Heights, DO_Max_Ht = DO, CO_Max_Ht=CO, IN_Max_Ht=IN, OT_Max_Ht=OT)
+  XTabCC_MaxHt<-dplyr::select(XTabCC_Heights, DO_Max_Ht = DO, CO_Max_Ht=CO, IN_Max_Ht=IN, OT_Max_Ht=OT)
 
 ##SPECIES COMPOSITION
 #Transform to wide format
@@ -282,7 +285,7 @@ SnagTPH<-Trees %>%
   #Remove Unknowns and Species occurring in < 5% of plots (SMC plots only)
   SpCompWideSMC5<-SMCPlotVisits%>%
     left_join(SpCompWide,by=c("PV_ID"))%>%
-    select(-c(2:12,381:390))%>%
+    dplyr::select(-c(2:12,381:390))%>%
     purrr::discard(~sum(is.na(.x))/length(.x)* 100 >=95)%>%
     replace(is.na(.), 0)
     
@@ -291,7 +294,7 @@ SnagTPH<-Trees %>%
 ##Attach these data to Plots as the left side table.  Now this dataset includes ONLY the plot 
 ##visits designated as either Pre-Caples or Post-Caples visits in avian plots (158 plot visits). Six of
 ##these are RFR plots with no data for multiple attributes (seedlings, saplings, species comp, crown class)
-  Caples_PlotData<-PlotVisits%>% 
+  Caples_PlotData <- PlotVisits%>% 
     left_join(Veg2,by=c("PV_ID"))%>%
     left_join(LiveTreeTPH,by=c("PV_ID"))%>%
     left_join(SnagTPH, by=c("PV_ID"))%>%
@@ -303,9 +306,9 @@ SnagTPH<-Trees %>%
     left_join(CWD_cover, by =c("PV_ID"))%>%
     left_join(CWD_vol_ha, by = c("PV_ID"))%>%
     left_join(CWD_density_ha, by =c("PV_ID"))%>%
-    left_join(SpCompWideSMC5, by  =c("PV_ID"))
+    left_join(SpCompWideSMC5, by  =c("PV_ID")) 
   #Change NA values to zero where data was collected in both SMC and RFR plots (TPA, TPH - size class and species, CWD)
-    Caples_PlotData_Zeros<-Caples_PlotData%>%
+    Caples_PlotData_Zeros<-Caples_PlotData %>%
       mutate_at(c(29:42,45:54,60:74),~replace_na(.,0))
   
   #Change NA values where data not collected for RFR to 0's in SMC plots, but retain NA for RFR (couldn't find more elegant way to do this, although I am sure it exists!)
