@@ -110,7 +110,6 @@ avian_points$point_d[!avian_points$point_d %in% vegetation_points$Avian_Poin]
 
 #join in the old metadata ... if possible
 #transfrom CRS
-# [ ] old remove
 
 # are points in the Caples fire boundary area?
 avian_points$avian_inside_fire_boundary <- as.vector(st_intersects(fire_boundary, avian_points, sparse = FALSE))
