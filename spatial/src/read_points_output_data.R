@@ -87,7 +87,7 @@ library(tidyverse)
 new_wild_points %>%
   dplyr::mutate(UTM_N_ck = sf::st_coordinates(.)[,2],
                 UTM_E_ck = sf::st_coordinates(.)[,1]) %>% 
-  select(UTM_N, UTM_N_ck, UTM_E, UTM_E_ck) -> tmp
+  dplyr::select(UTM_N, UTM_N_ck, UTM_E, UTM_E_ck) -> tmp
 
 #check and sum result should be zero
 !(round(tmp$UTM_N_ck,1) == round(tmp$UTM_N,1)) %>% sum()
@@ -119,7 +119,7 @@ temp_new_wild_points %>%
                 UTM_N_y_ck = sf::st_coordinates(.$geometry.y)[,2],
                 UTM_E_y_ck = sf::st_coordinates(.$geometry.y)[,1]
                 ) %>%
-  select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> tmp
+  dplyr::select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> tmp
 
 !(round(tmp$UTM_N_x_ck,1) == round(tmp$UTM_N_y_ck,1)) %>% na.omit() %>% sum()
 !(round(tmp$UTM_E_x_ck,1) == round(tmp$UTM_E_y_ck,1)) %>% na.omit() %>% sum()
@@ -357,6 +357,8 @@ colnames(extract_nbr_4ha) <-
   )
 
 nbr <- cbind(extract_nbr_1ha, extract_nbr_4ha)
+
+canopy_fuel_nbr_dem_RAVG_LIDAR@layers
 
 # elevation too
 extract_elevation_1ha <- exactextractr::exact_extract(dem_imgStack[[1]], wldf_50, c("mean", "median", "min", "max", "count"))
@@ -1029,3 +1031,4 @@ fwrite(tall_forest_variables, here("spatial", "output", "tables", tallvars_filen
 # sync up to Google drive, if not already, 'sunk' :)
 drive_sync(here("spatial", "output", "tables"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")[[1]])
 # currently ^ not working for upload, [ ]?'
+
