@@ -9,6 +9,7 @@ library(data.table)
 library(here)
 library(fs)
 library(lubridate)
+library(furrr)
 
 source(here("comb_functions.R"))
 source(here("models/src/model_read_lib.R"))
@@ -80,10 +81,10 @@ model {
     probs[k,1] <- site.prob[siteid[k]]
     probs[k,2] <- 1 - site.prob[siteid[k]] # the prior class probabilities
     g[k] ~ dcat(probs[k,])
-    N1[k] <- ifelse(g[k]==1, 1, 0)
+     #N1[k] <- ifelse(g[k]==1, 1, 0)
   }
   # Derived quantities
-  Npos <- sum(N1[])
+   #Npos <- sum(N1[])
 }
 ")
 
@@ -109,7 +110,7 @@ na <- 1000
 ni <- 4000
 nt <- 1
 nb <- 1000
-nc <- 6
+nc <- 2
 
 # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
 # Discuss team preferences on whether to omit it, nest the return value of
@@ -127,5 +128,7 @@ return(jagsResult)
 ### END OF MODEL COPY-PASTED
 }
 
-big_jags_out <- map(.x = 1:72, 
+plan(multisession, workers = 10)
+
+big_jags_out <- future_map(.x = 1:72, 
                     ~ model(all_data[[.x]]))
