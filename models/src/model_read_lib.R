@@ -400,7 +400,7 @@ buildOuterIndices <- function(species, years) {
   species <- tibble(Species = species)
   speciesIndices <- species %>% mutate(Species_Index = seq_along(Species))
 
-  years <- tibble(Year = years)
+  years <- tibble(Year = as.numeric(years))
   yearIndices <- years %>% mutate(Year_Index = seq_along(Year))
 
   points <- latlong %>%
@@ -419,7 +419,7 @@ buildOuterIndices <- function(species, years) {
 #' Adds $visit and $full to a list of index tables
 #'
 #' The length and of the visits axis and the interpretation of its indices can
-#' vary with survey method. This funtion takes a table of visits, assigns them
+#' vary with survey method. This function takes a table of visits, assigns them
 #' visit indices, and returns an extended version of the indices data structure
 #' given as a param.
 #'
@@ -486,13 +486,13 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
 #'
 #' @export
 readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
-  read_csv(
+  fread(
     dataMlPath,
-    col_types = cols(
-      species = col_character(),
-      point = col_integer(),
-      Date_Time = col_datetime(),
-      logit = col_double()
+    colClasses = c(
+      species = "character",
+      point = "integer",
+      Date_Time = "Date",
+      logit = "double"
     )
   ) %>%
     select(Species = species, Point = point, Date_Time, Score = logit) %>%
