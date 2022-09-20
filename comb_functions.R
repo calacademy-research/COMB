@@ -166,3 +166,21 @@ logit_to_p <- function(logit) {
   p <- exp(logit) / (exp(logit) + 1)
   return(p)
 }
+
+#adjusted logit_to_p for the label smoothing
+#that adds about 0.1 in probability space ... 
+#a sum of this is ~ a count with confidence
+
+logit_to_p_f <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
+  p <- (p - .1)/.9
+  return(p)
+}
+
+#unsmoothed (as @tomdenton)
+logit_to_p_f_us <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
+  p <- (p - .1)/.9 #subtract the unsmoothed bit (adds a constant ~ 0.1)
+  p <- if_else(p < 0, 0, p)#
+  return(p)
+}
