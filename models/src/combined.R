@@ -66,8 +66,8 @@ runTrial <- function(speciesCode) {
 
     # Priors
     psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-    p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
-    p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
+    p10 ~ dbeta(2, 10) # p10 = Pr(y = 1 | z = 0)
+    p11 ~ dbeta(5, 2) # p11 = Pr(y = 1 | z = 1)
     lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
     ome ~ dunif(0, 1000) # omega: rate of non-target detections
 
@@ -119,20 +119,21 @@ runTrial <- function(speciesCode) {
   gst[data$score <= threshold] <- 2
   inits <- function() {
     list(
-      mu = c(1, 0.6), sigma = c(1, 0.1), z = zst,
-      psi = runif(1), p10 = runif(1, 0, 0.05), p11 = runif(1, 0.5, 0.8),
-      lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
+      mu = c(rnorm(1, 1, 1), rnorm(1, -2, 0.5)),
+      sigma = c(runif(1, 0, 10), runif(1, 0, 10)), z = zst,
+      psi = runif(1, 0, 1), p10 = rbeta(1, 2, 10), p11 = rbeta(1, 5, 2),
+      lam = runif(1, 0, 1000), ome = runif(1, 0, 1000), g = gst
     )
   }
 
   monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma", "Npos")
 
   # MCMC settings
-  na <- 1000
-  ni <- 4000
+  na <- 2000
+  ni <- 2000
   nt <- 1
-  nb <- 1000
-  nc <- 2
+  nb <- 2000
+  nc <- 3
 
   # TODO(matt.har.vey): JAGS does not like indices in the list, since it's
   # non-numeric. Discuss team preferences on whether to omit it, nest the return
@@ -149,7 +150,7 @@ runTrial <- function(speciesCode) {
 }
 
 trialResults <- list()
-plan(multisession, workers=20)
+plan(multisession, workers=16)
 for (speciesCode in speciesCodes) {
   promise <- future_promise({ runTrial(speciesCode) }, seed=123)
   then(
