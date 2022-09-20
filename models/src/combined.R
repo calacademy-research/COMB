@@ -130,7 +130,7 @@ runTrial <- function(speciesCode) {
 
   # MCMC settings
   na <- 2000
-  ni <- 2000
+  ni <- 4000
   nt <- 1
   nb <- 2000
   nc <- 3
