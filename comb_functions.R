@@ -120,7 +120,14 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
     google_files <- drive_ls(as_dribble(drive_folder)) %>%
       filter(str_detect(name, pattern = pattern))
   }
-
+  
+  # fixing part where it tries to download folders (which throws an error)
+  google_files <- google_files %>% 
+    filter(
+      unlist(map(1:length(google_files$drive_resource), 
+                 ~ google_files$drive_resource[[.x]][["mimeType"]] != "application/vnd.google-apps.folder"))
+    )
+  
   if (is.null(pattern) == TRUE) {
     local_files <- basename(system(paste0("find ", local_dir, " -mindepth 1 -maxdepth 1 ! -type l"), intern = TRUE))
   } else {
@@ -157,5 +164,23 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
 
 logit_to_p <- function(logit) {
   p <- exp(logit) / (exp(logit) + 1)
+  return(p)
+}
+
+#adjusted logit_to_p for the label smoothing
+#that adds about 0.1 in probability space ... 
+#a sum of this is ~ a count with confidence
+
+logit_to_p_f <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
+  p <- (p - .1)/.9
+  return(p)
+}
+
+#unsmoothed (as @tomdenton)
+logit_to_p_f_us <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
+  p <- (p - .1)/.9 #subtract the unsmoothed bit (adds a constant ~ 0.1)
+  p <- if_else(p < 0, 0, p)#
   return(p)
 }
