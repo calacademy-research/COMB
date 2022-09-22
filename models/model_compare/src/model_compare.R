@@ -10,15 +10,46 @@ library(here)
 library(fs)
 library(lubridate)
 library(furrr)
+library(jagsUI)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib.R"))
+source(here("models/src/model_read_lib_top1.R"))
 
-# Setting some parameters for combined model
-speciesCode <- "NOFL"
-year <- 2021
-threshold <- -100
-aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
+
+guilds <- read_csv(
+  "models/input/bird_guilds.csv",
+  col_names = c("name", "code6", "code4", "guild"),
+  col_types = cols(
+    name = col_character(),
+    code6 = col_character(),
+    code4 = col_character(),
+    guild = col_character()
+  )
+)
+speciesCodes <- guilds$code4
+threshold <- -3
+aruVisitLimit <- 24
+
+# Reading data
+  
+plan(multisession, workers = 20)
+
+data <- future_map(speciesCodes, 
+              ~ readCombined(
+                  species = c(.x),
+                  years = c(2021),
+                  beginTime = dhours(6),
+                  endTime = dhours(10),
+                  visitLimit = aruVisitLimit,
+                  visitAggregation = "file",
+                  thresholdOptions = list(
+                    value = threshold,
+                    is.quantile = F
+                  ),
+                  squeeze = T
+))
+
+names(data) <- speciesCodes
 
 # Ingesting data
 # ATM this script should be run after the data has been ingested with combined.R
@@ -49,11 +80,17 @@ return(data_list)
 }
 
 # Defining all possible combinations of days and visits
-combinations <- expand_grid(1:3, 1:24) %>% 
-  rename("pc" = 1, "aru" = 2)
+combinations <- expand_grid(speciesCodes, 1:3, 1:24) %>% 
+  rename("species" = 1, "pc" = 2, "aru" = 3)
 
-all_data <- map2(.x = combinations$pc, .y = combinations$aru, 
-     ~ data_slice(data, .x, .y))
+combinations <- data.frame(
+  rep(combinations$pc, times = length(speciesCodes)), 
+  rep(combinations$aru, times = length(speciesCodes))
+) %>% as.data.frame()
+
+
+all_data <- pmap(list(combinations$species, combinations$pc, combinations$aru), 
+              ~ data_slice(data[[..1]], ..2, ..3))
 
 model <- function(data_list){
   data <- data_list
@@ -206,7 +243,7 @@ return(jagsResult)
 ### END OF MODEL COPY-PASTED
 }
 
-plan(multisession, workers = 20)
+plan(multisession, workers = 32)
 
-big_jags_out <- purrr::map(.x = 1:72, 
+big_jags_out <- future_map(.x = 1:length(all_data), 
                     ~ model(all_data[[.x]]))
