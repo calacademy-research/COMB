@@ -233,9 +233,9 @@ flatMeanAndRhat <- function(jagsResult) {
   means <- unlist(jagsResult$mean)
   rhats <- unlist(jagsResult$Rhat)
   names(rhats) <- as.character(
-    map(names(rhats), function(n) {
-      paste("rhat", n, sep = "_")
-    })
+    map(names(rhats), 
+      ~ paste("rhat", n, sep = "_")
+    )
   )
   append(means, rhats)
 }
