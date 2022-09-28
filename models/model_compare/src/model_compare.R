@@ -51,8 +51,7 @@ data <- future_map(speciesCodes,
 
 names(data) <- speciesCodes
 
-# Ingesting data
-# ATM this script should be run after the data has been ingested with combined.R
+# Slicing data
 data_slice <- function(data_list, pc_days, aru_visits){
 pc_days <- pc_days # number of pc days to subset
 aru_visits <- aru_visits # number of ARU days to subset (possibly add amount of time per day to subset later)
@@ -80,17 +79,17 @@ return(data_list)
 }
 
 # Defining all possible combinations of days and visits
-combinations <- expand_grid(speciesCodes, 1:3, 1:24) %>% 
-  rename("species" = 1, "pc" = 2, "aru" = 3)
+# combinations <- expand_grid(speciesCodes, 1:3, 1:24) %>% 
+#   rename("species" = 1, "pc" = 2, "aru" = 3)
 
-combinations <- data.frame(
-  rep(combinations$pc, times = length(speciesCodes)), 
-  rep(combinations$aru, times = length(speciesCodes))
-) %>% as.data.frame()
+combinations <- expand_grid(1:3, 1:24) %>% 
+  rename("pc" = 1, "aru" = 2)
 
+all_data <- pmap(list(combinations$pc, combinations$aru), 
+                                ~ data_slice(data[["GCKI"]], ..1, ..2))
 
-all_data <- pmap(list(combinations$species, combinations$pc, combinations$aru), 
-              ~ data_slice(data[[..1]], ..2, ..3))
+# all_data <- pmap(list(combinations$species, combinations$pc, combinations$aru), 
+#               ~ data_slice(data[[..1]], ..2, ..3))
 
 model <- function(data_list){
   data <- data_list
@@ -208,7 +207,7 @@ na <- 1000
 ni <- 8000
 nt <- 1
 nb <- 1000
-nc <- 2
+nc <- 3
 
 # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
 # Discuss team preferences on whether to omit it, nest the return value of
@@ -243,7 +242,26 @@ return(jagsResult)
 ### END OF MODEL COPY-PASTED
 }
 
-plan(multisession, workers = 32)
+plan(multisession, workers = 10)
 
 big_jags_out <- future_map(.x = 1:length(all_data), 
                     ~ model(all_data[[.x]]))
+
+flatMeanAndRhat <- function(jagsResult) {
+  means <- unlist(jagsResult$mean)
+  rhats <- unlist(jagsResult$Rhat)
+  names(rhats) <- as.character(
+    map(names(rhats), 
+        ~ paste("rhat", n, sep = "_")
+    )
+  )
+  append(means, rhats) %>% 
+    t() %>% 
+    as.data.frame()
+}
+
+result_table <- map_df(1:length(all_data),
+                       ~ flatMeanAndRhat(big_jags_out[[.x]])
+)
+
+
