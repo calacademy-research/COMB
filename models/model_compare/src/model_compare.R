@@ -207,7 +207,7 @@ na <- 1000
 ni <- 8000
 nt <- 1
 nb <- 1000
-nc <- 3
+nc <- 1
 
 # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
 # Discuss team preferences on whether to omit it, nest the return value of
@@ -235,7 +235,7 @@ set.seed(123)
 
 jagsResult <- jags(jagsData, inits, monitored, modelFile,
                    n.adapt = na,
-                   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T,
+                   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = F,
 )
 
 return(jagsResult)

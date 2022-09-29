@@ -13,9 +13,10 @@ library(jagsUI)
 library(lubridate)
 library(promises)
 library(tidyverse)
+library(data.table)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib.R"))
+source(here("models/src/model_read_lib_top1.R"))
 
 
 guilds <- read_csv(
@@ -42,6 +43,22 @@ aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 #  "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
 # )
 
+## TAKEN AWAY FROM FUNCTION ----------
+# Adjusting the visits in the list
+# data[["nsurveys.aru"]] <- nARUsurveys
+# data[["nsurveys.pc"]] <- nPCsurveys
+# 
+# # Adjusting the matrix indices
+# data[["y.ind"]] <- data[["y.ind"]][,1:nPCsurveys, drop = F]
+# data[["y.aru"]] <- data[["y.aru"]][,1:nARUsurveys, drop = F]
+# 
+# # Adjusting the tibbles
+# data[["indices"]][["visit.aru"]] <- data[["indices"]][["visit.aru"]] %>% 
+#   filter(Visit_Index <= nARUsurveys)
+# data[["indices"]][["visit.pc"]] <- data[["indices"]][["visit.pc"]] %>% 
+#   filter(Visit <= nPCsurveys)
+# -----------------
+
 
 runTrial <- function(speciesCode, nARUsurveys, nPCsurveys) {
   # JAGS structuring --------------------------------------------------------
@@ -59,13 +76,7 @@ runTrial <- function(speciesCode, nARUsurveys, nPCsurveys) {
     squeeze = T
   )
  
-  # Adjusting the visits in the list
-  data[["nsurveys.aru"]] <- nARUsurveys
-  data[["nsurveys.pc"]] <- nPCsurveys
   
-  # Adjusting the matrix indices
-  data[["y.ind"]] <- data[["y.ind"]][,1:nPCsurveys, drop = F]
-  data[["y.aru"]] <- data[["y.aru"]][,1:nARUsurveys, drop = F]
   
   # JAGS specification ------------------------------------------------------
   modelFile <- tempfile()
@@ -181,15 +192,15 @@ runTrial <- function(speciesCode, nARUsurveys, nPCsurveys) {
   ni <- 8000
   nt <- 1
   nb <- 1000
-  nc <- 1
+  nc <- 6
   
   # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
   # Discuss team preferences on whether to omit it, nest the return value of
   # readCombined, or some other alternative.
-  n_v_per_site <- rowSums(!is.na(data$y.ind[, 1:data[["nsurveys.pc"]], drop = F])) # number of visits
-  y_pc_sum <- rowSums(data$y.ind[, 1:data[["nsurveys.pc"]], drop = F], na.rm = TRUE)
-  n_samp_per_site <- rowSums(!is.na(data$y.aru[, 1:data[["nsurveys.aru"]], drop = F])) # number of samples
-  y_aru_sum <- rowSums(data$y.aru[, 1:data[["nsurveys.aru"]], drop = F], na.rm = TRUE)
+  n_v_per_site <- rowSums(!is.na(data$y.ind[, 1:3])) # number of visits
+  y_pc_sum <- rowSums(data$y.ind[, 1:3], na.rm = TRUE)
+  n_samp_per_site <- rowSums(!is.na(data$y.aru[, 1:24])) # number of samples
+  y_aru_sum <- rowSums(data$y.aru[, 1:24], na.rm = TRUE)
   
   
   data2 <- append(data, list(n_v = n_v_per_site, y_pc_sum = y_pc_sum, n_s = n_samp_per_site, y_aru_sum = y_aru_sum))
@@ -209,7 +220,7 @@ runTrial <- function(speciesCode, nARUsurveys, nPCsurveys) {
   
   jagsResult <- jags(jagsData, inits, monitored, modelFile,
                      n.adapt = na,
-                     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = F,
+                     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T,
   )
   kv <- list(result=jagsResult)
   names(kv) <- speciesCode
@@ -217,7 +228,7 @@ runTrial <- function(speciesCode, nARUsurveys, nPCsurveys) {
 }
 
 trialResults <- list()
-plan(multisession, workers=16)
+plan(multisession, workers=8)
 for (speciesCode in speciesCodes) {
   promise <- future_promise({ runTrial(speciesCode, 24, 3) }, seed=123)
   then(
