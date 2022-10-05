@@ -21,23 +21,26 @@ singleSpeciesCombined <- function(params) {
   speciesCode <- params$speciesCode
   year <- params$year
   threshold <- 0.5
-  aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
-
+  nARU <- params$nARU
+  nPC <- params$nPC
+  # aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
+  
   # data --------------------------------------------------------------------
   #drive_auth(email = TRUE) # do not prompt when only one email has token
   #drive_sync(
   #  here("acoustic/data_ingest/output/"),
   #  "https://drive.google.com/drive/folders/1eOrXsDmiIW9YqJWrlUWR9-Cgc7hHKD_5"
   #)
-
-
+  
+  
   # JAGS structuring --------------------------------------------------------
   data <- readCombined(
     species = c(speciesCode),
     years = c(year),
     beginTime = dhours(6),
     endTime = dhours(10),
-    visitLimit = aruVisitLimit,
+    visitLimit = nARU,
+    PCvisitlimit = nPC, 
     visitAggregation = "file",
     thresholdOptions = list(
       value = threshold,
@@ -45,25 +48,22 @@ singleSpeciesCombined <- function(params) {
     ),
     squeeze = T
   )
-
+  
   # JAGS specification ------------------------------------------------------
   modelFile <- tempfile()
   cat(file = modelFile, "
   model {
-
     # Priors
     psi ~ dunif(0, 1) # psi = Pr(Occupancy)
     p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
     p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
     lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
     ome ~ dunif(0, 1000) # omega: rate of non-target detections
-
     # Parameters of the observation model for the scores
     mu[1] ~ dnorm(0, 0.01)
     mu[2] ~ dnorm(0, 0.01)
     sigma ~ dunif(0, 10)
     tau <- 1 / (sigma * sigma)
-
     # Likelihood part 1: detection data and ARU counts
     for (i in 1:nsites) { # Loop over sites
       z[i] ~ dbern(psi) # Latent occupancy states
@@ -80,7 +80,6 @@ singleSpeciesCombined <- function(params) {
         y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
       }
     }
-
     # Likelihood part 2: feature score data
     for(k in 1:nsamples) {
       # Sample specific covariate
@@ -90,14 +89,13 @@ singleSpeciesCombined <- function(params) {
       g[k] ~ dcat(probs[k,])
       N1[k] <- ifelse(g[k]==1, 1, 0)
     }
-
     # Derived quantities
     Npos <- sum(N1[])
   }
   ")
-
+  
   # initialization
-
+  
   zst <- rep(1, data$nsites)
   gst <- sample(1:2, data$nsamples, replace = TRUE)
   gst[data$score > threshold] <- 1
@@ -109,23 +107,23 @@ singleSpeciesCombined <- function(params) {
       lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
     )
   }
-
-
+  
+  
   # JAGS execution ----------------------------------------------------------
-
+  
   monitored <- c("psi", "p10", "p11", "lam", "ome", "mu", "sigma")
-
+  
   # MCMC settings
   na <- 1000
   ni <- 2000
   nt <- 1
   nb <- 1000
   nc <- 2
-
+  
   jagsData <- within(data, rm(indices))
   jags(jagsData, inits, monitored, modelFile,
-    n.adapt = na,
-    n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
-    seed = 123
+       n.adapt = na,
+       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = F,
+       seed = 123
   )
 }

@@ -1,4 +1,6 @@
-#' run_trials: Parallel estimation using multiple hyperparameter settings.
+#' run_trials_data: Parallel estimation using multiple hyperparameter settings.
+#' This derivative of `run_trials` is meant to run the model on a single species with varying
+#' the amount of data it is fed (# of PC days/# of ARU recordings)
 #'
 #' Example usage:
 #'
@@ -17,7 +19,7 @@
 #' code uses a generic list as the hyperparameter data structure.
 #'
 #' A run of the model under particular hyperparameters should be encapsulated
-#' by the caller as a funtion "trialFn" that takes a single argument, a generic
+#' by the caller as a function "trialFn" that takes a single argument, a generic
 #' list of parameters.
 #'
 #' Appendix: Why not purrr?
@@ -43,20 +45,12 @@ plan(multisession, workers = 32)
 #' Generates a hyperparameter sweep over species codes.
 #'
 #' @return list [list(speciesCode=c, year=2021)] for each species code c.
-perSpeciesHparams <- function() {
-  guilds <- read_csv(
-    "models/input/bird_guilds.csv",
-    col_names = c("name", "code6", "code4", "guild"),
-    col_types = cols(
-      name = col_character(),
-      code6 = col_character(),
-      code4 = col_character(),
-      guild = col_character()
+perTrialHparams <- function(speciesCode) {
+  combinations <- expand_grid(1:3, 1:24) %>% rename(nPC = 1, nARU = 2)
+  
+  map2(combinations$nPC, combinations$nARU, 
+    ~ list(speciesCode = speciesCode, year = 2021, nARU = .y, nPC = .x)
     )
-  )
-  map(guilds$code4, function(c) {
-    list(speciesCode = c, year = 2021, nARU = 24, nPC = 3)
-  })
 }
 
 #' Global list which will be populated by per-trial calls to a "promise
@@ -85,7 +79,7 @@ startTrials <- function(hparamsCollection, runTrial) {
         # structure and use it to pass param values through to fields of the
         # results frame. The current code is cheating and using a list to pass
         # the species code, but that leaves no room for other params.
-        names(kv) <- hparams$speciesCode
+        names(kv) <- paste(hparams$nPC, hparams$nARU, sep = "_") # PC comes first in names (then ARU)
         return(kv)
       },
       seed = 123
