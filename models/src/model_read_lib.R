@@ -492,7 +492,6 @@ readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
     colClasses = c(
       species = "character",
       point = "integer",
-      Date_Time = "Date",
       logit = "double"
     )
   ) %>%
