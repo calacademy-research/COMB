@@ -72,6 +72,20 @@ dfc <- dfc %>% filter(!is.na(birdCode_fk))
 dfc$observer_fk[dfc$observer_fk == "MC"] <- "MKC"
 unique(dfc$observer_fk)
 
+# check 4-letter codes against ML's bird name index:
+if (file.exists(here("acoustic/data_ingest/input/birds.txt")) == F) {
+  drive_download(as_id("1--EpSKrcM1GxY20MkUM8IL8avmXH7pW37s6l4EK2JW4"), here("acoustic/data_ingest/input/birds.txt"))
+}
+sixBirdcols <- as.data.frame(fread(here("acoustic/data_ingest/input/birds.txt"), stringsAsFactors = FALSE, header = FALSE))
+colnames(sixBirdcols)
+
+setdiff(dfc$birdCode_fk,sixBirdcols$V3) # in point count set but not ML set
+setdiff(sixBirdcols$V3, dfc$birdCode_fk) # in ML set but not in point count set
+
+dfc$birdCode_fk[which(dfc$birdCode_fk=="AUWA")] <- "YRWA"
+dfc$birdCode_fk[which(dfc$birdCode_fk=="ORJU")] <- "DEJU"
+dfc$birdCode_fk[which(dfc$birdCode_fk=="NOPY")] <- "NOPO"
+dfc$birdCode_fk[which(dfc$birdCode_fk=="ORJU")] <- "DEJU"
 
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
 write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
