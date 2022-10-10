@@ -18,6 +18,7 @@ library(lubridate)
 library(readr)
 library(stringr)
 library(tibble)
+library(data.table)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
@@ -486,13 +487,13 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
 #'
 #' @export
 readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
-  read_csv(
+  fread(
     dataMlPath,
-    col_types = cols(
-      species = col_character(),
-      point = col_integer(),
-      Date_Time = col_datetime(),
-      logit = col_double()
+    colClasses = c(
+      species = "character",
+      point = "integer",
+      Date_Time = "Date",
+      logit = "double"
     )
   ) %>%
     select(Species = species, Point = point, Date_Time, Score = logit) %>%
