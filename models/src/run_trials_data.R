@@ -5,9 +5,9 @@
 #' Example usage:
 #'
 #' ```
-#' source('models/src/combined.R')
-#' source('models/src/run_trials.R')
-#' startTrials(perSpeciesHparams(), singleSpeciesCombined)
+#' source("models/src/combined_slicing.R")
+#' source("models/src/run_trials_data.R")
+#' startTrials(perTrialHparams("GCKI"), ModelTrial)
 #'
 #' # Wait for some time
 #'
@@ -122,5 +122,6 @@ collectEstimates <- function(jagsResult) {
 #'   means of the model parameters.
 getCurrentResults <- function() {
   table <- t(sapply(trialResults, collectEstimates))
-  data.frame(table) %>% rownames_to_column("species")
+  data.frame(table) %>% rownames_to_column("nPC_nARU") %>% 
+    separate(nPC_nARU, c("nPC", "nARU"))
 }
