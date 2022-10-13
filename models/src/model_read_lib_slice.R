@@ -18,12 +18,13 @@ library(lubridate)
 library(readr)
 library(stringr)
 library(tibble)
+library(data.table)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
 latlongPath <- here("models/input/latlong.csv")
 aru2pointPath <- here("models/input/aru2point.csv")
-dataMlPath <- here("models/input/dataML_tall.csv")
+dataMlPath <- here("models/input/dataML_top1.csv")
 pointCountsPath <- here("models/input/PC_delinted.csv")
 
 # The functions in this library are ordered approximately top-down, from those
@@ -104,14 +105,14 @@ pointCountsPath <- here("models/input/PC_delinted.csv")
 #'
 #' @export
 readCombined <- function(species, years, beginTime = NA, endTime = dhours(10),
-                         visitAggregation = "file", visitLimit = NA,
+                         visitAggregation = "file", visitLimit = NA, PCvisitlimit = NA, 
                          thresholdOptions = list(
                            value = -2.0,
                            is.quantile = F
                          ),
                          squeeze = T) {
   outerIndices <- buildOuterIndices(species, years)
-  pointCountData <- readPointCounts(outerIndices, squeeze = squeeze)
+  pointCountData <- readPointCounts(outerIndices, PCvisitlimit = PCvisitlimit, squeeze = squeeze)
   aruData <- readML(
     outerIndices,
     beginTime = beginTime, endTime = endTime,
@@ -162,9 +163,9 @@ combineJagsData <- function(pointCountData, aruData) {
     nsites = max(outerIndices$point$Point_Index),
     nsurveys.pc = max(pointCountData$indices$visit$Visit_Index),
     nsurveys.aru = max(aruData$indices$visit$Visit_Index),
-    y.ind = pointCountData$y,
+    y.ind = as.matrix(pointCountData$y),
     y.pc = pointCountData$y.raw,
-    y.aru = aruData$y,
+    y.aru = as.matrix(aruData$y),
     # ARU scores (sparse)
     nsamples = nrow(s),
     speciesid = s$Species_Index,
@@ -189,7 +190,7 @@ combineJagsData <- function(pointCountData, aruData) {
 #'   are not present.
 #'
 #' @export
-readPointCounts <- function(outerIndices, squeeze = T) {
+readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
   counts <- read_csv(
     pointCountsPath,
     col_types = cols(
@@ -204,7 +205,8 @@ readPointCounts <- function(outerIndices, squeeze = T) {
   ) %>% mutate(
     Species = birdCode_fk, Year = year(DateTime),
     Point = point_ID_fk, Visit = visit, Score = abun
-  )
+  ) %>% 
+    filter(Visit <= PCvisitlimit)
   
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
   # the threshold to 0.
@@ -486,14 +488,8 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
 #'
 #' @export
 readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
-  read_csv(
-    dataMlPath,
-    col_types = cols(
-      species = col_character(),
-      point = col_integer(),
-      Date_Time = col_datetime(),
-      logit = col_double()
-    )
+  fread(
+    dataMlPath
   ) %>%
     select(Species = species, Point = point, Date_Time, Score = logit) %>%
     filter(Species %in% species) %>%

@@ -13,15 +13,16 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib.R"))
+source(here("models/src/model_read_lib_slice.R"))
 
 
-singleSpeciesCombined <- function(params) {
+ModelTrial <- function(params) {
   # parameters --------------------------------------------------------------
   speciesCode <- params$speciesCode
   year <- params$year
   threshold <- 0.5
-  aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
+  aruVisitLimit <- params$nARU # only consider this many ARU visits per site (ordered)
+  PCVisitLimit <- params$nPC
   
   # data --------------------------------------------------------------------
   #drive_auth(email = TRUE) # do not prompt when only one email has token
@@ -38,6 +39,7 @@ singleSpeciesCombined <- function(params) {
     beginTime = dhours(6),
     endTime = dhours(10),
     visitLimit = aruVisitLimit,
+    PCvisitlimit = PCVisitLimit,
     visitAggregation = "file",
     thresholdOptions = list(
       value = threshold,
@@ -50,17 +52,20 @@ singleSpeciesCombined <- function(params) {
   modelFile <- tempfile()
   cat(file = modelFile, "
   model {
+
     # Priors
     psi ~ dunif(0, 1) # psi = Pr(Occupancy)
     p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
     p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
     lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
     ome ~ dunif(0, 1000) # omega: rate of non-target detections
+
     # Parameters of the observation model for the scores
     mu[1] ~ dnorm(0, 0.01)
     mu[2] ~ dnorm(0, 0.01)
     sigma ~ dunif(0, 10)
     tau <- 1 / (sigma * sigma)
+
     # Likelihood part 1: detection data and ARU counts
     for (i in 1:nsites) { # Loop over sites
       z[i] ~ dbern(psi) # Latent occupancy states
@@ -77,6 +82,7 @@ singleSpeciesCombined <- function(params) {
         y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
       }
     }
+
     # Likelihood part 2: feature score data
     for(k in 1:nsamples) {
       # Sample specific covariate
@@ -86,6 +92,7 @@ singleSpeciesCombined <- function(params) {
       g[k] ~ dcat(probs[k,])
       N1[k] <- ifelse(g[k]==1, 1, 0)
     }
+
     # Derived quantities
     Npos <- sum(N1[])
   }
@@ -120,7 +127,7 @@ singleSpeciesCombined <- function(params) {
   jagsData <- within(data, rm(indices))
   jags(jagsData, inits, monitored, modelFile,
        n.adapt = na,
-       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
+       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = F,
        seed = 123
   )
 }
