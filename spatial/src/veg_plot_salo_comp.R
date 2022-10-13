@@ -9,28 +9,24 @@ library(sf)
 library(here)
 library(tidyverse)
 library(raster)
+library(ggpubr)
 
-# read in wildlife points
-#[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
+#1. Read in wildlife points
+#[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobs
 #Import
-wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included
+wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) %>% # crs not included
+  st_set_crs(26910) %>% #were collected using NAD83 coordinate (26910) coordinate reference system
+  st_transform(crs(study_area)) #, aoi = study_area$geometry) #defined in other script
+#[ ] NOTE PROBLEM NO TRANSFORMATION IS HAPPENING BETWEEN NAD83 AND WGS84 NEED TO FIGURE OUT WHAT'S UP
 
-
+#FIX NAMES
 names(wild_points) <- c(
   "point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2",
   "Treatment", "geometry"
 )
 
-# get the right coordinate reference system & transform
-st_crs(wild_points) <- 26910 # trying 4267 (NAD27) [THOUGHT] were collected using NAD83 coordinate (26910)
-
-#save NAD27 crs for later 
-#st_crs(wild_points) -> NAD27crs
-
 #save NAD83crs for later 
 st_crs(wild_points) -> NAD83crs
-
-wild_points <- st_transform(wild_points, crs(study_area)) # transformed crs
 
 # are points in the fire boundary area?
 wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, wild_points, sparse = FALSE))
@@ -44,6 +40,11 @@ plotID_UTM <- read_csv(here("spatial", "input", "shapefiles", "plotID_UTM.csv"))
 #building a bigger table
 new_wild_points <- left_join(plotID_UTM, wild_points, by = c("plotID_av" = "point_d"), keep = TRUE)
 
+#remake into sf add back crs
+new_wild_points %>% 
+  st_as_sf() %>%
+  st_set_crs(crs(study_area)) -> new_wild_points # transformed crs
+
 #replace the 87th point (avian # 1072) that has an empty geometry see: 
 # https://gis.stackexchange.com/questions/244756/edit-sf-point-conditionally 
 #scroll all the way down
@@ -52,21 +53,27 @@ new_wild_points <- left_join(plotID_UTM, wild_points, by = c("plotID_av" = "poin
 new_point <- st_point(c(743246.3, 4287041.4)) %>% 
   st_sfc(crs = 26910) 
 
+new_point <- st_transform(new_point, crs(study_area)) # transformed crs
+
 #conditionally replace it
-new_wild_points <- new_wild_points %>% mutate(geometry = st_sfc(ifelse(new_wild_points$plotID_av==1072, st_geometry(new_point), geometry)))
+new_wild_points %>% 
+  mutate(geometry = st_sfc(ifelse(new_wild_points$plotID_av==1072, st_geometry(new_point), geometry))) %>%
+  st_as_sf() %>%
+  st_set_crs(crs(study_area)) -> new_wild_points # transformed crs
 
 #could do for all vegetation points (hold off until edited [ ])
-
-#fix crs to be same as new_point
-new_wild_points <- st_as_sf(new_wild_points, coords = c("Easting", "Northing"), crs = crs(study_area))
 
 crs(new_wild_points)
 
 #write out fixed shapefile
 sf::st_write(new_wild_points, dsn = here("spatial", "input", "shapefiles", "WildlifePointsFixed.shp"), append = FALSE)
 
-# 
-# 1. Vegetation plots
+#1.5 also do the same for FinalCaplesMonitoringPlots2022
+FinalCaplesMonitoringPlots2022 <- sf::read_sf(here("spatial", "input", "shapefiles", "Monitoring2022", "FinalCaplesMonitoringPlots2022.shp")) %>% # crs not included
+  st_set_crs(26910) %>% #were collected using NAD83 coordinate (26910) coordinate reference system
+  st_transform(crs(study_area)) #, aoi = study_area$geometry) #defined in other script
+
+# 2. Vegetation Data
 # 
 # Summarize key variables (Sarah)
 # using output 'Caples_PlotData_20220225'
@@ -77,16 +84,42 @@ Caples_PlotData_20220225 <- st_as_sf(Caples_PlotData_20220225, coords = c("Easti
 #change crs
 Caples_PlotData_20220225 <- st_transform(Caples_PlotData_20220225, crs(study_area)) # transformed crs
 
+#
+Caples_PlotData_20220225$geometry
+
 #select out points for comparisons
 Caples_PlotData_20220225 %>%
   filter(SamplingTime == 0) %>%
-  dplyr::select(PlotID, geometry, Caples_Severity_Class) %>% 
   distinct() -> veg_plot_points_for_comparison
 
-vwf_11.37 <- veg_plot_points_for_comparison  %>% sf::st_buffer(11.37,endCapStyle = "ROUND") 
+# 3. Merge new_wild_points and vegetation data
 
+#drop geometry from both:
+FinalCaplesMonitoringPlots2022_df <- cbind(st_drop_geometry(FinalCaplesMonitoringPlots2022), st_coordinates(FinalCaplesMonitoringPlots2022))
+new_wild_points_df <- cbind(st_drop_geometry(new_wild_points), st_coordinates(new_wild_points))
+veg_plot_points_for_comparison_df <- cbind(st_drop_geometry(veg_plot_points_for_comparison), st_coordinates(veg_plot_points_for_comparison))
 
-# 2. Satellite data
+#merge data based on shared key(s)
+FinalCaplesMonitoringPlots2022_df %>%
+  left_join(new_wild_points_df, c("CSE_ID" = "plotID_veg"), keep = TRUE) %>% 
+  mutate(CSE_RF_ID = ifelse(is.na(RedFir_ID), CSE_ID, RedFir_ID)) %>% 
+  left_join(veg_plot_points_for_comparison_df, by = c("CSE_RF_ID" = "PlotID"),  keep = TRUE) %>% 
+  dplyr::select(UTM_N_FCMP22 = UTM_N, UTM_E_FCMP22 = UTM_E, 
+                FCMP22_Y.y = Y.x, FCMP22_X.x = X.x, 
+                UTM_N_nwp_Northing = Northing, UTM_N_nwp_Easting = Easting,
+                nwp_Y.y = Y.y, nwp_X.y = X.y,
+                vppfc_Y = Y, vppfc_X = X, CSE_ID:RedFir_ID, Cpls_Wt:inside_fire_boundary, PV_ID:WYMO) %>% #View() #yikes, they are all over the place!
+  st_as_sf(., coords = c("UTM_E_FCMP22", "UTM_N_FCMP22")) -> fcmp22data #make first two into the geometry
+
+st_crs(fcmp22data) <- 26910
+fcmp22data <- st_transform(fcmp22data, crs(study_area))
+
+#extract data from ^^
+
+vwf_11.37 <- fcmp22data  %>% sf::st_buffer(11.37,endCapStyle = "ROUND") 
+
+# 4. Comparisons
+# a. Satellite data
 # using processed data after running read_adjust_combine_rasters.R
 # add in 11.3 m^2 (extract and summarize) for some variables ...
 canopy_fuel_nbr_dem_RAVG_LIDAR %>%
@@ -94,16 +127,16 @@ canopy_fuel_nbr_dem_RAVG_LIDAR %>%
 
 canopy_fuel_nbr_dem_RAVG_LIDAR_extract_11.37m %>% dim()
 
-
-# 3. Comparisons
-Caples_PlotData_20220225 %>%
-  filter(SamplingTime == 0) -> CPD_time0
-
-dim(CPD_time0)[[1]] == dim(canopy_fuel_nbr_dem_RAVG_LIDAR_extract_11.37m)[[1]]
+dim(fcmp22data)[[1]] == dim(canopy_fuel_nbr_dem_RAVG_LIDAR_extract_11.37m)[[1]]
 
 #[ ] need a validation step here to make sure it is lined up (too bad the extractr doesn't give rownames for objects!)
 
-cbind(CPD_time0,canopy_fuel_nbr_dem_RAVG_LIDAR_extract_11.37m) -> veg_sat_comp
+cbind(fcmp22data,canopy_fuel_nbr_dem_RAVG_LIDAR_extract_11.37m) -> veg_sat_comp
+
+veg_sat_comp$geometry
+
+veg_sat_comp$UTM_N <- sf::st_coordinates(veg_sat_comp$geometry)[,2]
+veg_sat_comp$UTM_E <- sf::st_coordinates(veg_sat_comp$geometry)[,1]
 
 #adjust levels for severity class
 # dput(unique(veg_sat_comp$Caples_Severity_Class))
@@ -134,12 +167,14 @@ slope2<-coeff[2]
 
 veg_sat_comp %>%
   filter(!is.na(MaxTreeHeight)) %>%
+  filter(Avian_Poin > 0) %>%
+  # filter()
   ggplot(.) +
     geom_point(mapping = aes(x = MaxTreeHeight, y = max.CaplesCanopyHeight2018)) +
     geom_abline(mapping = aes(intercept = 0, slope = 1)) + 
     geom_abline(slope = slope, color="red", 
               linetype="dashed", size=1.5) + 
-  geom_text(aes(x = MaxTreeHeight, y = max.CaplesCanopyHeight2018, label = PlotID, hjust = -.25, vjust = -.35)) +
+  geom_text(aes(x = MaxTreeHeight, y = jitter(max.CaplesCanopyHeight2018), label = PlotID, hjust = -.25, vjust = -.35)) +
   stat_cor(aes(x = MaxTreeHeight, y = max.CaplesCanopyHeight2018, label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
            label.x = 0, label.y = 35) +
   #facet_wrap(~Caples_Severity_Class) +
@@ -298,7 +333,7 @@ veg_sat_comp_vwf_5m %>%
   geom_abline(mapping = aes(intercept = 0, slope = 1)) +
   stat_cor(aes(x = mean.CaplesCanopyHeight2018, y = mean.CaplesCanopyHeight2019, label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
            label.x = 0, label.y = 28) +
-  facet_wrap(~Caples_Severity_Class) +
+  #facet_wrap(~Caples_Severity_Class) +
   labs(y="mean Canopy Height before fire (2019 satellite)", 
        x = "mean Canopy Height before fire (2018 satellite)", 
        title="Correlation between years satellite measurements\n canopy height at each point (~1 pixel) pre fire") -> cor1819ht
