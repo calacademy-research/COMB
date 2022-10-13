@@ -154,6 +154,9 @@ LIDAR_int_58 <- setExtent(LIDAR_int_58, LIDAR_extent, keepres = TRUE)
 #stack
 LIDAR_imgStack <- raster::stack(LIDAR_int_134, LIDAR_int_2, LIDAR_int_58)
 
+#clean up
+rm(LIDAR_int_134, LIDAR_int_2, LIDAR_int_58)
+
 #fix name for layer 2
 names(LIDAR_imgStack)[[4]]<-"Canopy_Rugosity"
 
