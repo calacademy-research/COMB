@@ -178,7 +178,7 @@ TPHdata$gID <- rep("TPH", nrow(TPHdata))
 Snagdata$gID <- rep("Snag", nrow(Snagdata))
 combinedData <- rbind(TPHdata, Snagdata)
 
-fct1<- levels(fct_reorder(as.factor(TPHdata$plotID_veg), TPHdata$Caples_Severity_Class))
+fct1<-  levels(TPHdata$Caples_Severity_Class) #levels(fct_reorder(.f = TPHdata$plotID_veg, .x = TPHdata$Caples_Severity_Class))
 fct2 <- levels(factor(combinedData$TPH_Snags, levels = c("biggest", "sixty","forty","twenty","smallest")))
 fct3 <- levels(factor(combinedData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
 facetLabels <- c(biggest = "More than \n78.7", 
@@ -275,7 +275,7 @@ shrubData <- testData %>%
   arrange(desc(Treatment_Interval)) %>% 
   summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
   
-fct1<- levels(fct_reorder(as.factor(shrubData$plotID_veg), shrubData$Caples_Severity_Class))
+fct1<- levels(shrubData$Caples_Severity_Class) #edited to pass same levels on ... seems to work
 fct2 <- levels(factor(shrubData$Shrubs, levels = c("Live_Shrub_Tall_Height", "Live_Shrub_Medium_Height","Live_Shrub_Low_Height")))
 fct3 <- levels(factor(shrubData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
 facetLabels <- c(Live_Shrub_Tall_Height = "Tall shrubs \n(>1.8m)", 
@@ -362,7 +362,7 @@ cwdData <- testData %>%
   arrange(desc(Treatment_Interval)) %>%
   summarise(diff = diff(value), Value_orig = value[1], Value_after = value[2])
 
-fct1<- levels(fct_reorder(as.factor(cwdData$plotID_veg), cwdData$Caples_Severity_Class))
+fct1<- levels(cwdData$Caples_Severity_Class) #old not working: fct1<- levels(fct_reorder(as.factor(cwdData$plotID_veg), cwdData$Caples_Severity_Class))
 fct2 <- levels(factor(cwdData$name, levels = c("CWDdensity_24plus_R","CWDdensity_24plus_S","CWDdensity_12to24_R", "CWDdensity_12to24_S","CWDdensity_3to12_R", "CWDdensity_3to12_S")))
 fct3 <- levels(factor(cwdData$Caples_Severity_Class, levels = c("High","Mod","Low","Unburned_In","Unburned_Out")))
 facetLabels <- c(CWDdensity_3to12_R = "Rotten 3 to 12", 
