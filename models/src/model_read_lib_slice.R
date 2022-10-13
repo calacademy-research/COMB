@@ -163,9 +163,9 @@ combineJagsData <- function(pointCountData, aruData) {
     nsites = max(outerIndices$point$Point_Index),
     nsurveys.pc = max(pointCountData$indices$visit$Visit_Index),
     nsurveys.aru = max(aruData$indices$visit$Visit_Index),
-    y.ind = pointCountData$y,
+    y.ind = as.matrix(pointCountData$y),
     y.pc = pointCountData$y.raw,
-    y.aru = aruData$y,
+    y.aru = as.matrix(aruData$y),
     # ARU scores (sparse)
     nsamples = nrow(s),
     speciesid = s$Species_Index,

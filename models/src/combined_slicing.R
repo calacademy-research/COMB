@@ -13,15 +13,16 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib.R"))
+source(here("models/src/model_read_lib_slice.R"))
 
 
-singleSpeciesCombined <- function(params) {
+ModelTrial <- function(params) {
   # parameters --------------------------------------------------------------
   speciesCode <- params$speciesCode
   year <- params$year
   threshold <- 0.5
-  aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
+  aruVisitLimit <- params$nARU # only consider this many ARU visits per site (ordered)
+  PCVisitLimit <- params$nPC
   
   # data --------------------------------------------------------------------
   #drive_auth(email = TRUE) # do not prompt when only one email has token
@@ -38,6 +39,7 @@ singleSpeciesCombined <- function(params) {
     beginTime = dhours(6),
     endTime = dhours(10),
     visitLimit = aruVisitLimit,
+    PCvisitlimit = PCVisitLimit,
     visitAggregation = "file",
     thresholdOptions = list(
       value = threshold,
