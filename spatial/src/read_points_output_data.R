@@ -19,6 +19,7 @@ library(raster)
 library(rgdal)
 library(googledrive) # connect to google drive
 library(data.table)
+library(googlesheets4)
 
 # load functions
 source(here("comb_functions.R"))
@@ -53,9 +54,11 @@ if (exists(x = "canopy_fuel_nbr_dem_RAVG_LIDAR") == F) {
 # -   Fire boundary file
 # -   fire_boundary
 # -   Sampling points
-# -   wild_points
+
+# **Import wildlife points from sheet (see below) & convert to shapefile
+# -   final_wild_points
 # everything to be placed into WGS 84 / UTM zone 10N = crs = 32610
-# [ ] this might be reason for discrepancy see CRS 26910 ???
+# [NOT] this might be reason for discrepancy see CRS 26910 ???
 #------------------------------------------------------------
 
 # get the data
@@ -71,29 +74,41 @@ fire_boundary <- sf::read_sf(here("spatial", "input", "shapefiles", "ca387241201
 fire_boundary <- st_transform(fire_boundary, crs(study_area)) # transformed crs
 
 # read in wildlife points
-#[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
+#[--see below--] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
 wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
-st_crs(wild_points) <- 26910
-# new_wild_points
+# above deprecated, now see 2022-09-15 email from Becky Estes
+# https://mail.google.com/mail/u/0/#search/becky.estes%40usda.gov+has%3Aattachment/QgrcJHrtwzhjWkJpptnPqNQZSHbFlsmTWml
+# for 'final' UTM data
 
-new_wild_points <- sf::read_sf(here(shapedir, "FinalCaplesMonitoringPlots2022.shp"))
-names(new_wild_points)
+# old
+# new_wild_points <- sf::read_sf(here(shapedir, "FinalCaplesMonitoringPlots2022.shp"))
+
+# [X] final_wild_points from "Caples_CSE_Plot_UTM_NAD83_Zone10"
+ss <- c("https://docs.google.com/spreadsheets/d/174WsPpBfU8IuW2GgsvsiXA-JmNBpG43-6__DmjaMRYA/edit#gid=1008187569")
+final_wild_points <- googlesheets4::read_sheet(ss, sheet = "Sheet1")
+names(final_wild_points)
+
+crs(final_wild_points)
+#already EPSG:26910 - NAD83 / UTM zone 10N
 
 # quick checks 
 # are all the points internally consistent
 
-library(tidyverse)
+# OLD can pull out the coordinates as regular columns and compare
+# new_wild_points %>%
+#   dplyr::mutate(UTM_N_ck = sf::st_coordinates(.)[,2],
+#                 UTM_E_ck = sf::st_coordinates(.)[,1]) %>% 
+#   dplyr::select(UTM_N, UTM_N_ck, UTM_E, UTM_E_ck) -> tmp
 
-#can pull out the coordinates as regular columns and compare
-new_wild_points %>%
-  dplyr::mutate(UTM_N_ck = sf::st_coordinates(.)[,2],
-                UTM_E_ck = sf::st_coordinates(.)[,1]) %>% 
-  dplyr::select(UTM_N, UTM_N_ck, UTM_E, UTM_E_ck) -> tmp
+# NEW make into shapefile
 
-#check and sum result should be zero
-!(round(tmp$UTM_N_ck,1) == round(tmp$UTM_N,1)) %>% sum()
-# [1] FALSE no mismatches at 1 decimal place
-rm(tmp)
+final_wild_points %>%
+  st_as_sf(., coords = c("UTM_E","UTM_N"), crs = 26910) -> new_wild_points #EPSG:26910 - NAD83 / UTM zone 10N
+
+# #check and sum result should be zero
+# !(round(tmp$UTM_N_ck,1) == round(tmp$UTM_N,1)) %>% sum()
+# # [1] FALSE no mismatches at 1 decimal place
+# rm(tmp)
 
 #are all the new avian points in the old list?
 new_wild_points$Avian_Poin[!new_wild_points$Avian_Poin %in% wild_points$point_d]
@@ -108,35 +123,43 @@ wild_points$point_d[!wild_points$point_d %in% new_wild_points$Avian_Poin]
 
 #join in the old metadata ... if possible
 #transfrom CRS
-
-
+# [ ] old remove
+st_crs(wild_points) <- 26910
+temp_wild_points <- wild_points
 temp_wild_points <- st_transform(wild_points, crs=st_crs(new_wild_points))
-
-#join (see https://github.com/r-spatial/sf/issues/1177)
-temp_new_wild_points <- left_join(new_wild_points, as.data.frame(temp_wild_points), by=c("Avian_Poin"="point_d"))
-
-#now compare actual coordinates in the geometries .x and .y
-temp_new_wild_points %>%
-  dplyr::mutate(UTM_N_x_ck = sf::st_coordinates(.$geometry.x)[,2],
-                UTM_E_x_ck = sf::st_coordinates(.$geometry.x)[,1],
-                UTM_N_y_ck = sf::st_coordinates(.$geometry.y)[,2],
-                UTM_E_y_ck = sf::st_coordinates(.$geometry.y)[,1]
-                ) %>%
-  dplyr::select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> tmp
-
-!(round(tmp$UTM_N_x_ck,1) == round(tmp$UTM_N_y_ck,1)) %>% na.omit() %>% sum()
-!(round(tmp$UTM_E_x_ck,1) == round(tmp$UTM_E_y_ck,1)) %>% na.omit() %>% sum()
+# 
+# #join (see https://github.com/r-spatial/sf/issues/1177)
+# #FIX this [...]  not pulling out the actuals 
+temp_new_wild_points <- left_join(as.data.frame(temp_wild_points), new_wild_points, by=c("point_d"="Avian_Poin"))
+# 
+# #now compare actual coordinates in the geometries .x and .y
+# temp_new_wild_points %>%
+#   dplyr::mutate(UTM_N_x_ck = sf::st_coordinates(.$geometry.x)[,2],
+#                 UTM_E_x_ck = sf::st_coordinates(.$geometry.x)[,1],
+#                 UTM_N_y_ck = sf::st_coordinates(.$geometry.y)[,2],
+#                 UTM_E_y_ck = sf::st_coordinates(.$geometry.y)[,1]
+#                 ) %>% 
+#   dplyr::select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> temp_new_wild_points_2
+# 
+# 
+# View(temp_new_wild_points_2)
+# 
+# !(round(temp_new_wild_points_2$UTM_N_x_ck,1) == round(temp_new_wild_points_2$UTM_N_y_ck,1)) %>% na.omit() %>% sum()
+# !(round(temp_new_wild_points_2$UTM_E_x_ck,1) == round(temp_new_wild_points_2$UTM_E_y_ck,1)) %>% na.omit() %>% sum()
 #[1] FALSE
 #[1] FALSE
-# all equivalent locations where needed to be
+# all equivalent locations where needed to be (ACTULLY FAILS)
 
 #make into final object
-new_wild_points <- temp_new_wild_points
 rm(temp_new_wild_points,temp_wild_points)
 
 # get the right coordinate reference system & transform
 st_crs(new_wild_points) # is 26910 # were collected using NAD83 coordinate
-new_wild_points <- st_transform(new_wild_points, crs(study_area)) # transformed crs to WGS84
+
+# new_wild_points %>%
+#   st_as_sf(., coords = c("UTM_E_x_ck","UTM_N_x_ck"), crs = 26910) -> new_wild_points #EPSG:26910 - NAD83 / UTM zone 10N
+
+# new_wild_points <- st_transform(new_wild_points, crs(study_area)) # transformed crs to WGS84
 
 # are points in the fire boundary area?
 new_wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, new_wild_points, sparse = FALSE))
@@ -400,7 +423,7 @@ colnames(Perc_NtoE_4ha) <- c("Perc_NtoE_2020_4ha", "Binary_NtoE_2020_4ha")
 aspect_NE <- cbind(Perc_NtoE_1ha, Perc_NtoE_4ha)
 
 # get metadata columns
-metadatavars <- wldf_50[, c(3:8,10:15,17)]
+metadatavars <- wldf_50[, c(6:19)]  #was c(3:8,10:15,17)] need to fix the wildlife_points 1x for all
 st_geometry(metadatavars) <- NULL
 # collate into wide dataset
 # Put all together for 1ha 4ha
@@ -417,6 +440,7 @@ wide_forest_variables <- cbind(metadatavars, canopy, fuels, nbr, elevation, aspe
 #below includes ALL points including veg points without avian data
 #to remove we filter
 #filter(avian_point != 0) %>% #removes vegetation points
+#[ ] problem with differently tracked metadata ...
 wide_forest_variables %>% # make into a 'long or tall' dataset
   pivot_longer(
     cols = contains("ha"),
@@ -428,13 +452,13 @@ wide_forest_variables %>% # make into a 'long or tall' dataset
   ) %>%
   mutate(veg_point = as.factor(CSE_ID)) %>%
   mutate(avian_point = as.factor(Avian_Poin)) %>%
-  # mutate(Treatment=Tretmnt) %>%
-  separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
-  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
+  #mutate(Treatment=Tretmnt) %>%
+  #separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
+  #mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) -> timp # %>%
   #^original estimate around for legacy purposes and QAQC
   dplyr::select(
     veg_point, avian_point, sum_fn, var, Year, scale, value,
-    Cpls_Wt, Treatment = Tretmnt, Size, Density, in_Caples_burn = inside_fire_boundary
+    Cpls_Wt, Treatment = Tretmnt, in_Caples_burn = inside_fire_boundary # Size, Density, 
   ) -> tall_forest_variables
 
 #above both tall and wide forest variables have
