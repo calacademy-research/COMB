@@ -93,11 +93,11 @@ library(googlesheets4)
 library(googledrive) #connect to google drive
 library(here)
 library(leaflet) # for interactive mapping (TBD)
-library(plotKML)
+# library(plotKML)
 library(purrr)
 library(stringr)
 library(cowplot)
-library(RStoolbox)
+# library(RStoolbox)
 library(sf)
 library(raster)
 library(rgdal)
@@ -803,13 +803,13 @@ wide_forest_variables_mean_perc_bin_4ha %>% #make into a 'long or tall' dataset
     values_to = "value",
     values_drop_na = TRUE
   ) %>%
-  filter(avian_point != 0) -> tall_forest_variables_4ha_final
+  filter(point_d != 0) -> tall_forest_variables_4ha_final
 
 # wide_forest_variables_mean_perc_bin_1ha %>%
 #   dplyr::select(-point_d,-Binary_NtoE_2020_1ha, -mean_aspCirc_2020_1ha) %>% #head()
 #   ggpairs() -> pairsplts
 # 
- # show(pairsplts)
+show(pairsplts)
 ```
 
 **Overall RASTER PCA**
