@@ -140,12 +140,12 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
   only_google <- google_files %>% filter(!(google_files$name %in% local_files))
 
   # Uploading the only_local and downloading the only_google
-  map(
+  purrr::map(
     only_local,
     ~ drive_upload(paste0(local_dir, "/", .x), path = as_dribble(drive_folder))
   )
 
-  map2(
+  purrr::map2(
     only_google$id, only_google$name,
     ~ drive_download(.x, path = paste0(local_dir, "/", .y))
   )
