@@ -75,7 +75,7 @@ fire_boundary <- st_transform(fire_boundary, crs(study_area)) # transformed crs
 
 # read in wildlife points
 #[--see below--] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
-wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
+# wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
 # above deprecated, now see 2022-09-15 email from Becky Estes
 # https://mail.google.com/mail/u/0/#search/becky.estes%40usda.gov+has%3Aattachment/QgrcJHrtwzhjWkJpptnPqNQZSHbFlsmTWml
 # for 'final' UTM data
@@ -89,7 +89,7 @@ final_wild_points <- googlesheets4::read_sheet(ss, sheet = "Sheet1")
 names(final_wild_points)
 
 crs(final_wild_points)
-#already EPSG:26910 - NAD83 / UTM zone 10N
+#need to add EPSG:26910 - NAD83 / UTM zone 10N
 
 # quick checks 
 # are all the points internally consistent
@@ -159,7 +159,7 @@ st_crs(new_wild_points) # is 26910 # were collected using NAD83 coordinate
 # new_wild_points %>%
 #   st_as_sf(., coords = c("UTM_E_x_ck","UTM_N_x_ck"), crs = 26910) -> new_wild_points #EPSG:26910 - NAD83 / UTM zone 10N
 
-# new_wild_points <- st_transform(new_wild_points, crs(study_area)) # transformed crs to WGS84
+new_wild_points <- st_transform(new_wild_points, crs(study_area)) # transformed crs to WGS84
 
 # are points in the fire boundary area?
 new_wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, new_wild_points, sparse = FALSE))
@@ -457,8 +457,7 @@ wide_forest_variables %>% # make into a 'long or tall' dataset
   #mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) -> timp # %>%
   #^original estimate around for legacy purposes and QAQC
   dplyr::select(
-    veg_point, avian_point, sum_fn, var, Year, scale, value,
-    Cpls_Wt, Treatment = Tretmnt, in_Caples_burn = inside_fire_boundary # Size, Density, 
+    veg_point, avian_point, sum_fn, var, Year, scale, value, in_Caples_burn = inside_fire_boundary # Size, Density, 
   ) -> tall_forest_variables
 
 #above both tall and wide forest variables have
