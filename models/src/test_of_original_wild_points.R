@@ -1,11 +1,67 @@
+#test_of_original_wild_points.R
+#TO DO
+
+# 1. search files, emails & GPS/phones for vegetation and wildlife points
+# a. Spreadsheets translated to Google sheets
+# # CaplesWesternpts_0621_2017_sampled_no.gpx
+# CaplesWesternpts_0621_2017_sampled_yes.gpx
+# CAPLES_BIRDS_systematic_pts_with_veg_and_utms (2).xlsx
+# CAPLES_BIRDS_systematic_pts_with_veg_and_utms.xlsx
+# CAPLES_BIRDS_systematic_pts_with_veg_and_utms (2).xlsx
+# CaplesWesternpts_0621_2017_sampled_no.kml
+# Caples_Avian_PtList_UTM_SizeDensity_20201117.csv
+# caples_pts_2018_MKC.xlsx (limited)
+# caples_pts_2018_MKC.xlsx (more up to date)
+# caples_pts_2018_MKC.xlsx (limited copy 2)
+# Wildlife sampling points.xlsx
+# 1070_Eldo.gpx & all similar single point GPX exports
+# Wildlife sampling points.xlsx
+# caples_pts_2018_MKC.xlsx
+# ARU_points_20180615.xlsx
+# NOTE ALL SAME (on ..46.3 .. 41 GRID) AS 'wild_points.shp' with addition of 1072 see below
+
+
+# b. Shape files from veg_plot_salo_comp.R
+# read in wildlife points
+#[ ] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
+
+
+FinalCaplesMonitoringPlots2022 <- sf::read_sf(here("spatial", "input", "shapefiles", "Monitoring2022", "FinalCaplesMonitoringPlots2022.shp")) %>% # crs not included
+  st_set_crs(26910) %>% #were collected using NAD83 coordinate (26910) coordinate reference system
+  st_transform(crs(study_area)) #, aoi = study_area$geometry) #defined in other script
+#[ ] NOTE PROBLEM NO TRANSFORMATION IS HAPPENING BETWEEN NAD83 AND WGS84 NEED TO FIGURE OUT WHAT'S UP
+
+
+#run veg_plot_salo_comp.R lines through 70
+
+# 2. name each file with suffix to trace history
+# 3. write-down each coordinate reference system CRS
+# 4. import to this script
+# 5. transform all to same WGS 84 crs (or all to NAD83)
+# 6. map each layer by name
+# 7. FIGURE Out WTF
+
+# 8. Then correct the veg_plot location
+# 9. Redo the QA/QC (accuracy of vegetation poin):
+# 9a. @ all vegetation plots x = ground y = satellite: relationship, #params, r^2
+# 9b. @ all bird points, view satellite by values ... graphic? 
+# 9c. @ all bird points [ ] -> modify (interpret) bird points satellite measures using 9a model if necessary
+# 10. Redo Precision 
+# 10a. precision of cover between 2018 & 2019 -- all points on study area (bird/veg)
+# 10b. precision of height between 2018 & 2019 -- all points on study area (bird/veg)
+# 10c. model cover / height change 2018/19 vs 2020 
+# 10d. make cover / height decision (average?, if not aggregation function, what to output for Mary)
+
+
 library(leaflet)
 library(readr)
 library(tidyverse)
 
 # (from read_points_output_data.R)
+# [ ] READ in as close to original as possible
 
 new_wild_points %>% 
-  dplyr::select(plotID_av = Avian_Poin, plotID_veg = CSE_ID, geometry = geometry.x) -> nwp2
+  dplyr::select(plotID_av = point_d, plotID_veg = plotID_veg, geometry) -> nwp2
 
 crs(nwp2)
 
@@ -32,9 +88,9 @@ Caples_PlotData_20220225 %>%
 veg_plot_points_for_comparison %>%
   st_join(nwp2) %>% View()  #way off, no join
 
-veg_plot_points_for_comparison %>% as_tibble() 
+View(veg_plot_points_for_comparison)
 
-nwp2 %>% as_tibble() 
+View(nwp2)
 
 # vwf_11.37 <- veg_plot_points_for_comparison  %>% sf::st_buffer(11.37,endCapStyle = "ROUND") 
 #[ ] to do ... redo the chain of custody analysis on the points as data frames and then plot the various options for 
@@ -50,7 +106,7 @@ canopy_fuel_nbr_dem_RAVG_LIDAR_extract_11.37m %>% dim()
 
 #2.5 mapping
 
-point_data <- st_transform(nwp2, 4326)
+point_data <- veg_sat_comp %>% dplyr::select(Avian_Poin,CSE_ID,geometry)
 
 
 mapa <- leaflet(point_data) %>%
@@ -134,7 +190,7 @@ veg_sat_comp %>%
   #geom_abline(intercept = intercept2, slope = slope2, color="blue", 
   #          linetype="dotted", size=1.5) + 
   #  facet_wrap(~Caples_Severity_Class) +
-  labs(y="max Canopy Height before fire (2018 satellite)", x = "Max Tree Height before fire (ground)", title="Correlation between on-the-ground and satellite measurements\n height for vegetation plot (~ 400 meters squared)") 
+  labs(y="max Canopy Height before fire (2018 satellite)", x = "Max Tree Height before fire (ground)", title="Correlation between on-the-ground and satellite measurements\n height for vegetation plot (~ 400 meters squared, avian points)") 
 
 
 summary(reg)  
