@@ -3,6 +3,7 @@
 # 0. Getting started
 # 
 # [] build new script to fix shape file for ALL points
+# FIX POINT LOCATIONS TO BE BECKY'S LATEST vegetation_points
 # install.packages("rgdal")
 library(rgdal)
 library(sf)
@@ -96,9 +97,9 @@ Caples_PlotData_20220225 %>%
 
 #drop geometry from both:
 FinalCaplesMonitoringPlots2022_df <- cbind(st_drop_geometry(FinalCaplesMonitoringPlots2022), st_coordinates(FinalCaplesMonitoringPlots2022))
-new_wild_points_df <- cbind(st_drop_geometry(new_wild_points), st_coordinates(new_wild_points))
+new_wild_points_df <- cbind(st_drop_geometry(vegetation_points), st_coordinates(vegetation_points))
 veg_plot_points_for_comparison_df <- cbind(st_drop_geometry(veg_plot_points_for_comparison), st_coordinates(veg_plot_points_for_comparison))
-
+#[ ]broken here 2022-10-14 but not important
 #merge data based on shared key(s)
 FinalCaplesMonitoringPlots2022_df %>%
   left_join(new_wild_points_df, c("CSE_ID" = "plotID_veg"), keep = TRUE) %>% 
@@ -115,8 +116,16 @@ st_crs(fcmp22data) <- 26910
 fcmp22data <- st_transform(fcmp22data, crs(study_area))
 
 #extract data from ^^
+# all bunk above
+
+#add new locs to fcmp22data as a hack [HERE 2022-10-14] [ ] problematic fcmp22data ... what are the right points?
+fcmp22data %>%
+  left_join(as.data.frame(.), as.data.frame(vegetation_points), by=c("CSE_ID"="CSE_ID")) %>% View()
+  select()
 
 vwf_11.37 <- fcmp22data  %>% sf::st_buffer(11.37,endCapStyle = "ROUND") 
+
+# vwf_11.37 <- vegetation_points  %>% sf::st_buffer(11.37,endCapStyle = "ROUND") 
 
 # 4. Comparisons
 # a. Satellite data
@@ -171,9 +180,11 @@ veg_sat_comp %>%
   # filter()
   ggplot(.) +
     geom_point(mapping = aes(x = MaxTreeHeight, y = max.CaplesCanopyHeight2018)) +
-    geom_abline(mapping = aes(intercept = 0, slope = 1)) + 
-    geom_abline(slope = slope, color="red", 
-              linetype="dashed", size=1.5) + 
+    geom_abline(mapping = aes(intercept = 0, slope = 1)) + #1:1 line
+    geom_abline(slope = slope, color="red", #
+              linetype="dashed", size=1.5) +
+  geom_abline(slope = slope2, intercept = intercept2, color="blue", #
+              linetype="dashed", size=1) +
   geom_text(aes(x = MaxTreeHeight, y = jitter(max.CaplesCanopyHeight2018), label = PlotID, hjust = -.25, vjust = -.35)) +
   stat_cor(aes(x = MaxTreeHeight, y = max.CaplesCanopyHeight2018, label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
            label.x = 0, label.y = 35) +
@@ -489,8 +500,9 @@ veg_sat_comp_vwf_5m %>%
   geom_abline(mapping = aes(intercept = 0, slope = 1)) +
   stat_cor(aes(x = mean.CaplesCanopyHeight2018, y = mean.CaplesCanopyHeight2020, label = paste(..rr.label.., ..p.label.., sep = "~`,`~")), 
            label.x = 0, label.y = 30) +
-  #facet_wrap(~Caples_Severity_Class) +
+  facet_wrap(~Caples_Severity_Class) +
   labs(y="mean Canopy Height after fire (2020 satellite)", 
        x = "mean Canopy Height before fire (2018 satellite)", 
-       title="Correlation between years satellite measurements\n canopy height at each point (~1 pixel) before and after fire") # -> cor1820cv
+       title="Correlation between years satellite measurements\n canopy height at each point (~1 pixel) before and after fire") -> cor1820cv
 
+cor1820cv
