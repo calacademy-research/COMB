@@ -78,6 +78,7 @@ Caples_Spatial](https://drive.google.com/drive/folders/1GPuuiy0Qc94ARS65N5Gm68V3
 -   [ ] (not yet documented)
 -   Load Libraries (output suppressed)
 
+
 ```{r Load Libraries & functions, error=FALSE, fig.keep='all', include=FALSE, paged.print=TRUE, results='hide'}
 #load libraries
 library(tidyverse)
