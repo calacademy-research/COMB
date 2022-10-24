@@ -61,8 +61,8 @@ library(tidyverse)
 # [ ] READ in as close to original as possible
 
 new_wild_points %>% 
-  dplyr::select(plotID_av = point_d, plotID_veg = plotID_veg, geometry) -> nwp2
-
+  dplyr::select(plotID_av = Avian_Poin, plotID_veg = CSE_ID, geometry) -> nwp2
+  # dplyr::select(plotID_av = point_d, plotID_veg = plotID_veg, geometry) -> nwp2
 crs(nwp2)
 
 vwf_11.37 <- nwp2  %>% sf::st_buffer(11.37,endCapStyle = "ROUND") 
