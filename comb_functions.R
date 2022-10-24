@@ -177,3 +177,6 @@ logit_to_p_f_us <- function(logit) {
   p <- if_else(p < 0, 0, p)#
   return(p)
 }
+
+#weighted mean
+wmf<-function(value, coverage_fraction){stats::weighted.mean(x=value, w=coverage_fraction)}
