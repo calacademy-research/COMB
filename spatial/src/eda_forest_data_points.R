@@ -45,9 +45,9 @@ hist(wide4havars$Perc_LTg25mHt_2018_4ha, xlim = c(0, .5), main = "", xlab = "201
 hist(wide4havars$Perc_LTg25mHt_2020_4ha, xlim = c(0, .5), main = "", xlab = "2020", ylab = "")
 hist(wide4havars$Perc_LTg22mHt_2018_4ha, xlim = c(0, .5), main = "", xlab = "2018", ylab = "LT > 22m")
 hist(wide4havars$Perc_LTg22mHt_2020_4ha, xlim = c(0, .5), main = "", xlab = "2020", ylab = "")
-title(main = c("Distribution of fraction of plot with tree height >= cutoffs \n (22, 25 & 28m) for 2018 vs 2020 (across 82 1ha avian plots)"), outer = T)
+title(main = c("Distribution of fraction of plot with tree height >= cutoffs \n (22, 25 & 28m) for 2018 vs 2020 (across 82 4ha avian plots)"), outer = T)
 
-par() <- parold
+# par() <- parold
 
 # ggplot faceted histogram
 tall_forest_variables_4ha %>%
@@ -92,7 +92,9 @@ tall_forest_variables_4ha %>%
     # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
     values_from = value
   ) %>% 
-  mutate(RAVG = cut(mean_RAVGcbi4_20182019, 4 , labels = c("none", "low", "medium", "high"))) -> ltplotinput #breaks = c(-1, 0, 1, 2, 3, 4), labels = c("0", "(0,1]", "(1,2]", "(2,3]", "(3,4]"))
+  mutate(RAVG = cut(mean_RAVGcbi4_20182019, 4 , labels = c("unburned", "low", "moderate", "high"))) -> ltplotinput #breaks = c(-1, 0, 1, 2, 3, 4), labels = c("0", "(0,1]", "(1,2]", "(2,3]", "(3,4]"))
+
+ltplotinput$RAVG <- ordered(ltplotinput$RAVG, levels = c("high", "moderate", "low", "unburned"))
 
 # plot comparing 2018 to 2020
 ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
@@ -112,96 +114,162 @@ ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
 rm(tfvinput)
 
 #these delta's must be calculated on a pixel by pixel basis then look at the central tendency [ ]
-wide1havars$deltacov <- (wide1havars$mean_CanopyCover_2020_1ha-wide1havars$mean_CanopyCover_2018_1ha)
-wide1havars$deltaht <- (wide1havars$mean_CanopyHeight_2020_1ha-wide1havars$mean_CanopyHeight_2018_1ha)
-wide1havars$deltabsht <- (wide1havars$mean_CanopyBaseHeight_2020_1ha-wide1havars$mean_CanopyBaseHeight_2018_1ha)
-wide1havars$deltabd <- (wide1havars$mean_CanopyBulkDensity_2020_1ha-wide1havars$mean_CanopyBulkDensity_2018_1ha)
-wide1havars$deltalc <- (wide1havars$mean_CanopyLayerCount_2020_1ha-wide1havars$mean_CanopyLayerCount_2018_1ha)
-wide1havars$deltalf <- (wide1havars$mean_LadderFuelDensity_2020_1ha-wide1havars$mean_LadderFuelDensity_2018_1ha)
-wide1havars$deltasf <- (wide1havars$mean_SurfaceFuels_2020_1ha-wide1havars$mean_SurfaceFuels_2018_1ha)
+wide4havars$deltacov <- (wide4havars$mean_CanopyCover_2020_4ha-wide4havars$mean_CanopyCover_2018_4ha)
+wide4havars$deltaht <- (wide4havars$mean_CanopyHeight_2020_4ha-wide4havars$mean_CanopyHeight_2018_4ha)
+wide4havars$deltabsht <- (wide4havars$mean_CanopyBaseHeight_2020_4ha-wide4havars$mean_CanopyBaseHeight_2018_4ha)
+wide4havars$deltabd <- (wide4havars$mean_CanopyBulkDensity_2020_4ha-wide4havars$mean_CanopyBulkDensity_2018_4ha)
+wide4havars$deltalc <- (wide4havars$mean_CanopyLayerCount_2020_4ha-wide4havars$mean_CanopyLayerCount_2018_4ha)
+wide4havars$deltalf <- (wide4havars$mean_LadderFuelDensity_2020_4ha-wide4havars$mean_LadderFuelDensity_2018_4ha)
+wide4havars$deltasf <- (wide4havars$mean_SurfaceFuels_2020_4ha-wide4havars$mean_SurfaceFuels_2018_4ha)
 
-wide1havars %>%
-  mutate(RAVG = rev(cut(mean_RAVGcbi4_20182019_1ha, 4, labels = c("unburned", "low", "moderate", "high")))) -> wide1havars
+wide4havars %>%
+  mutate(RAVG = cut(mean_RAVGcbi4_20182019_4ha, 4, labels = c("unburned", "low", "moderate","high"))) -> wide4havars
 
-wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltacov, color = RAVG)) +
+wide4havars$RAVG <- ordered(wide4havars$RAVG, levels = c("high", "moderate", "low", "unburned"))
+
+wide4havars %>%
+  ggplot(aes(x = avian_point, y = deltaht, color = RAVG))+
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle("change in mean canopy height 2020-2018") +
+  ylab("change in mean canopy height 4ha") +
   facet_wrap(~RAVG)
 
-wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltaht, color = RAVG)) +
+wide4havars %>%
+  ggplot(aes(x = avian_point, y = deltacov, color = RAVG))+
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle("change in mean canopy cover 2020-2018") +
+  ylab("change in mean canopy cover 4ha") +
   facet_wrap(~RAVG)
 
-wide1havars %>%
+wide4havars %>%
   ggplot(aes(x = avian_point, y = deltabsht, color = RAVG)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle("change in mean base height 2020-2018") +
+  ylab("change in mean base height 4ha") +
   facet_wrap(~RAVG)
 
-wide1havars %>%
-  ggplot(aes(x = avian_point, y = deltaht, color = RAVG)) +
-  geom_point() +
-  geom_abline(intercept = 0, slope = 0) +
-  facet_wrap(~RAVG)
-# facet_wrap(~factor(Caples_Severity_Class, levels = c("High","Mod","Low","Unburned")))
-
-wide1havars %>%
+wide4havars %>%
   ggplot(aes(x = avian_point, y = deltalf, color = RAVG)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle("change in ladder fuels 2020-2018") +
+  ylab("change in mean ladder fuels 4ha") +
   facet_wrap(~RAVG)
 
-wide1havars %>%
-  ggplot(aes(x = deltasf, y = deltabsht, color = RAVG)) +
+wide4havars %>%
+  ggplot(aes(x = mean_CanopyHeight_2018_4ha, y = mean_CanopyHeight_2020_4ha, color = RAVG)) +
   geom_point() +
-  geom_abline(intercept = 0, slope = 1) +
-  facet_wrap(~RAVG)
-
-wide1havars %>%
-  ggplot(aes(x = deltalf, y = deltabsht, color = RAVG)) +
-  geom_point() +
+  stat_summary(fun.data=mean_cl_normal) +
+  geom_smooth(method='lm', formula= y~x) +
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  ggtitle(c("Relationship between fuel and canopy base height \n vs burn severity (RAVG) before and after fire")) +
-  xlab("Change in ladder fuel (2020-2018)") +
-  ylab("Change in canopy base height (2020-2018)") +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
+  xlab("Mean canopy height 4ha (2018)") +
+  ylab("Mean canopy height 4ha (2020)") +
   facet_wrap(~RAVG) 
 
-wide1havars %>%
-  ggplot(aes(x = deltaht, y = deltacov, color = RAVG)) +
+wide4havars %>%
+  ggplot(aes(x = mean_CanopyCover_2018_4ha, y = mean_CanopyCover_2020_4ha, color = RAVG)) +
   geom_point() +
+  stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', formula= y~x) +
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
+  xlab("Mean canopy cover 4ha (2018)") +
+  ylab("Mean canopy cover 4ha (2020)") +
+  facet_wrap(~RAVG) 
+
+wide4havars %>%
+  ggplot(aes(x = deltaht, y = deltacov, color = RAVG)) +
+  geom_point() +
+  stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', formula= y~x) +
+  geom_abline(intercept = 0, slope = 1) +
+  coord_fixed() +
+  theme(aspect.ratio=1) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Change in height (2020-2018)") +
   ylab("Change in cover (2020-2018)") +
   facet_wrap(~RAVG) 
 
-wide1havars %>%
-  ggplot(aes(x = deltalf, y = deltasf, color = RAVG)) +
+wide4havars %>%
+  ggplot(aes(x = deltasf, y = deltabsht, color = RAVG)) +
   geom_point() +
-  geom_abline(intercept = 0, slope = 1) +
+  stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', formula= y~x) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle(c("Relationship between fuel and canopy base height \n vs burn severity (RAVG) before and after fire")) +
+  xlab("Change in surface fuel (2020-2018)") +
+  ylab("Change in canopy base height (2020-2018)") +
+  facet_wrap(~RAVG)
+
+wide4havars %>%
+  ggplot(aes(x = deltalf, y = deltabsht, color = RAVG)) +
+  geom_point() +
+  stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', formula= y~x) +
+  # geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle(c("Relationship between fuel and canopy base height \n vs burn severity (RAVG) before and after fire")) +
   xlab("Change in ladder fuel (2020-2018)") +
-  ylab("Change in surface fuel (2020-2018)") +
+  ylab("Change in canopy base height (2020-2018)") +
   facet_wrap(~RAVG) 
 
-  # , aes(deltacov, c/olor=mean_RAVGcbi4_20182019_4ha)) +
-  # geom_point(size=mean_RAVGcbi4_20182019_4ha+2) +
-  # xlim(0, .5) +
-  # ylim(0, .5) +
-  # coord_fixed() +
-  # theme(aspect.ratio=1) +
+wide4havars %>%
+  ggplot(aes(x = deltasf, y = deltalf, color = RAVG)) +
+  geom_point() +
   # geom_abline(intercept = 0, slope = 1) +
-  # # scale_y_continuous(labels = var) +
-  # facet_grid(~RAVG) +
-  # ggtitle(c("Large Trees (height >= 22m) versus burn severity (RAVG) before and after fire")) +
-  # xlab("Fraction of 4ha with tree height >= 22m") +
-  # ylab("Number of plots in each RAVG level")
+  stat_summary(fun.data=mean_cl_normal) + 
+  geom_smooth(method='lm', formula= y~x) +
+  coord_fixed() +
+  theme(aspect.ratio=1) +
+  scale_color_manual(values = c("high" = "black",
+                                "moderate" = "red",
+                                "low" = "orange",
+                                "unburned" = "green")) +
+  ggtitle(c("Relationship between fuel variables vs \nburn severity (RAVG) before and after fire")) +
+  ylab("Change in ladder fuel (2020-2018)") +
+  xlab("Change in surface fuel (2020-2018)") +
+  facet_wrap(~RAVG) 
