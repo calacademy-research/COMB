@@ -3,6 +3,7 @@
 # Created by: Durrell Kapan
 # Created on: 5 April 2022
 # modified from Caples_Spatial_EDA.md
+# updated October 2022
 
 #### Load Libraries ####
 
@@ -54,115 +55,66 @@ if (exists(x = "canopy_fuel_nbr_dem_RAVG_LIDAR") == F) {
 # -   Fire boundary file
 # -   fire_boundary
 # -   Sampling points
-
-# **Import wildlife points from sheet (see below) & convert to shapefile
-# -   final_wild_points
+# -   Avian & Vegetation
 # everything to be placed into WGS 84 / UTM zone 10N = crs = 32610
-# [NOT] this might be reason for discrepancy see CRS 26910 ???
 #------------------------------------------------------------
 
-# get the data
+# get the shape data including OLD UTMS for wild_points == avian_points
 shapedir <- here("spatial", "input", "shapefiles", "Monitoring2022")
 google_file_names <- "https://drive.google.com/drive/folders/1QQUS_Y8CjwPRJaNCG3s4AhZxhDf2WYcb"
 drive_sync(local_dir = shapedir, drive_folder = google_file_names)
 
-# read in study area
+# read in study area (this is good)
 study_area <- sf::read_sf(here("spatial", "input", "shapefiles", "study_boundary.shp"))
 
-# read in fire boundary
+# read in Caples fire boundary
 fire_boundary <- sf::read_sf(here("spatial", "input", "shapefiles", "ca3872412014620191010_20181118_20191118_burn_bndy.shp"))
 fire_boundary <- st_transform(fire_boundary, crs(study_area)) # transformed crs
 
-# read in wildlife points
-#[--see below--] update wild_points to include plant plots, see e-mail 2022-06-28 Sarah Jacobes
-# wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
-# above deprecated, now see 2022-09-15 email from Becky Estes
+# read in "WildlifePoints.shp" are the original wildlife points == avian points 
+avian_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) # crs not included ... OLD POINTS
+# above deprecated, only used to make fuller metadata, now see 2022-09-15 email from Becky Estes
 # https://mail.google.com/mail/u/0/#search/becky.estes%40usda.gov+has%3Aattachment/QgrcJHrtwzhjWkJpptnPqNQZSHbFlsmTWml
-# for 'final' UTM data
+# for 'final' UTM data, merge this old metadata with new points read in below
+st_crs(avian_points) <- 26910
+avian_points <- st_transform(avian_points, crs(study_area)) # transformed crs
 
-# old
-# new_wild_points <- sf::read_sf(here(shapedir, "FinalCaplesMonitoringPlots2022.shp"))
+#has proper crs
+crs(avian_points)
 
-# [X] final_wild_points from "Caples_CSE_Plot_UTM_NAD83_Zone10"
+# final vegetation plot points from "Caples_CSE_Plot_UTM_NAD83_Zone10"
 ss <- c("https://docs.google.com/spreadsheets/d/174WsPpBfU8IuW2GgsvsiXA-JmNBpG43-6__DmjaMRYA/edit#gid=1008187569")
-final_wild_points <- googlesheets4::read_sheet(ss, sheet = "Sheet1")
-names(final_wild_points)
+vegetation_points <- googlesheets4::read_sheet(ss, sheet = "Sheet1")
+names(vegetation_points)
 
-crs(final_wild_points)
-#need to add EPSG:26910 - NAD83 / UTM zone 10N
+# make vegetation_points into a shapefile
+# and add EPSG:26910 - NAD83 / UTM zone 10N
+vegetation_points %>%
+  st_as_sf(., coords = c("UTM_E","UTM_N"), crs = 26910) -> vegetation_points #EPSG:26910 - NAD83 / UTM zone 10N
 
-# quick checks 
-# are all the points internally consistent
+vegetation_points <- st_transform(vegetation_points, crs(study_area)) # transformed crs
 
-# OLD can pull out the coordinates as regular columns and compare
-# new_wild_points %>%
-#   dplyr::mutate(UTM_N_ck = sf::st_coordinates(.)[,2],
-#                 UTM_E_ck = sf::st_coordinates(.)[,1]) %>% 
-#   dplyr::select(UTM_N, UTM_N_ck, UTM_E, UTM_E_ck) -> tmp
-
-# NEW make into shapefile
-
-final_wild_points %>%
-  st_as_sf(., coords = c("UTM_E","UTM_N"), crs = 26910) -> new_wild_points #EPSG:26910 - NAD83 / UTM zone 10N
-
-# #check and sum result should be zero
-# !(round(tmp$UTM_N_ck,1) == round(tmp$UTM_N,1)) %>% sum()
-# # [1] FALSE no mismatches at 1 decimal place
-# rm(tmp)
+#has proper crs
+st_crs(vegetation_points)
 
 #are all the new avian points in the old list?
-new_wild_points$Avian_Poin[!new_wild_points$Avian_Poin %in% wild_points$point_d]
+vegetation_points$Avian_Poin[!vegetation_points$Avian_Poin %in% avian_points$point_d]
 # [1]    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0
 # [21]    0    0    0 1072
 # 1072 is in the new, so that's an improvement
 
 #unique new points not in old list?
-wild_points$point_d[!wild_points$point_d %in% new_wild_points$Avian_Poin]
+avian_points$point_d[!avian_points$point_d %in% vegetation_points$Avian_Poin]
 # [1] 587
 # this is not a bird point so all AOK
 
 #join in the old metadata ... if possible
 #transfrom CRS
 # [ ] old remove
-st_crs(wild_points) <- 26910
-temp_wild_points <- wild_points
-temp_wild_points <- st_transform(wild_points, crs=st_crs(new_wild_points))
-# 
-# #join (see https://github.com/r-spatial/sf/issues/1177)
-# #FIX this [...]  not pulling out the actuals 
-temp_new_wild_points <- left_join(as.data.frame(temp_wild_points), new_wild_points, by=c("point_d"="Avian_Poin"))
-# 
-# #now compare actual coordinates in the geometries .x and .y
-# temp_new_wild_points %>%
-#   dplyr::mutate(UTM_N_x_ck = sf::st_coordinates(.$geometry.x)[,2],
-#                 UTM_E_x_ck = sf::st_coordinates(.$geometry.x)[,1],
-#                 UTM_N_y_ck = sf::st_coordinates(.$geometry.y)[,2],
-#                 UTM_E_y_ck = sf::st_coordinates(.$geometry.y)[,1]
-#                 ) %>% 
-#   dplyr::select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> temp_new_wild_points_2
-# 
-# 
-# View(temp_new_wild_points_2)
-# 
-# !(round(temp_new_wild_points_2$UTM_N_x_ck,1) == round(temp_new_wild_points_2$UTM_N_y_ck,1)) %>% na.omit() %>% sum()
-# !(round(temp_new_wild_points_2$UTM_E_x_ck,1) == round(temp_new_wild_points_2$UTM_E_y_ck,1)) %>% na.omit() %>% sum()
-#[1] FALSE
-#[1] FALSE
-# all equivalent locations where needed to be (ACTULLY FAILS)
 
-#make into final object
-rm(temp_new_wild_points,temp_wild_points)
-
-# get the right coordinate reference system & transform
-st_crs(new_wild_points) # is 26910 # were collected using NAD83 coordinate
-
-# new_wild_points %>%
-#   st_as_sf(., coords = c("UTM_E_x_ck","UTM_N_x_ck"), crs = 26910) -> new_wild_points #EPSG:26910 - NAD83 / UTM zone 10N
-
-new_wild_points <- st_transform(new_wild_points, crs(study_area)) # transformed crs to WGS84
-
-# are points in the fire boundary area?
-new_wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, new_wild_points, sparse = FALSE))
+# are points in the Caples fire boundary area?
+avian_points$avian_inside_fire_boundary <- as.vector(st_intersects(fire_boundary, avian_points, sparse = FALSE))
+vegetation_points$vegetation_inside_fire_boundary <- as.vector(st_intersects(fire_boundary, vegetation_points, sparse = FALSE))
 
 #lines below deprecated, remove after commit  [ ]
 # #fix with "plotID_UTM.csv" that is now in the input directory (so running "read_points_output_data.R" creates it)
@@ -189,9 +141,42 @@ new_wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, n
 
 #could do for all vegetation points (hold off until edited [ ])
 
+# DEPRECATED (comparing vegetationt to avian)
+# #join (see https://github.com/r-spatial/sf/issues/1177)
+# #FIX this [...]  not pulling out the actual geometry, is matching them unfortunately 
+both_points <- left_join(as.data.frame(vegetation_points), as.data.frame(avian_points), by=c("Avian_Poin"="point_d")) %>%
+  select(veg_point = CSE_ID, avian_point = Avian_Poin,  avian_inside_fire_boundary, vegetation_inside_fire_boundary, CaldorFire, geometry.vegetation = geometry.x, geometry.avian = geometry.y, RedFir_ID, Cpls_Wt, VEG_CSE, AVIAN_S, WHR_TSD, SZ_DNS2, trtmt_plan = Tretmnt, Notes)
+
+View(both_points)
+View(avian_points)
+View(vegetation_points)
+# 
+# #now compare actual coordinates in the geometries .x and .y 
+# ([ ] confused, now all vegetation plots that were near to avian plots are right on avian plots)
+# temp_new_wild_points %>%
+#   dplyr::mutate(UTM_N_x_ck = sf::st_coordinates(.$geometry.x)[,2],
+#                 UTM_E_x_ck = sf::st_coordinates(.$geometry.x)[,1],
+#                 UTM_N_y_ck = sf::st_coordinates(.$geometry.y)[,2],
+#                 UTM_E_y_ck = sf::st_coordinates(.$geometry.y)[,1]
+#   ) %>%
+#   dplyr::select(UTM_N_x_ck, UTM_N_y_ck, UTM_E_x_ck, UTM_E_y_ck) -> temp_new_wild_points_2
+# 
+# 
+# View(temp_new_wild_points_2)
+# # 
+# !(round(temp_new_wild_points_2$UTM_N_x_ck,1) == round(temp_new_wild_points_2$UTM_N_y_ck,1)) %>% na.omit() %>% sum()
+# !(round(temp_new_wild_points_2$UTM_E_x_ck,1) == round(temp_new_wild_points_2$UTM_E_y_ck,1)) %>% na.omit() %>% sum()
+#[1] FALSE
+#[1] FALSE
+# all equivalent locations where needed to be (ACTULLY FAILS)
+
 #don't remove from here down
 #write out fixed shapefile (might not fully work since need other parts to reimport?)
-sf::st_write(new_wild_points, dsn = here("spatial", "input", "shapefiles", "new_wild_points.shp"), append = FALSE)
+sf::st_write(avian_points, dsn = here("spatial", "input", "shapefiles", "avian_points.shp"), append = FALSE)
+sf::st_write(vegetation_points, dsn = here("spatial", "input", "shapefiles", "vegetation_points.shp"), append = FALSE)
+sf::st_write(both_points, dsn = here("spatial", "input", "shapefiles", "both_points.shp"), append = FALSE)
+
+#[ ] here down reused
 
 # make a 'study area' within which to plot
 buffer <- 400
@@ -207,8 +192,14 @@ inner_boundary <- rbind(inner_boundary, c(744000, 4289000))
 
 ## 50 & 100 meter buffer around sampling points = 1 & 4ha plots:
 ## (100m in all four directions from point center, 200m ditto)
-wldf_50 <- new_wild_points %>% sf::st_buffer(50, endCapStyle = "SQUARE")
-wldf_100 <- new_wild_points %>% sf::st_buffer(100, endCapStyle = "SQUARE")
+
+both_points %>%
+  select(-geometry.avian) %>%
+  st_as_sf(., crs = crs(study_area)) -> both_points_v
+
+
+wldf_50 <- both_points_v %>% sf::st_buffer(50, endCapStyle = "SQUARE")
+wldf_100 <- both_points_v %>% sf::st_buffer(100, endCapStyle = "SQUARE")
 
 #------------------------------------------------------------
 # -   select these for each radius
@@ -423,7 +414,7 @@ colnames(Perc_NtoE_4ha) <- c("Perc_NtoE_2020_4ha", "Binary_NtoE_2020_4ha")
 aspect_NE <- cbind(Perc_NtoE_1ha, Perc_NtoE_4ha)
 
 # get metadata columns
-metadatavars <- wldf_50[, c(6:19)]  #was c(3:8,10:15,17)] need to fix the wildlife_points 1x for all
+metadatavars <- wldf_50[, c(1:13)]  #was c(3:8,10:15,17)] need to fix the wildlife_points 1x for all -- ADD BACK [ ] HERE
 st_geometry(metadatavars) <- NULL
 # collate into wide dataset
 # Put all together for 1ha 4ha
@@ -450,14 +441,14 @@ wide_forest_variables %>% # make into a 'long or tall' dataset
     values_to = "value",
     values_drop_na = TRUE
   ) %>%
-  mutate(veg_point = as.factor(CSE_ID)) %>%
-  mutate(avian_point = as.factor(Avian_Poin)) %>%
-  #mutate(Treatment=Tretmnt) %>%
-  #separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
-  #mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) -> timp # %>%
+  mutate(veg_point = as.factor(veg_point)) %>%
+  mutate(avian_point = as.factor(avian_point)) %>% 
+  mutate(Treatment=trtmt_plan) %>%
+  separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>% 
+  mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
   #^original estimate around for legacy purposes and QAQC
   dplyr::select(
-    veg_point, avian_point, sum_fn, var, Year, scale, value, in_Caples_burn = inside_fire_boundary # Size, Density, 
+    veg_point, avian_point, sum_fn, var, Year, scale, value #in_Caples_burn = inside_fire_boundary # Size, Density, 
   ) -> tall_forest_variables
 
 #above both tall and wide forest variables have
@@ -488,7 +479,7 @@ tall_forest_variables %>%
 tall_forest_variables %>%
   dplyr::select(veg_point,avian_point, sum_fn, var, Year, scale, value) %>%
   # filter(avian_point != 0) %>% #removes vegetation points
-  filter(sum_fn %in% c("max", "mean", "Perc", "Binary"), scale == "4ha", NotIn(var, c("dNBR", "NA"))) %>%
+  filter(sum_fn %in% c("max", "mean", "var", "Perc", "Binary"), scale == "4ha", NotIn(var, c("dNBR", "NA"))) %>%
   pivot_wider(
     names_from = sum_fn:scale,
     # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
@@ -1004,12 +995,12 @@ metadatavars %>%
 
 # make into a 'long or tall' dataset, 4ha
 metadatavars %>%
-  filter(Avian_Poin > 0) %>% 
-  mutate(veg_point = as.factor(CSE_ID)) %>% 
-  mutate(avian_point = as.factor(Avian_Poin)) %>%  
+  # filter(avian_point > 0) %>% 
+  mutate(veg_point = as.factor(veg_point)) %>% 
+  mutate(avian_point = as.factor(avian_point)) %>%  
   separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>% 
   mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>% 
-  left_join(., wide4havars) %>%
+  left_join(., wide4havars, by = c("veg_point" = "veg_point")) %>% 
   pivot_longer(
     cols = contains("ha"),
     names_to = c("sum_fn", "var", "Year", "scale"),
@@ -1018,10 +1009,10 @@ metadatavars %>%
     names_pattern = "(.*)_(.*)_(.*)_(.*)",
     values_to = "value",
     values_drop_na = TRUE
-  ) %>% 
+  ) %>% #-> tmp
   dplyr::select(
-    veg_point, avian_point, sum_fn, var, Year, scale, value,
-    Cpls_Wt, Treatment = Tretmnt, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_4ha
+    veg_point, avian_point = avian_point.x, sum_fn, var, Year, scale, value,
+    Cpls_Wt, Treatment = trtmt_plan, Size, Density, in_Caples_burn = vegetation_inside_fire_boundary) -> tall_forest_variables_4ha
 
 #------------------------------------------------------------
 # output of wide & tall forest variables
