@@ -1,5 +1,6 @@
 ---
 title: An R Markdown document converted from "/Users/dkapan/GitHub/COMB/spatial/note/SALO_DIRECT.ipynb"
+[ ]BUG, authentication to CFO does note work in an .Rmd
 output: html_document
 ---
 
