@@ -1,0 +1,128 @@
+---
+title: An R Markdown document converted from "/Users/dkapan/GitHub/COMB/spatial/note/SALO_DIRECT.ipynb"
+output: html_document
+---
+
+```{python}
+# !!!!!!!!!!!!!!!!!
+# change this to a directory on your local machine to determine where downloads will go
+output_directory = '/Users/dkapan/GitHub/COMB/spatial/input/rasters/SALO'
+```
+
+```{python}
+import os
+import cfo
+from osgeo import gdal
+import ipyleaflet
+import rasterio
+import numpy as np
+from matplotlib import pyplot as plt
+from ipyleaflet import Map, WMSLayer, LayersControl, basemaps
+
+# set plotting style
+# %matplotlib notebook
+
+# create the output directory if it doesn't exist
+# if not os.path.exists(output_directory):
+#     os.mkdir(output_directory)
+```
+
+```{python}
+forest = cfo.api()
+```
+
+```{python}
+forest.authenticate()
+#>>> CFO E-mail: dkapan@calacademy.org
+#>>> CFO Password: RBSS@C@pl3$
+```
+
+```{python}
+# change these!
+vector_path = "/Users/dkapan/GitHub/COMB/spatial/input/shapefiles/study_boundary.shp"
+```
+
+```{python}
+# then the rest should work
+output_path = "/Users/dkapan/GitHub/COMB/spatial/input/rasters/CaplesCanopyCover2021.tif"
+cover21_id = forest.search(geography='California', metric='CanopyCover', year=2021)
+cover21_path = forest.fetch(cover21_id[0], gdal=True)
+warpOptions = gdal.WarpOptions(
+    creationOptions = ["COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"],
+    cutlineDSName = vector_path,
+    cropToCutline = True
+)
+warp = gdal.Warp(output_path, cover21_path, options=warpOptions)
+warp.FlushCache()
+```
+
+```{python}
+# then the rest should work
+output_path = "/Users/dkapan/GitHub/Caples_Spatial/input/rasters/CaplesCanopyHeight2018.tif"
+height18_id = forest.search(geography='California', metric='CanopyHeight', year=2018)
+height18_path = forest.fetch(height18_id[0], gdal=True)
+warpOptions = gdal.WarpOptions(
+    creationOptions = ["COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"],
+    cutlineDSName = vector_path,
+    cropToCutline = True
+)
+warp = gdal.Warp(output_path, height18_path, options=warpOptions)
+warp.FlushCache()
+```
+
+```{python}
+# then the rest should work
+output_path = "/Users/dkapan/GitHub/Caples_Spatial/input/rasters/CaplesCanopyCover2019.tif"
+cover19_id = forest.search(geography='California', metric='CanopyCover', year=2019)
+cover19_path = forest.fetch(cover19_id[0], gdal=True)
+warpOptions = gdal.WarpOptions(
+    creationOptions = ["COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"],
+    cutlineDSName = vector_path,
+    cropToCutline = True
+)
+warp = gdal.Warp(output_path, cover19_path, options=warpOptions)
+warp.FlushCache()
+```
+
+```{python}
+# then the rest should work
+output_path = "/Users/dkapan/GitHub/Caples_Spatial/input/rasters/CaplesCanopyHeight2019.tif"
+height19_id = forest.search(geography='California', metric='CanopyHeight', year=2018)
+height19_path = forest.fetch(height19_id[0], gdal=True)
+warpOptions = gdal.WarpOptions(
+    creationOptions = ["COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"],
+    cutlineDSName = vector_path,
+    cropToCutline = True
+)
+warp = gdal.Warp(output_path, height19_path, options=warpOptions)
+warp.FlushCache()
+```
+
+```{python}
+# then the rest should work
+output_path = "/Users/dkapan/GitHub/Caples_Spatial/input/rasters/CaplesCanopyCover2020.tif"
+cover20_id = forest.search(geography='California', metric='CanopyCover', year=2019)
+cover20_path = forest.fetch(cover20_id[0], gdal=True)
+warpOptions = gdal.WarpOptions(
+    creationOptions = ["COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"],
+    cutlineDSName = vector_path,
+    cropToCutline = True
+)
+warp = gdal.Warp(output_path, cover20_path, options=warpOptions)
+warp.FlushCache()
+```
+
+```{python}
+# then the rest should work
+output_path = "/Users/dkapan/GitHub/Caples_Spatial/input/rasters/CaplesCanopyHeight2020.tif"
+height20_id = forest.search(geography='California', metric='CanopyHeight', year=2018)
+height20_path = forest.fetch(height20_id[0], gdal=True)
+warpOptions = gdal.WarpOptions(
+    creationOptions = ["COMPRESS=DEFLATE", "TILED=YES", "BIGTIFF=YES", "NUM_THREADS=ALL_CPUS"],
+    cutlineDSName = vector_path,
+    cropToCutline = True
+)
+warp = gdal.Warp(output_path, height20_path, options=warpOptions)
+warp.FlushCache()
+```
+
