@@ -84,15 +84,12 @@ ggplot(tfv_input, aes(value, group = var)) +
   xlab("Fraction of 4ha with tree height >= 22m") +
   ylab("Number of plots in each RAVG level")
 
-<<<<<<< HEAD
-rm(tfvinput)
-=======
 #plot each year against each other
 tall_forest_variables_4ha %>%
   filter(grepl("LT(.*)Ht|RAVGcbi4", var), Year != 2019, scale == "4ha") %>%  # View()
   pivot_wider(
     names_from = sum_fn:Year,
-    # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
+    # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year)
     values_from = value
   ) %>%
   mutate(RAVG = cut(mean_RAVGcbi4_20182019, 4 , labels = c("unburned", "low", "moderate", "high"))) -> ltplotinput #breaks = c(-1, 0, 1, 2, 3, 4), labels = c("0", "(0,1]", "(1,2]", "(2,3]", "(3,4]"))
@@ -114,7 +111,6 @@ ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   ylab("Fraction of 4ha with tree height >= 22m in 2020")
 
 
-rm(tfvinput)
 
 #these delta's must be calculated on a pixel by pixel basis then look at the central tendency [ ]
 wide4havars$deltacov <- (wide4havars$mean_CanopyCover_2020_4ha-wide4havars$mean_CanopyCover_2018_4ha)
@@ -126,7 +122,7 @@ wide4havars$deltalf <- (wide4havars$mean_LadderFuelDensity_2020_4ha-wide4havars$
 wide4havars$deltasf <- (wide4havars$mean_SurfaceFuels_2020_4ha-wide4havars$mean_SurfaceFuels_2018_4ha)
 
 wide4havars %>%
-  mutate(RAVG = cut(mean_RAVGcbi4_20182019_4ha, 4, labels = c("unburned", "low", "moderate","high"))) -> wide4havars
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 1, 3, 4), labels = c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]"))) -> wide4havars
 
 wide4havars$RAVG <- ordered(wide4havars$RAVG, levels = c("high", "moderate", "low", "unburned"))
 
@@ -275,5 +271,10 @@ wide4havars %>%
   ggtitle(c("Relationship between fuel variables vs \nburn severity (RAVG) before and after fire")) +
   ylab("Change in ladder fuel (2020-2018)") +
   xlab("Change in surface fuel (2020-2018)") +
+<<<<<<< HEAD
   facet_wrap(~RAVG)
 >>>>>>> 23919be (minor changes to eda_forest_data_points.R)
+=======
+  facet_wrap(~RAVG)
+
+>>>>>>> 515425d ('updates on spatial analysis to get SALO and RAVG squared away')

@@ -7,7 +7,7 @@ output: html_notebook
 
 # Overview of information from satellite, on-the-ground, and Lidar data from the Caples Creek Watershed
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE}
 knitr::opts_chunk$set(out.extra = '', eval = TRUE, echo = TRUE)
 opts <- options(knitr.kable.NA="")
 
@@ -69,6 +69,9 @@ both_points_v %>%
 Large trees are defined as the fraction of the area with trees greater than a particular height. In this case we chose 22m cutoff from local dbh vs. height relationships.  Did the large trees change in their study area wide distribution?
 #### Large trees at the landscape level
 ```{r}
+#RAVG labels
+RAVG_labels <- c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]")
+
 # ggplot faceted histogram large trees versus RAVG data
 tall_forest_variables_4ha %>% #from read_points_output_data.R line 1015 
   filter(grepl("LT(.*)Ht|RAVGcbi4", var), Year != 2019, scale == "4ha") %>%
@@ -85,7 +88,7 @@ tall_forest_variables_4ha %>% #from read_points_output_data.R line 1015
     values_drop_na = TRUE
   ) %>%
   filter(grepl("LTg22mHt", var)) %>%
-  mutate(RAVG = cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 4/3,4/3*2,4/3*3), labels = c("unburned", "low", "moderate", "high"))) -> tfv_input
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 1, 3, 4), labels = RAVG_labels)) -> tfv_input
 #labels = c("0", "(0,1]", "(1,2]", "(2,3]", "(3,4]")
 # plot the input
 ggplot(tfv_input, aes(value, group = var)) +
@@ -101,7 +104,25 @@ ggplot(tfv_input, aes(value, group = var)) +
 The first thing we noted was that the fraction of 4ha with large trees rose considerably especially in the locations with no fire.  This was problematic. It suggested we look at the repeatability of the tree-heights derived from SALO data.
 ```{r}
 # plot comparing 2018 to 2020
-# ltplotinput from eda_forest_data_points
+# ltplotinput replicated from "eda_forest_data_points.R" lines 87-97
+
+#plot each year against each other
+tall_forest_variables_4ha %>%
+  filter(grepl("LT(.*)Ht|RAVGcbi4", var), Year != 2019, scale == "4ha") %>%  # View()
+  pivot_wider(
+    names_from = sum_fn:Year,
+    # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
+    values_from = value
+  ) %>% 
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 1, 3, 4), RAVG_labels)) -> ltplotinput 
+
+
+ltplotinput$RAVG <- ordered(ltplotinput$RAVG, levels = rev(RAVG_labels))
+
+scale_color_manual_values <- c("high (3,4]" = "black",
+                                "moderate (1,3]" = "red",
+                                "low (0,1]" = "orange",
+                                "unburned 0" = "green")
 
 ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   geom_point() +
@@ -110,10 +131,7 @@ ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   coord_equal() +
   theme(aspect.ratio=1) +
   geom_abline(intercept = 0, slope = 1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   # scale_y_continuous(labels = var) +
   # facet_grid(~RAVG) +
   ggtitle(c("Large Trees (height >= 22m) versus burn severity (RAVG) before and after fire")) +
@@ -127,10 +145,7 @@ ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   coord_equal() +
   theme(aspect.ratio=1) +
   geom_abline(intercept = 0, slope = 1) +
-    scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   # scale_y_continuous(labels = var) +
   facet_grid(~RAVG) +
   ggtitle(c("Large Trees (height >= 22m) versus burn severity (RAVG) before and after fire")) +
@@ -153,18 +168,15 @@ wide4havars$deltalf <- (wide4havars$mean_LadderFuelDensity_2020_4ha-wide4havars$
 wide4havars$deltasf <- (wide4havars$mean_SurfaceFuels_2020_4ha-wide4havars$mean_SurfaceFuels_2018_4ha)
 
 wide4havars %>%
-  mutate(RAVG = cut(mean_RAVGcbi4_20182019_4ha, 4, labels = c("unburned", "low", "moderate","high"))) -> wide4havars
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019_4ha, breaks = c(-1, 0, 1, 3, 4), labels = RAVG_labels)) -> wide4havars
 
-wide4havars$RAVG <- ordered(wide4havars$RAVG, levels = c("high", "moderate", "low", "unburned"))
+wide4havars$RAVG <- ordered(wide4havars$RAVG, levels = rev(RAVG_labels))
 
 wide4havars %>%
   ggplot(aes(x = avian_point, y = deltaht, color = RAVG))+
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle("change in mean canopy height 2020-2018") +
   ylab("change in mean canopy height 4ha") +
   facet_wrap(~RAVG)
@@ -173,10 +185,7 @@ wide4havars %>%
   ggplot(aes(x = avian_point, y = deltacov, color = RAVG))+
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle("change in mean canopy cover 2020-2018") +
   ylab("change in mean canopy cover 4ha") +
   facet_wrap(~RAVG)
@@ -194,10 +203,7 @@ wide4havars %>%
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Mean canopy height 4ha (2018)") +
   ylab("Mean canopy height 4ha (2020)") +
@@ -211,10 +217,7 @@ wide4havars %>%
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Mean canopy cover 4ha (2018)") +
   ylab("Mean canopy cover 4ha (2020)") +
@@ -228,10 +231,7 @@ wide4havars %>%
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Change in height (2020-2018)") +
   ylab("Change in cover (2020-2018)") +
@@ -240,7 +240,62 @@ wide4havars %>%
 
 
 ```
-#### Pixel by pixel after - before comparisons
+# Large tree analysis discussion: full-model (height, year, plot, slope, intercept)
+
+Using the pixel-level data set for each point Canopy Height to large tree analysis.  For each plot, we show Tree Height 2018 (x) vs 2020 (y), sorted by RAVG, colored by RAVG class, with a separate plot level regression line (slope and intercept) and the LARGE TREE cutoffs shown, to discuss the value of utilizing 'correction factors' for large trees for 2018 vs 2020.
+
+```{r}
+#depends on running build_pixel_level_data.R
+# source(here("spatial","src", "build_pixel_level_data.R"))
+# GGPLOT of Canopy Height analysis
+# each plot, sorted by RAVG, colored by RAVG class, 2018 (x) vs 2020 (y)
+# Separate slope and intercept
+# for model dsicussion
+pixel_level_db_ch_cc %>% 
+    filter(avian_point != 0) %>%
+    # filter(avian_point %in% c(841, 454, 490,576, 1057, 1072)) %>%
+    ggplot(aes(x = canopy_height_18, y = canopy_height_20)) +
+    # geom_point(pch = ".") +
+    # stat_summary(fun.data=mean_cl_normal) + 
+    geom_point(aes(size = coverage_fraction, col=RAVG_category), 
+               alpha = 0.42, 
+               position = jitter, 
+               shape = 1, 
+               # fill = "tan", 
+               stroke = .5) +
+    scale_color_manual(values=pt_colors) +
+    scale_size(range = c(0,1)) +
+      geom_smooth(method="lm",
+                formula= y~x,
+                mapping = aes(weight = coverage_fraction),
+                color = "purple",
+                lwd = 0.5,
+                show.legend = FALSE) +
+    geom_abline(intercept = 0, slope = 1, lty = 2, col = "blue") +
+    geom_vline(xintercept = 22, lty = 3, col = "black") +
+    geom_hline(yintercept = 22, lty = 3, col = "black") +
+    coord_fixed(ratio = 1, xlim = c(0,40), ylim = c(0,40)) +
+      # xlim(0, 40) +
+      # ylim(0, 40) +
+    # theme(aspect.ratio=1) +
+    theme(legend.position="none") +
+    facet_wrap(~avian_point) + 
+    # geom_vline(aes(xintercept = mean, group = avian_point), colour = 'red') +
+    #theme(strip.text = element_text(size = rel(3.0), vjust = -4.0), 
+    #     panel.spacing.y = unit(-2, "lines")) # +
+     theme(strip.text = element_blank(), 
+         panel.spacing.y = unit(0.1, "lines"),
+         panel.spacing.x = unit(0.1, "lines")) +
+         theme(axis.text.x=element_text(size=7, angle = 90)) +
+  # theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+         theme(axis.text.y=element_text(size=7)) +
+  theme(axis.line = element_line(color='black'),
+        # plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank())
+```
+# Canopy Height Pixel by pixel after - before comparisons - base-R
 
 ```{r}
 # Pixel by pixel comparisons around particular points 2018 vs 2020
@@ -348,10 +403,12 @@ text(x = max(test_ch18[[rowidno]][,1])*.2, y = max(test_ch20[[rowidno]][,1])*.9,
 }
 
 ```
+# Canopy Cover Pixel by pixel after - before comparisons - base-R
 
-```{r}
-for(i in naturalsort::naturalsort(wldf_100$avian_point[wldf_100$avian_point != 0])){
-
+```{r }
+for(i in avian_points_sorted){
+avian_point_number <- i
+rowidno <- as.numeric(dimnames(wldf_100)[[1]][wldf_100$avian_point==avian_point_number])
 par(mfrow=c(1,1))
 par(pty="s")
 par(mar=c(4,4,3,2))
@@ -362,5 +419,60 @@ abline(lm(test_cc20[[rowidno]][,1]~test_cc18[[rowidno]][,1]), col="red")
 title(main=paste0("Pixel by pixel comparison \n for point ", avian_point_number))  #, " 2018 vs 2020"
 
 }
+```
+# Large tree analysis discussion: full-model (height, year, plot, slope, intercept)
+
+Using the pixel-level data set for each point Canopy Height to large tree analysis.  For each plot, we show Tree Height 2018 (x) vs 2020 (y), sorted by RAVG, colored by RAVG class, with a separate plot level regression line (slope and intercept) and the LARGE TREE cutoffs shown, to discuss the value of utilizing 'correction factors' for large trees for 2018 vs 2020.
+
+```{r}
+#depends on running build_pixel_level_data.R
+# source(here("spatial","src", "build_pixel_level_data.R"))
+# GGPLOT of Canopy Height analysis
+# each plot, sorted by RAVG, colored by RAVG class, 2018 (x) vs 2020 (y)
+# Separate slope and intercept
+# for model dsicussion
+pixel_level_db_ch_cc %>% 
+    filter(avian_point != 0) %>%
+    # filter(avian_point %in% c(841, 454, 490,576, 1057, 1072)) %>%
+    ggplot(aes(x = canopy_height_18, y = canopy_height_20)) +
+    # geom_point(pch = ".") +
+    # stat_summary(fun.data=mean_cl_normal) + 
+    geom_point(aes(size = coverage_fraction, col=RAVG_category), 
+               alpha = 0.42, 
+               position = jitter, 
+               shape = 1, 
+               # fill = "tan", 
+               stroke = .5) +
+    scale_color_manual(values=pt_colors) +
+    scale_size(range = c(0,1)) +
+      geom_smooth(method="lm",
+                formula= y~x,
+                mapping = aes(weight = coverage_fraction),
+                color = "purple",
+                lwd = 0.5,
+                show.legend = FALSE) +
+    geom_abline(intercept = 0, slope = 1, lty = 2, col = "blue") +
+    geom_vline(xintercept = 22, lty = 3, col = "black") +
+    geom_hline(yintercept = 22, lty = 3, col = "black") +
+    coord_fixed(ratio = 1, xlim = c(0,40), ylim = c(0,40)) +
+      # xlim(0, 40) +
+      # ylim(0, 40) +
+    # theme(aspect.ratio=1) +
+    theme(legend.position="none") +
+    facet_wrap(~avian_point) + 
+    # geom_vline(aes(xintercept = mean, group = avian_point), colour = 'red') +
+    #theme(strip.text = element_text(size = rel(3.0), vjust = -4.0), 
+    #     panel.spacing.y = unit(-2, "lines")) # +
+     theme(strip.text = element_blank(), 
+         panel.spacing.y = unit(0.1, "lines"),
+         panel.spacing.x = unit(0.1, "lines")) +
+         theme(axis.text.x=element_text(size=7, angle = 90)) +
+  # theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+         theme(axis.text.y=element_text(size=7)) +
+  theme(axis.line = element_line(color='black'),
+        # plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank())
 ```
 
