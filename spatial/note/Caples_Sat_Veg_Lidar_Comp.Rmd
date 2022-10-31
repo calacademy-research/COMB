@@ -69,6 +69,9 @@ both_points_v %>%
 Large trees are defined as the fraction of the area with trees greater than a particular height. In this case we chose 22m cutoff from local dbh vs. height relationships.  Did the large trees change in their study area wide distribution?
 #### Large trees at the landscape level
 ```{r}
+#RAVG labels
+RAVG_labels <- c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]")
+
 # ggplot faceted histogram large trees versus RAVG data
 tall_forest_variables_4ha %>% #from read_points_output_data.R line 1015 
   filter(grepl("LT(.*)Ht|RAVGcbi4", var), Year != 2019, scale == "4ha") %>%
@@ -85,7 +88,7 @@ tall_forest_variables_4ha %>% #from read_points_output_data.R line 1015
     values_drop_na = TRUE
   ) %>%
   filter(grepl("LTg22mHt", var)) %>%
-  mutate(RAVG = cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 4/3,4/3*2,4/3*3), labels = c("unburned", "low", "moderate", "high"))) -> tfv_input
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 1, 3, 4), labels = RAVG_labels)) -> tfv_input
 #labels = c("0", "(0,1]", "(1,2]", "(2,3]", "(3,4]")
 # plot the input
 ggplot(tfv_input, aes(value, group = var)) +
@@ -101,7 +104,25 @@ ggplot(tfv_input, aes(value, group = var)) +
 The first thing we noted was that the fraction of 4ha with large trees rose considerably especially in the locations with no fire.  This was problematic. It suggested we look at the repeatability of the tree-heights derived from SALO data.
 ```{r}
 # plot comparing 2018 to 2020
-# ltplotinput from eda_forest_data_points
+# ltplotinput replicated from "eda_forest_data_points.R" lines 87-97
+
+#plot each year against each other
+tall_forest_variables_4ha %>%
+  filter(grepl("LT(.*)Ht|RAVGcbi4", var), Year != 2019, scale == "4ha") %>%  # View()
+  pivot_wider(
+    names_from = sum_fn:Year,
+    # names_glue ="{var}_{.value}", #printf('{%s}_{%s}_{%s', sum_fn, scale, Year
+    values_from = value
+  ) %>% 
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019, breaks = c(-1, 0, 1, 3, 4), RAVG_labels)) -> ltplotinput 
+
+
+ltplotinput$RAVG <- ordered(ltplotinput$RAVG, levels = rev(RAVG_labels))
+
+scale_color_manual_values <- c("high (3,4]" = "black",
+                                "moderate (1,3]" = "red",
+                                "low (0,1]" = "orange",
+                                "unburned 0" = "green")
 
 ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   geom_point() +
@@ -110,10 +131,7 @@ ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   coord_equal() +
   theme(aspect.ratio=1) +
   geom_abline(intercept = 0, slope = 1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   # scale_y_continuous(labels = var) +
   # facet_grid(~RAVG) +
   ggtitle(c("Large Trees (height >= 22m) versus burn severity (RAVG) before and after fire")) +
@@ -127,10 +145,7 @@ ggplot(ltplotinput, aes(Perc_LTg22mHt_2018, Perc_LTg22mHt_2020, color = RAVG)) +
   coord_equal() +
   theme(aspect.ratio=1) +
   geom_abline(intercept = 0, slope = 1) +
-    scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   # scale_y_continuous(labels = var) +
   facet_grid(~RAVG) +
   ggtitle(c("Large Trees (height >= 22m) versus burn severity (RAVG) before and after fire")) +
@@ -153,18 +168,15 @@ wide4havars$deltalf <- (wide4havars$mean_LadderFuelDensity_2020_4ha-wide4havars$
 wide4havars$deltasf <- (wide4havars$mean_SurfaceFuels_2020_4ha-wide4havars$mean_SurfaceFuels_2018_4ha)
 
 wide4havars %>%
-  mutate(RAVG = cut(mean_RAVGcbi4_20182019_4ha, 4, labels = c("unburned", "low", "moderate","high"))) -> wide4havars
+  mutate(RAVG =cut(mean_RAVGcbi4_20182019_4ha, breaks = c(-1, 0, 1, 3, 4), labels = RAVG_labels)) -> wide4havars
 
-wide4havars$RAVG <- ordered(wide4havars$RAVG, levels = c("high", "moderate", "low", "unburned"))
+wide4havars$RAVG <- ordered(wide4havars$RAVG, levels = rev(RAVG_labels))
 
 wide4havars %>%
   ggplot(aes(x = avian_point, y = deltaht, color = RAVG))+
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle("change in mean canopy height 2020-2018") +
   ylab("change in mean canopy height 4ha") +
   facet_wrap(~RAVG)
@@ -173,10 +185,7 @@ wide4havars %>%
   ggplot(aes(x = avian_point, y = deltacov, color = RAVG))+
   geom_point() +
   geom_abline(intercept = 0, slope = 0) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle("change in mean canopy cover 2020-2018") +
   ylab("change in mean canopy cover 4ha") +
   facet_wrap(~RAVG)
@@ -194,10 +203,7 @@ wide4havars %>%
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Mean canopy height 4ha (2018)") +
   ylab("Mean canopy height 4ha (2020)") +
@@ -211,10 +217,7 @@ wide4havars %>%
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Mean canopy cover 4ha (2018)") +
   ylab("Mean canopy cover 4ha (2020)") +
@@ -228,10 +231,7 @@ wide4havars %>%
   geom_abline(intercept = 0, slope = 1) +
   coord_fixed() +
   theme(aspect.ratio=1) +
-  scale_color_manual(values = c("high" = "black",
-                                "moderate" = "red",
-                                "low" = "orange",
-                                "unburned" = "green")) +
+  scale_color_manual(values = scale_color_manual_values) +
   ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
   xlab("Change in height (2020-2018)") +
   ylab("Change in cover (2020-2018)") +
