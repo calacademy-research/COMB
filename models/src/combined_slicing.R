@@ -127,7 +127,7 @@ ModelTrial <- function(params) {
   jagsData <- within(data, rm(indices))
   jags(jagsData, inits, monitored, modelFile,
        n.adapt = na,
-       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = F,
+       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T,
        seed = 123
   )
 }

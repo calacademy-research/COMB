@@ -205,8 +205,13 @@ readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
   ) %>% mutate(
     Species = birdCode_fk, Year = year(DateTime),
     Point = point_ID_fk, Visit = visit, Score = abun
-  ) %>% 
-    filter(Visit <= PCvisitlimit)
+  ) %>% #filter(Visit <= PCvisitlimit)
+    group_by(Point, Year) %>% 
+    arrange(Point, Year, Visit) %>% 
+    mutate(
+     Visit = sample(seq_along(Visit))
+    ) %>% 
+    filter(Visit <= PCvisitlimit) %>% ungroup()
   
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
   # the threshold to 0.
@@ -226,7 +231,7 @@ readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
   indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
   sparseRawCounts <- counts %>%
     inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
+    select(Species_Index, Year_Index, Point_Index, Score)
   y.raw <- sparseToDense(sparseRawCounts, indices$full)
   dimnames(y.raw)[[1]] <- indices$species$Species
   dimnames(y.raw)[[2]] <- indices$year$Year
@@ -449,7 +454,7 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
   visitIndices <- visits %>%
     group_by(Year, Point) %>%
     arrange(Year, Point, Visit) %>% # order important for seq_along
-    mutate(Visit_Index = seq_along(Visit))
+    mutate(Visit_Index = sample(seq_along(Visit)))
   if (!is.na(visitLimit)) {
     visitIndices <- visitIndices %>% filter(Visit_Index <= visitLimit)
   }
