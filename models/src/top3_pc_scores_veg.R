@@ -13,7 +13,7 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib_top3.R"))
+source(here("models/src/model_read_lib.R"))
 
 
 # parameters --------------------------------------------------------------
@@ -46,7 +46,7 @@ model {
 
   # Priors
   p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
-  beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression 
+  beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
   beta1 ~ ddexp(0, sqrt(2.0)) # Slope for occupancy logistic regression with a Laplace prior for L1 regularization
 
   # Parameters of the observation model for the scores
@@ -59,7 +59,7 @@ model {
 
   # Likelihood part 1: detection data and ARU counts
   for (i in 1:nsites) { # Loop over sites
-    logit(psi[i]) <- beta0 + beta1*veg[i] 
+    logit(psi[i]) <- beta0 + beta1*veg[i]
     z[i] ~ dbern(psi[i]) # Latent occupancy states
 
     # Point count
@@ -71,31 +71,31 @@ model {
     Tobs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
     ySim[i] ~ dbin(p11 * z[i], n_v[i])
     Tsim0[i] <- (sqrt(ySim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
-    
+
     #GOF - Regression: Simulations
     psiSim[i] <- exp(beta0 + beta1*veg[i])/(1+exp(beta0 + beta1*veg[i]))
     zSim[i] ~ dbern(psiSim[i])
-    
+
   }
-  
+
   # Gaussian mixture model for ML ARU scores
   for(k in 1:nsamples) {
-    score[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1]) 
+    score[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
     #GOF for ARU scores
       LLobs_score[k] <- logdensity.norm(score[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
       score_Sim[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
       LLsim_score[k] <- logdensity.norm(score_Sim[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
   }
-  
+
 
   # GOF assessment for Point Count data
   T_pc_obs <- sum(Tobs0)
   T_pc_sim <- sum(Tsim0)
-  
+
   #GOF assessment for scores
   Dobs <- -2 * sum(LLobs_score)
   Dsim <- -2 * sum(LLsim_score)
-  
+
   #GOF - Regression: Difference in mean vegetation
   cz1 <- sum(z)
   cz0 <- sum(1 - z)
@@ -103,7 +103,7 @@ model {
   czSim1 <- sum(zSim)
   czSim0 <- sum(1 - zSim)
   TvegSim <- sum(veg*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(veg*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
-  
+
   mean_psi = mean(psi) # Mean occupancy across sites
 }
 ")
@@ -117,10 +117,10 @@ gst[data$score <= 0.0] <- 2
 inits <- function() {
   list(
     mu = c(1, -1), sigma = c(1, 1), z = zst,
-   # psi = psit, 
+   # psi = psit,
     p11 = runif(1, 0.2, 0.8),
-    lambda = runif(1, 1, 20), omega = runif(1, 0, 15), 
-    g = gst, beta0 = 0, beta1 = 0, 
+    lambda = runif(1, 1, 20), omega = runif(1, 0, 15),
+    g = gst, beta0 = 0, beta1 = 0,
     reg_parm = 1
   )
 }
@@ -150,8 +150,8 @@ data2 <- append(data, list(n_v = n_v_per_site, y_pc_sum = y_pc_sum, n_s = n_samp
 jagsData <- within(data2, rm(indices))
 
 covs <- read_csv("./models/input/wide4havars.csv") %>%
-  mutate(Point = avian_point) %>% 
-  dplyr::select(Point, mean_CanopyCover_2020_4ha) 
+  mutate(Point = avian_point) %>%
+  dplyr::select(Point, mean_CanopyCover_2020_4ha)
 
 Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
 jagsData$veg <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
