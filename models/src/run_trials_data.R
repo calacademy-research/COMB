@@ -123,5 +123,6 @@ collectEstimates <- function(jagsResult) {
 getCurrentResults <- function() {
   table <- t(sapply(trialResults, collectEstimates))
   data.frame(table) %>% rownames_to_column("nPC_nARU") %>% 
-    separate(nPC_nARU, c("nPC", "nARU"))
+    separate(nPC_nARU, c("nPC", "nARU")) %>% 
+    mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU))
 }
