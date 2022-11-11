@@ -25,25 +25,42 @@ exactextractr::exact_extract(RAVG_Caples_imgStack$ca3872412014620191010_20181118
 
 #RAVG_f_cuts (f = fixed cuts)
 RAVG_f_cuts_cbi4 <- c(-1, 0, 1, 3, 4)
-RAVG_f_cuts_cbi4_label = c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]")
+RAVG_f_cuts_cbi4_label = c("[0]", "(0,1]", "(1,3]", "(3,4]")
 
 #from Angela's email 2022-10-27
 #0 < 0.1 < 1.25 < 2.25 < 3
-RAVG_f_cuts_cbi_to_cbi4 <- c(0, .1, 1.25, 2.25, 3)
-RAVG_f_cuts_cbi_to_cbi4_label = c("unburned 0 - 0.1", "low (0.1,1.25]", "moderate (1.25,2.25]", "high (2.25,3]")
+RAVG_f_cuts_cbi_to_cbi4 <- c(-1, .1, 1.25, 2.25, 3)
+RAVG_f_cuts_cbi_to_cbi4_label = c("[0 - 0.1]", "(0.1,1.25]", "(1.25,2.25]", "(2.25,3]")
 
 
 RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819, breaks=RAVG_f_cuts_cbi4, labels = RAVG_f_cuts_cbi4_label)) 
 colnames(RAVG_1819)[1] <- c("RAVG_1819_cbi4")
 colnames(RAVG_1819)[2] <- c("RAVG_cbi4_category")
 
-RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819_cbi, breaks=RAVG_f_cuts_cbi_to_cbi4, labels = RAVG_f_cuts_cbi_to_cbi4_label)) 
+RAVG_1819 <- cbind(RAVG_1819, as_tibble(RAVG_1819_cbi), cut(RAVG_1819_cbi, breaks=RAVG_f_cuts_cbi_to_cbi4, labels = RAVG_f_cuts_cbi_to_cbi4_label)) 
 colnames(RAVG_1819)[3] <- c("RAVG_1819_cbi")
-colnames(RAVG_1819)[3] <- c("RAVG_cbi_to_cbi4_category")
+colnames(RAVG_1819)[4] <- c("RAVG_cbi_to_cbi4_category")
 
 RAVG_1819 %>% View()
   # as_tibble() %>%
   # mutate(RAVG_category = ifelse(is.na(RAVG_category), 0, RAVG_category)) -> RAVG_1819
+
+
+table(RAVG_1819$RAVG_cbi4_category, RAVG_1819$RAVG_cbi_to_cbi4_category)
+
+#           [0 - 0.1] (0.1,1.25] (1.25,2.25] (2.25,3]
+# [0]          40          0           0        0
+# (0,1]         7          4           0        0
+# (1,3]         2         28          10        0
+# (3,4]         0          0           5       10
+
+#inspect RAVG
+par(pty="s")
+par(mfrow=c(1,2))
+plot(x = RAVG_1819$RAVG_cbi_to_cbi4_category, y = RAVG_1819$RAVG_cbi4_category, ylab="cbi4 cut to 4 categories", xlab="cbi cut to cbi4", cex=0.1)
+plot(RAVG_1819$RAVG_1819_cbi4, RAVG_1819$RAVG_1819_cbi)
+abline(0,1)
+
 #this finalizes our RAVG categorical variable to be 0,1,2,3 for none, low, moderate, and high severity.
 wldf_100_wRAVG <- cbind(wldf_100, RAVG_1819)
 
