@@ -10,6 +10,11 @@ library(naturalsort)
 #see weighted mean function wmf 
 exactextractr::exact_extract(RAVG_Caples_imgStack$ca3872412014620191010_20181118_20191118_rdnbr_cbi4, wldf_100, wmf) -> RAVG_1819
 
+#test new ravg cutoffs (see AW email)
+
+exactextractr::exact_extract(RAVG_Caples_imgStack$ca3872412014620191010_20181118_20191118_rdnbr_cbi, wldf_100, wmf) -> RAVG_1819_cbi
+
+
 #RAVG_pct_cutoffs <-c(0, .25, .75, 1)
 
 #RAVG_q_cuts <- quantile(RAVG_1819[RAVG_1819 > 0], RAVG_pct_cutoffs)
@@ -19,12 +24,22 @@ exactextractr::exact_extract(RAVG_Caples_imgStack$ca3872412014620191010_20181118
 #RAVG_q_cuts[1] <- 0
 
 #RAVG_f_cuts (f = fixed cuts)
-RAVG_f_cuts <- c(-1, 0, 1, 3, 4)
-RAVG_f_cuts_label = c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]")
+RAVG_f_cuts_cbi4 <- c(-1, 0, 1, 3, 4)
+RAVG_f_cuts_cbi4_label = c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]")
 
-RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819, breaks=RAVG_f_cuts, labels = RAVG_f_cuts_label)) 
-colnames(RAVG_1819)[1] <- c("RAVG_1819")
-colnames(RAVG_1819)[2] <- c("RAVG_category")
+#from Angela's email 2022-10-27
+#0 < 0.1 < 1.25 < 2.25 < 3
+RAVG_f_cuts_cbi_to_cbi4 <- c(0, .1, 1.25, 2.25, 3)
+RAVG_f_cuts_cbi_to_cbi4_label = c("unburned 0 - 0.1", "low (0.1,1.25]", "moderate (1.25,2.25]", "high (2.25,3]")
+
+
+RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819, breaks=RAVG_f_cuts_cbi4, labels = RAVG_f_cuts_cbi4_label)) 
+colnames(RAVG_1819)[1] <- c("RAVG_1819_cbi4")
+colnames(RAVG_1819)[2] <- c("RAVG_cbi4_category")
+
+RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819_cbi, breaks=RAVG_f_cuts_cbi_to_cbi4, labels = RAVG_f_cuts_cbi_to_cbi4_label)) 
+colnames(RAVG_1819)[3] <- c("RAVG_1819_cbi")
+colnames(RAVG_1819)[3] <- c("RAVG_cbi_to_cbi4_category")
 
 RAVG_1819 %>% View()
   # as_tibble() %>%
@@ -132,7 +147,7 @@ pt_colors <- c("dark green","orange","red","black")
 pixel_level_db_ch_cc %>% 
     filter(avian_point != 0) %>%
     # filter(avian_point %in% c(841, 454, 490,576, 1057, 1072)) %>%
-    ggplot(aes(x = canopy_height_18, y = canopy_height_20)) +
+    ggplot(aes(x = canopy_cover_18, y = canopy_cover_20)) +
     # geom_point(pch = ".") +
     # stat_summary(fun.data=mean_cl_normal) + 
     geom_point(aes(size = coverage_fraction, col=RAVG_category), 
@@ -152,7 +167,7 @@ pixel_level_db_ch_cc %>%
     geom_abline(intercept = 0, slope = 1, lty = 2, col = "blue") +
     geom_vline(xintercept = 22, lty = 3, col = "black") +
     geom_hline(yintercept = 22, lty = 3, col = "black") +
-    coord_fixed(ratio = 1, xlim = c(0,40), ylim = c(0,40)) +
+    coord_fixed(ratio = 1, xlim = c(0,100), ylim = c(0,100)) +
       # xlim(0, 40) +
       # ylim(0, 40) +
     # theme(aspect.ratio=1) +
@@ -173,21 +188,6 @@ pixel_level_db_ch_cc %>%
         panel.grid.minor = element_blank(),
         panel.border = element_blank())
 
-
-    
-     table(pixel_level_db_ch_cc$avian_point, pixel_level_db_ch_cc$RAVG_category) 
-    
-    # paste(as.character(round(pctCHg22_2018,2)*100), "% \nlarge tree"))
-    # +
-    # theme(strip.text = element_blank(), panel.spacing.x = unit(0, "lines"), panel.spacing.y = unit(0, "lines"))
-
-  
-    # scale_color_manual(values = c("high" = "black",
-    #                               "moderate" = "red",
-    #                               "low" = "orange",
-    #                               "unburned" = "green")) +
-    # ggtitle(c("Relationship between canopy variables vs \nburn severity (RAVG) before and after fire")) +
-    # xlab("Change in height (2020-2018)") +
-    # ylab("Change in cover (2020-2018)") +
-    # facet_wrap(~RAVG) 
-  
+## modeling along the lines of this analysis
+### Build full model
+### Project 
