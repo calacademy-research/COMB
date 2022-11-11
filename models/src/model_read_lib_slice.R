@@ -24,7 +24,7 @@ library(data.table)
 # any drive_sync here.
 latlongPath <- here("models/input/latlong.csv")
 aru2pointPath <- here("models/input/aru2point.csv")
-dataMlPath <- here("models/input/dataML_top1.csv")
+dataMlPath <- here("acoustic/data_ingest/output/dataML_0_long.csv")
 pointCountsPath <- here("models/input/PC_delinted.csv")
 
 # The functions in this library are ordered approximately top-down, from those
@@ -274,6 +274,10 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
   } else if (visitAggregation == "day") {
     addVisitKeys <- function(.) {
       mutate(., Year = year(Date_Time), Visit = yday(Date_Time))
+    }
+  } else if (visitAggregation == "5min") {
+    addVisitKeys <- function(.) {
+      mutate(., Year = year(Date_Time), Visit = Date_Time)
     }
   }
   visits <- aru2point %>%

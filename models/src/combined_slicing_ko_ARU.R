@@ -1,4 +1,5 @@
 # combined.R: Script to fit a (point count)+(ARU) occupancy model
+# The model in this script does NOT include ARUs -- it is only point counts
 #
 # Usage:
 #   * Run interactively
@@ -51,85 +52,59 @@ ModelTrial <- function(params) {
   # JAGS specification ------------------------------------------------------
   modelFile <- tempfile()
   cat(file = modelFile, "
-  model {
-
-    # Priors
-    psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-    #p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
-    p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
-    lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
-    ome ~ dunif(0, 1000) # omega: rate of non-target detections
-
-    # Parameters of the observation model for the scores
-    mu[1] ~ dnorm(0, 0.01)
-    mu[2] ~ dnorm(0, 0.01)
-    sigma ~ dunif(0, 10)
-    tau <- 1 / (sigma * sigma)
-
-    # Likelihood part 1: detection data and ARU counts
-    for (i in 1:nsites) { # Loop over sites
-      z[i] ~ dbern(psi) # Latent occupancy states
-      
-      p[i] <- z[i]*p11 #+ (1-z[i])*p10 # Detection probability including over-detections
-      
-      for(j in 1:nsurveys.pc) { # Loop over occasions
-        y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
-      }
-      
-      site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species) ... probability that a logit score came from a true detection
-      
-      for(j in 1:nsurveys.aru) { # Loop over occasions
-        y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
+    model {
+    
+      # Priors
+      psi ~ dunif(0, 1) # psi = Pr(Occupancy)
+      p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
+      p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
+    
+      # Likelihood part 1: detection data and ARU counts
+      for (i in 1:nsites) { # Loop over sites
+        z[i] ~ dbern(psi) # Latent occupancy states
+    
+        # Point count
+        p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability
+        for(j in 1:nsurveys.pc) {
+          y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
+        }
       }
     }
-
-    # Likelihood part 2: feature score data
-    for(k in 1:nsamples) {
-      # Sample specific covariate
-      score[k] ~ dnorm(mu[g[k]], tau) # parameters are group specific
-      probs[k,1] <- site.prob[siteid[k]]
-      probs[k,2] <- 1 - site.prob[siteid[k]] # the prior class probabilities
-      g[k] ~ dcat(probs[k,])
-      N1[k] <- ifelse(g[k]==1, 1, 0)
-    }
-
-    # Derived quantities
-    Npos <- sum(N1[])
-  }
-  ")
+    ")
   
   # initialization
-  
   zst <- rep(1, data$nsites)
   gst <- sample(1:2, data$nsamples, replace = TRUE)
   gst[data$score > threshold] <- 1
   gst[data$score <= threshold] <- 2
   inits <- function() {
     list(
-      mu = c(1, -1), sigma = 0.2, z = zst,
-      psi = runif(1), p11 = runif(1, 0.5, 0.8),
-      lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
+      z = zst,
+      psi = runif(1), p10 = runif(1, 0, 0.05), p11 = runif(1, 0.5, 0.8)
     )
   }
   
   
   # JAGS execution ----------------------------------------------------------
   
-  monitored <- c("psi", "p11", "lam", "ome", "mu", "sigma")
+  monitored <- c("psi", "p10", "p11")
   
   # MCMC settings
   na <- 1000
-  ni <- 2000
+  ni <- 4000
   nt <- 1
   nb <- 1000
-  nc <- 2
+  nc <- 6
   
+  # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
+  # Discuss team preferences on whether to omit it, nest the return value of
+  # readCombined, or some other alternative.
   jagsData <- within(data, rm(indices))
   
   set.seed(123)
   
-  jags(jagsData, inits, monitored, modelFile,
-       n.adapt = na,
-       n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = T
+  jagsResult <- jags(jagsData, inits, monitored, modelFile,
+                     n.adapt = na,
+                     n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
   )
 }

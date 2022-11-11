@@ -55,8 +55,6 @@ ModelTrial <- function(params) {
 
     # Priors
     psi ~ dunif(0, 1) # psi = Pr(Occupancy)
-    #p10 ~ dunif(0, 1) # p10 = Pr(y = 1 | z = 0)
-    p11 ~ dunif(0, 1) # p11 = Pr(y = 1 | z = 1)
     lam ~ dunif(0, 1000) # lambda: rate of target-species calls detected
     ome ~ dunif(0, 1000) # omega: rate of non-target detections
 
@@ -69,12 +67,6 @@ ModelTrial <- function(params) {
     # Likelihood part 1: detection data and ARU counts
     for (i in 1:nsites) { # Loop over sites
       z[i] ~ dbern(psi) # Latent occupancy states
-      
-      p[i] <- z[i]*p11 #+ (1-z[i])*p10 # Detection probability including over-detections
-      
-      for(j in 1:nsurveys.pc) { # Loop over occasions
-        y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
-      }
       
       site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species) ... probability that a logit score came from a true detection
       
@@ -107,15 +99,14 @@ ModelTrial <- function(params) {
   inits <- function() {
     list(
       mu = c(1, -1), sigma = 0.2, z = zst,
-      psi = runif(1), p11 = runif(1, 0.5, 0.8),
-      lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
+      psi = runif(1), lam = runif(1, 1, 2), ome = runif(1, 0, 0.4), g = gst
     )
   }
   
   
   # JAGS execution ----------------------------------------------------------
   
-  monitored <- c("psi", "p11", "lam", "ome", "mu", "sigma")
+  monitored <- c("psi", "lam", "ome", "mu", "sigma")
   
   # MCMC settings
   na <- 1000

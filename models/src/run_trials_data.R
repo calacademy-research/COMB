@@ -1,5 +1,5 @@
 #' run_trials_data: Parallel estimation using multiple hyperparameter settings.
-#' This derivative of `run_trials` is meant to run the model on a single species with varying
+#' This derivative of `run_trials` is meant to run the model on a single speciest with varying
 #' the amount of data it is fed (# of PC days/# of ARU recordings)
 #'
 #' Example usage:
@@ -40,7 +40,7 @@ assumedNumChains <- 2
 # Too scary
 # plan(multisession, workers = availableCores() / assumedNumChains)
 
-plan(multisession, workers = 32)
+plan(multisession, workers = 8)
 
 #' Generates a hyperparameter sweep over species codes.
 #'
@@ -51,6 +51,7 @@ perTrialHparams <- function(speciesCode) {
   map2(combinations$nPC, combinations$nARU, 
     ~ list(speciesCode = speciesCode, year = 2021, nARU = .y, nPC = .x)
     )
+  
 }
 
 #' Global list which will be populated by per-trial calls to a "promise
