@@ -620,9 +620,13 @@ extract_std_var_4ha <- exactextractr::exact_extract(std_layers, wldf_100, c("mea
 # special_vars <- c("RAVGdnbr_2018111820191118", LargeTreeHeightFraction","LargeTreeCoverFraction")
 
 # RAVG for both fires
-RAVG_var <- names(canopy_fuel_nbr_dem_RAVG_LIDAR)[c(37, 46)]
+RAVG_var <- names(canopy_fuel_nbr_dem_RAVG_LIDAR)[c(37,46)]
 RAVG_layers <- subset(canopy_fuel_nbr_dem_RAVG_LIDAR, RAVG_var)
 names(RAVG_layers) <- c("RAVGrdnbrcbi4_20182019", "RAVGrdnbrcbi4_20202021")
+
+#put in the CBI (not 4) scale 1:3 to compare and utiliz cutoffs Angela sent
+#
+
 
 extract_RAVG_var_1ha <- exactextractr::exact_extract(RAVG_layers, wldf_50, c("mean", "median", "min", "max", "count"))
 extract_RAVG_var_4ha <- exactextractr::exact_extract(RAVG_layers, wldf_100, c("mean", "median", "min", "max", "count"))
