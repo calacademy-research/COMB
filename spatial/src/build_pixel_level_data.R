@@ -8,7 +8,7 @@ library(naturalsort)
 #for wldf_100 see read_points_output_data.R line 202
 #generate data for Caples RAVG
 #see weighted mean function wmf 
-exactextractr::exact_extract(RAVG_Caples_imgStack$ca3872412014620191010_20181118_20191118_rdnbr_cbi4, wldf_100, wmf) -> RAVG_1819
+exactextractr::exact_extract(RAVG_Caples_imgStack$ca3872412014620191010_20181118_20191118_rdnbr_cbi4, wldf_100, wmf) -> RAVG_1819_cbi4
 
 #test new ravg cutoffs (see AW email)
 
@@ -28,18 +28,27 @@ RAVG_f_cuts_cbi4 <- c(-1, 0, 1, 3, 4)
 RAVG_f_cuts_cbi4_label = c("unburned 0", "low (0,1]", "moderate (1,3]", "high (3,4]")
 
 #from Angela's email 2022-10-27
+#and https://burnseverity.cr.usgs.gov/ravg/background-products-applications
+#Outside fire perimeter (0)
+#Unchanged (0 <= CBI < 0.1) 
+#Low severity (0.1 <= CBI < 1.25) 
+#Moderate severity (1.25 <= CBI < 2.25) 
+#High severity (2.25 <= CBI < 3) 
+
 #0 < 0.1 < 1.25 < 2.25 < 3
-RAVG_f_cuts_cbi_to_cbi4 <- c(0, .1, 1.25, 2.25, 3)
-RAVG_f_cuts_cbi_to_cbi4_label = c("unburned 0 - 0.1", "low (0.1,1.25]", "moderate (1.25,2.25]", "high (2.25,3]")
+RAVG_f_cuts_cbi_to_cbi4 <- c(-1, 0, .1, 1.25, 2.25, 3)
+RAVG_f_cuts_cbi_to_cbi4_label = c("outside burn perimeter 0", "unburned 0 - 0.1", "low (0.1,1.25]", "moderate (1.25,2.25]", "high (2.25,3]")
 
 
-RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819, breaks=RAVG_f_cuts_cbi4, labels = RAVG_f_cuts_cbi4_label)) 
-colnames(RAVG_1819)[1] <- c("RAVG_1819_cbi4")
-colnames(RAVG_1819)[2] <- c("RAVG_cbi4_category")
+RAVG_1819_cbi4 <- cbind(as_tibble(RAVG_1819_cbi4), cut(RAVG_1819_cbi4, breaks=RAVG_f_cuts_cbi4, labels = RAVG_f_cuts_cbi4_label)) 
+colnames(RAVG_1819_cbi4)[1] <- c("RAVG_1819_cbi4")
+colnames(RAVG_1819_cbi4)[2] <- c("RAVG_cbi4_category")
 
-RAVG_1819 <- cbind(as_tibble(RAVG_1819), cut(RAVG_1819_cbi, breaks=RAVG_f_cuts_cbi_to_cbi4, labels = RAVG_f_cuts_cbi_to_cbi4_label)) 
-colnames(RAVG_1819)[3] <- c("RAVG_1819_cbi")
-colnames(RAVG_1819)[3] <- c("RAVG_cbi_to_cbi4_category")
+RAVG_1819_cbi <- cbind(as_tibble(RAVG_1819_cbi), cut(RAVG_1819_cbi, breaks=RAVG_f_cuts_cbi_to_cbi4, labels = RAVG_f_cuts_cbi_to_cbi4_label)) 
+colnames(RAVG_1819_cbi)[3] <- c("RAVG_1819_cbi")
+colnames(RAVG_1819_cbi)[3] <- c("RAVG_cbi_to_cbi4_category")
+
+RAVG_1819 <- cbind(RAVG_1819_cbi4, RAVG_1819_cbi)
 
 RAVG_1819 %>% View()
   # as_tibble() %>%
@@ -63,7 +72,7 @@ tibble::as_tibble(test_ch18, .rows = 441, .name_repair = "universal") %>%
   mutate(pixel_name = rowname) %>% 
   mutate(veg_point = rep(wldf_100_wRAVG$veg_point, 441)) %>% 
   mutate(avian_point = rep(wldf_100_wRAVG$avian_point, 441)) %>%
-  mutate(RAVG_1819 = rep(wldf_100_wRAVG$RAVG_1819,441)) %>%
+  mutate(RAVG_1819_cbi4 = rep(wldf_100_wRAVG$RAVG_1819_cbi4,441)) %>%
   mutate(RAVG_category = rep(wldf_100_wRAVG$RAVG_category,441)) %>%
   mutate(point_idx = name) %>% 
   mutate(canopy_height_18 = value) %>% 
@@ -76,7 +85,7 @@ tibble::as_tibble(test_ch20, .rows = 441, .name_repair = "universal") %>%
   mutate(pixel_name = rowname) %>% 
   mutate(veg_point = rep(wldf_100_wRAVG$veg_point, 441)) %>% 
   mutate(avian_point = rep(wldf_100_wRAVG$avian_point, 441)) %>%
-  mutate(RAVG_1819 = rep(wldf_100_wRAVG$RAVG_1819,441)) %>%
+  mutate(RAVG_1819_cbi4 = rep(wldf_100_wRAVG$RAVG_1819_cbi4,441)) %>%
   mutate(RAVG_category = rep(wldf_100_wRAVG$RAVG_category,441)) %>%
   mutate(point_idx = name) %>% 
   mutate(canopy_height_20 = value) %>% 
@@ -89,7 +98,7 @@ tibble::as_tibble(test_cc18, .rows = 441, .name_repair = "universal") %>%
   mutate(pixel_name = rowname) %>% 
   mutate(veg_point = rep(wldf_100_wRAVG$veg_point, 441)) %>% 
   mutate(avian_point = rep(wldf_100_wRAVG$avian_point, 441)) %>%
-  mutate(RAVG_1819 = rep(wldf_100_wRAVG$RAVG_1819,441)) %>%
+  mutate(RAVG_1819_cbi4 = rep(wldf_100_wRAVG$RAVG_1819_cbi4,441)) %>%
   mutate(RAVG_category = rep(wldf_100_wRAVG$RAVG_category,441)) %>%
   mutate(point_idx = name) %>% 
   mutate(canopy_cover_18 = value) %>% 
@@ -102,7 +111,7 @@ tibble::as_tibble(test_cc20, .rows = 441, .name_repair = "universal") %>%
   mutate(pixel_name = rowname) %>% 
   mutate(veg_point = rep(wldf_100_wRAVG$veg_point, 441)) %>% 
   mutate(avian_point = rep(wldf_100_wRAVG$avian_point, 441)) %>%
-  mutate(RAVG_1819 = rep(wldf_100_wRAVG$RAVG_1819,441)) %>%
+  mutate(RAVG_1819_cbi4 = rep(wldf_100_wRAVG$RAVG_1819_cbi4,441)) %>%
   mutate(RAVG_category = rep(wldf_100_wRAVG$RAVG_category,441)) %>%
   mutate(point_idx = name) %>% 
   mutate(canopy_cover_20 = value) %>% 
@@ -127,10 +136,80 @@ bind_cols(test_ch18_long,
 pixel_level_db_ch_cc %>%
     mutate(avian_point = as_factor(avian_point)) %>%
     mutate(avian_point = fct_reorder(avian_point, 
-                                     RAVG_1819, 
+                                     RAVG_1819_cbi4, 
                                      .fun = min, 
                                      .desc = FALSE)) -> pixel_level_db_ch_cc
 
+#investigate RAVG differences
+par(mfrow=c(2,1))
+
+cbi_to_cbi4_category <- RAVG_1819_cbi4$RAVG_cbi_to_cbi4_category
+cbi4_category <- RAVG_1819_cbi4$RAVG_cbi4_category
+
+table(cbi_to_cbi4_category,cbi4_category)
+
+cexval <- .875
+plot(y = jitter(RAVG_1819$RAVG_1819_cbi4), 
+     x = jitter(RAVG_1819$RAVG_1819_cbi), 
+     xlab = "RAVG CBI (continuous)", 
+     ylab = "RAVG 'CBI4' (also continuous)")
+abline(v=c(0.1,1.25,2.25), lty = 3)
+text(x = 0, y = .5, c("unchanged"), srt = 90, cex = cexval, col = "green")
+text(x = .1 + (1.25-.1)/2, y = .5, c("low severity"), srt = 90, cex = cexval, col = "brown")
+text(x = 1.25 + (2.25-1.25)/2, y = 2, c("moderate severity"), srt = 90, cex = cexval, col = "orange")
+text(x = 2.25 + ((3-2.25)/2), y = 3.5, c("high severity"), srt = 90, cex = cexval, col = "red")
+abline(h=c(0, 1, 3), lty=2)
+
+
+df <- cbind(datax,datay)
+
+ggplot(data = df, 
+       aes(x=datax, fill=datay)) + 
+  geom_bar(position = "fill") + ylab("proportion") #+
+  
+  
+  ggplot(data = interviews_plotting, aes(x = respondent_wall_type, fill = village)) +
+  geom_bar(position = "fill") + ylab("proportion") +
+  stat_count(geom = "text", 
+             aes(label = stat(count)),
+             position=position_fill(vjust=0.5), colour="white")
+  
+  
+  
+
+plot(x = datax, 
+     y = datay, 
+     xaxt = "n", 
+     xlab = "")
+
+# , 
+#      ylab="cbi4 cut to 4 categories", 
+#      xlab="cbi cut to cbi4",
+#      xaxt = "n", ann=FALSE,
+#      yaxt = "n", ann=FALSE,
+#      axis(side = 4, labels = FALSE))
+
+# Draw x-axis without labels.
+
+
+## Draw the x-axis labels.
+text(x = cumsum(table(datax)/sum(table(datax))),
+     ## Move labels to just below bottom of chart.
+     y = par("usr")[3] - 0.1,
+     ## Use names from the data list.
+     labels = levels(RAVG_1819_cbi4$RAVG_cbi_to_cbi4_category),
+     ## Change the clipping region.
+     xpd = NA,
+     ## Rotate the labels by 35 degrees.
+     srt = 35,
+     ## Adjust the labels to almost 100% right-justified.
+     adj = 1.1,
+     ## Increase label size.
+     cex = .9)
+
+plot(RAVG_1819_cbi4$RAVG_1819_cbi4, RAVG_1819$RAVG_1819_cbi)
+
+#make a plot of the final story (pick your RAVG)
 jitter <- position_jitter(width = 0.15, height = 0.15)
 
 #make mixed effects model 
