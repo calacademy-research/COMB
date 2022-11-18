@@ -205,13 +205,13 @@ readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
   ) %>% mutate(
     Species = birdCode_fk, Year = year(DateTime),
     Point = point_ID_fk, Visit = visit, Score = abun
-  ) %>% #filter(Visit <= PCvisitlimit)
-    group_by(Point, Year) %>% 
-    arrange(Point, Year, Visit) %>% 
-    mutate(
-     Visit = sample(seq_along(Visit))
-    ) %>% 
-    filter(Visit <= PCvisitlimit) %>% ungroup()
+  ) %>% filter(Visit <= PCvisitlimit)
+    # arrange(Point, Year, Visit) %>% 
+    # group_by(Point, Year) %>% 
+    # mutate(
+    #  Visit = seq_along(Visit)
+    # ) #%>% 
+    # filter(Visit <= PCvisitlimit) %>% ungroup()
   
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
   # the threshold to 0.
@@ -301,13 +301,14 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
   species <- outerIndices$species$Species
   years <- outerIndices$year$Year
   scores <- mlTibble %>%
-    filter(Score > threshold) %>%
+    #filter(Score > threshold) %>% #`commented out to keep all scores`
     addVisitKeys() %>%
     select(Species, Year, Point, Visit, Score)
   
   structureForJags(outerIndices, visits, scores,
                    visitLimit = visitLimit,
-                   squeeze = squeeze
+                   squeeze = squeeze, 
+                   threshold = threshold
   )
 }
 
@@ -334,7 +335,7 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
 #'
 #' @export
 structureForJags <- function(outerIndices, visits, visitLimit = NA, scores,
-                             squeeze = T) {
+                             squeeze = T, threshold = 0.5) {
   indices <- buildFullIndices(outerIndices, visits, visitLimit = visitLimit)
   
   # Scores
@@ -352,9 +353,10 @@ structureForJags <- function(outerIndices, visits, visitLimit = NA, scores,
     summarise(Count = 0, .groups = "drop")
   scoreCounts <- sparseScores %>%
     groupByIndices() %>%
+    filter(Score > threshold) %>% # TODO make this `0.5` relate to the threshold
     summarise(Count = n(), .groups = "drop")
   sparseCounts <- rbind(initialCounts, scoreCounts) %>%
-    groupByIndices() %>%
+    groupByIndices() %>% 
     summarise(Count = sum(Count), .groups = "drop")
   
   y.full <- sparseToDense(sparseCounts, indices$full)

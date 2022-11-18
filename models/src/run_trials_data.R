@@ -111,7 +111,10 @@ collectEstimates <- function(jagsResult) {
       paste("rhat", n, sep = "_")
     })
   )
-  append(means, rhats)
+  psi_bounds <- c(jagsResult$q2.5$psi, jagsResult$q97.5$psi, jagsResult$q97.5$psi - jagsResult$q2.5$psi)
+  names(psi_bounds) <- c("psi_lower", "psi_upper", "psi_0.95_CI")
+  append(psi_bounds, means) %>% 
+    append(rhats)
 }
 
 #' Returns a tibble of (params, estimates) for trials that have finished.
@@ -127,3 +130,12 @@ getCurrentResults <- function() {
     separate(nPC_nARU, c("nPC", "nARU")) %>% 
     mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU))
 }
+
+# x <- getCurrentResults()
+
+## Plotting the two Gaussian Distributions for the Scores
+# ggplot(x, aes(x = seq(-4, 5, length.out = nrow(x)))) + 
+#   geom_area(stat = "function", fun = dnorm, args = c(mean = x$mu1[1], sd = (1/sqrt(x$sigma[1]))), fill = "blue", alpha = 0.5) + 
+#   geom_area(stat = "function", fun = dnorm, args = c(mean = x$mu2[1], sd = (1/sqrt(x$sigma[1]))), fill = "red", alpha = 0.5) + 
+#   labs(title = "The Two Gaussian Distributions for the Gaussian Mixture Model") + 
+#   ylab("density") +xlab("logit")
