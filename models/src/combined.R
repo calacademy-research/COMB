@@ -67,15 +67,15 @@ singleSpeciesCombined <- function(params) {
     # Likelihood part 1: detection data and ARU counts
     for (i in 1:nsites) { # Loop over sites
       z[i] ~ dbern(psi) # Latent occupancy states
-      
+
       p[i] <- z[i]*p11 + (1-z[i])*p10 # Detection probability including over-detections
-      
+
       for(j in 1:nsurveys.pc) { # Loop over occasions
         y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
       }
-      
+
       site.prob[i] <- lam*z[i]/(lam*z[i]+ome) # Pr(sample is target species) ... probability that a logit score came from a true detection
-      
+
       for(j in 1:nsurveys.aru) { # Loop over occasions
         y.aru[i,j] ~ dpois(lam*z[i] + ome)  # Total samples processed
       }
@@ -88,11 +88,7 @@ singleSpeciesCombined <- function(params) {
       probs[k,1] <- site.prob[siteid[k]]
       probs[k,2] <- 1 - site.prob[siteid[k]] # the prior class probabilities
       g[k] ~ dcat(probs[k,])
-      N1[k] <- ifelse(g[k]==1, 1, 0)
     }
-
-    # Derived quantities
-    Npos <- sum(N1[])
   }
   ")
 
