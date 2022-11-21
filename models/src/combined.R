@@ -22,6 +22,7 @@ singleSpeciesCombined <- function(params) {
   year <- params$year
   threshold <- 0.5
   aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
+  PCVisitLimit <- 3 # only consider this many PC visits per site (ordered)
   
   # data --------------------------------------------------------------------
   #drive_auth(email = TRUE) # do not prompt when only one email has token
@@ -38,6 +39,7 @@ singleSpeciesCombined <- function(params) {
     beginTime = dhours(6),
     endTime = dhours(10),
     visitLimit = aruVisitLimit,
+    PCvisitlimit = PCVisitLimit, 
     visitAggregation = "file",
     thresholdOptions = list(
       value = threshold,
