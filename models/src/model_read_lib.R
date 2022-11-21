@@ -496,7 +496,7 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
 #'
 #' @export
 readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
-  read_fst(
+  fread(
     dataMlPath
   ) %>%
     select(Species = species, Point = point, Date_Time, Score = logit) %>%
