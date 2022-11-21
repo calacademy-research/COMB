@@ -12,6 +12,7 @@
 #' names are a superset of those used in JAGS models from `AHMbook`.
 NULL
 
+library(fst)
 library(dplyr)
 library(here)
 library(lubridate)
@@ -24,7 +25,7 @@ library(data.table)
 # any drive_sync here.
 latlongPath <- here("models/input/latlong.csv")
 aru2pointPath <- here("models/input/aru2point.csv")
-dataMlPath <- here("acoustic/data_ingest/output/dataML_0_long.csv")
+dataMlPath <- here("models/input/dataML_tall.fst")
 pointCountsPath <- here("models/input/PC_delinted.csv")
 
 # The functions in this library are ordered approximately top-down, from those
@@ -275,10 +276,6 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
     addVisitKeys <- function(.) {
       mutate(., Year = year(Date_Time), Visit = yday(Date_Time))
     }
-  } else if (visitAggregation == "5min") {
-    addVisitKeys <- function(.) {
-      mutate(., Year = year(Date_Time), Visit = Date_Time)
-    }
   }
   visits <- aru2point %>%
     mutate(Date_Time = parse_date_time(
@@ -460,7 +457,7 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
   visitIndices <- visits %>%
     group_by(Year, Point) %>%
     arrange(Year, Point, Visit) %>% # order important for seq_along
-    mutate(Visit_Index = sample(seq_along(Visit)))
+    mutate(Visit_Index = seq_along(Visit))
   if (!is.na(visitLimit)) {
     visitIndices <- visitIndices %>% filter(Visit_Index <= visitLimit)
   }
@@ -499,7 +496,7 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
 #'
 #' @export
 readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
-  fread(
+  read_fst(
     dataMlPath
   ) %>%
     select(Species = species, Point = point, Date_Time, Score = logit) %>%

@@ -111,7 +111,8 @@ collectEstimates <- function(jagsResult) {
       paste("rhat", n, sep = "_")
     })
   )
-  psi_bounds <- c(jagsResult$q2.5$psi, jagsResult$q97.5$psi, jagsResult$q97.5$psi - jagsResult$q2.5$psi)
+  psi_bounds <- c(jagsResult$q2.5$mean_psi, jagsResult$q97.5$mean_psi, 
+                  jagsResult$q97.5$mean_psi - jagsResult$q2.5$mean_psi)
   names(psi_bounds) <- c("psi_lower", "psi_upper", "psi_0.95_CI")
   append(psi_bounds, means) %>% 
     append(rhats)
