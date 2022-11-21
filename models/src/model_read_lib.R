@@ -207,12 +207,6 @@ readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
     Species = birdCode_fk, Year = year(DateTime),
     Point = point_ID_fk, Visit = visit, Score = abun
   ) %>% filter(Visit <= PCvisitlimit)
-  # arrange(Point, Year, Visit) %>% 
-  # group_by(Point, Year) %>% 
-  # mutate(
-  #  Visit = seq_along(Visit)
-  # ) #%>% 
-  # filter(Visit <= PCvisitlimit) %>% ungroup()
   
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
   # the threshold to 0.
