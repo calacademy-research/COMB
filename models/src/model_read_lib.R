@@ -226,7 +226,7 @@ readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
   indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
   sparseRawCounts <- counts %>%
     inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Score)
+    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
   y.raw <- sparseToDense(sparseRawCounts, indices$full)
   dimnames(y.raw)[[1]] <- indices$species$Species
   dimnames(y.raw)[[2]] <- indices$year$Year
