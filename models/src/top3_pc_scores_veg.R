@@ -13,7 +13,7 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib.R"))
+source(here("models/src/model_read_lib_top3.R"))
 
 
 # parameters --------------------------------------------------------------
