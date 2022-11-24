@@ -165,7 +165,7 @@ combineJagsData <- function(pointCountData, aruData) {
     nsurveys.aru = max(aruData$indices$visit$Visit_Index),
     y.ind = pointCountData$y,
     y.pc = pointCountData$y.raw,
-    y.obs = pointCountData$y.obs,
+    y.obs = pointCountData$y.obs[1,,,],
     y.aru = aruData$y,
     # ARU scores (sparse)
     nsamples = nrow(s),
@@ -238,7 +238,10 @@ readPointCounts <- function(outerIndices, squeeze = T) {
   # Making an "index" of sorts that matches a PC with an observer
   obs.raw <- sparseRawCounts %>% select(-Score) %>% 
     sparseToDense(indices$full)
-
+  dimnames(obs.raw)[[1]] <- indices$species$Species
+  dimnames(obs.raw)[[2]] <- indices$year$Year
+  dimnames(obs.raw)[[3]] <- indices$point$Point
+  
   c(countsData, list(y.raw = y.raw, y.obs = obs.raw))
 }
 
