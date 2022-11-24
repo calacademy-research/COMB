@@ -166,6 +166,8 @@ combineJagsData <- function(pointCountData, aruData) {
     y.ind = pointCountData$y,
     y.pc = pointCountData$y.raw,
     y.obs = pointCountData$y.obs[1,,,],
+    date.pc = pointCountData$date.pc, 
+    time.pc = pointCountData$time.pc, 
     y.aru = aruData$y,
     # ARU scores (sparse)
     nsamples = nrow(s),
@@ -222,6 +224,7 @@ readPointCounts <- function(outerIndices, squeeze = T) {
     squeeze = squeeze
   )
   
+  
   # Add raw counts to the data list, to give the option of modeling a rate of
   # observer counts.
   indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
@@ -242,7 +245,34 @@ readPointCounts <- function(outerIndices, squeeze = T) {
   dimnames(obs.raw)[[2]] <- indices$year$Year
   dimnames(obs.raw)[[3]] <- indices$point$Point
   
-  c(countsData, list(y.raw = y.raw, y.obs = obs.raw))
+  # Add standardized date and time indices
+  # Start with dates
+  dates <- counts %>% 
+    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+    filter(Year == indices$year$Year) %>% 
+    mutate(JDay = as.numeric(format(DateTime, "%j"))) %>% 
+    melt(id.var = c("Point", "Year", "Visit"), measure.var = "JDay") %>%
+    acast(Point ~ Visit)
+  # Standardize dates
+  mdate <- mean(dates, na.rm = T)
+  sddate <- sd(dates, na.rm = T)
+  dates <- (dates - mdate) / sddate
+  dates[is.na(dates)] <- 0
+  
+  # Add time indices
+  times <- counts %>% 
+    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+    filter(Year == indices$year$Year) %>% 
+    mutate(Time = as.numeric(times(format(DateTime, "%H:%M:%S")))) %>%
+    melt(id.var = c("Point", "Year", "Visit"), measure.var = "Time") %>%
+    acast(Point ~ Visit)
+  # Standardize times
+  mtime <- mean(times, na.rm = T)
+  sdtime <- sd(times, na.rm = T)
+  times <- (times - mtime) / sdtime
+  times[is.na(times)] <- 0
+  
+  c(countsData, list(y.raw = y.raw, y.obs = obs.raw, date.pc = dates, time.pc = times))
 }
 
 #' Reads and structures machine learning model outputs
