@@ -165,6 +165,7 @@ combineJagsData <- function(pointCountData, aruData) {
     nsurveys.aru = max(aruData$indices$visit$Visit_Index),
     y.ind = pointCountData$y,
     y.pc = pointCountData$y.raw,
+    y.obs = pointCountData$y.obs[1,,,],
     y.aru = aruData$y,
     # ARU scores (sparse)
     nsamples = nrow(s),
@@ -204,7 +205,8 @@ readPointCounts <- function(outerIndices, squeeze = T) {
     )
   ) %>% mutate(
     Species = birdCode_fk, Year = year(DateTime),
-    Point = point_ID_fk, Visit = visit, Score = abun
+    Point = point_ID_fk, Visit = visit, Score = abun,
+    Observer = observer_fk
   )
 
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
@@ -219,19 +221,28 @@ readPointCounts <- function(outerIndices, squeeze = T) {
     visitLimit = NA,
     squeeze = squeeze
   )
-
+  
   # Add raw counts to the data list, to give the option of modeling a rate of
   # observer counts.
   indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
   sparseRawCounts <- counts %>%
     inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
-  y.raw <- sparseToDense(sparseRawCounts, indices$full)
+    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score, Observer)
+  # Making the df with Observer for later use
+  y.raw <- sparseRawCounts %>% select(-Observer) %>% 
+    sparseToDense(indices$full)
   dimnames(y.raw)[[1]] <- indices$species$Species
   dimnames(y.raw)[[2]] <- indices$year$Year
   dimnames(y.raw)[[3]] <- indices$point$Point
-
-  c(countsData, list(y.raw = y.raw))
+  
+  # Making an "index" of sorts that matches a PC with an observer
+  obs.raw <- sparseRawCounts %>% select(-Score) %>% 
+    sparseToDense(indices$full)
+  dimnames(obs.raw)[[1]] <- indices$species$Species
+  dimnames(obs.raw)[[2]] <- indices$year$Year
+  dimnames(obs.raw)[[3]] <- indices$point$Point
+  
+  c(countsData, list(y.raw = y.raw, y.obs = obs.raw))
 }
 
 #' Reads and structures machine learning model outputs
