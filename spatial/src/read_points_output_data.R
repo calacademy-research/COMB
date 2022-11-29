@@ -4,6 +4,7 @@
 # Created on: 5 April 2022
 # modified from Caples_Spatial_EDA.md
 # updated October 2022
+# updated November 22, 2022 (CBI4 -> CBI)
 
 #### Load Libraries ####
 
@@ -40,6 +41,7 @@ if (dir.exists(here("spatial/output/rasters/")) == F) {
   dir.create(here("spatial/output/rasters/"))
 }
 # run to ensure raster brick is loaded
+# [ ] error same as read_adjust_combine_rasters.R
 drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
 # read raster
 
@@ -618,29 +620,31 @@ extract_std_var_4ha <- exactextractr::exact_extract(std_layers, wldf_100, c("mea
 # And add in the
 # special_vars <- c("RAVGdnbr_2018111820191118", LargeTreeHeightFraction","LargeTreeCoverFraction")
 
+#2022-11-22 changed all cbi4 -> cbi for updated wide data sets.
+
 # RAVG for both fires
-RAVG_var <- names(canopy_fuel_nbr_dem_RAVG_LIDAR)[c(37, 46)]
+RAVG_var <- names(canopy_fuel_nbr_dem_RAVG_LIDAR)[c(36, 45)]
 RAVG_layers <- subset(canopy_fuel_nbr_dem_RAVG_LIDAR, RAVG_var)
-names(RAVG_layers) <- c("RAVGrdnbrcbi4_20182019", "RAVGrdnbrcbi4_20202021")
+names(RAVG_layers) <- c("RAVGrdnbrcbi_20182019", "RAVGrdnbrcbi_20202021")
 
 extract_RAVG_var_1ha <- exactextractr::exact_extract(RAVG_layers, wldf_50, c("mean", "median", "min", "max", "count"))
 extract_RAVG_var_4ha <- exactextractr::exact_extract(RAVG_layers, wldf_100, c("mean", "median", "min", "max", "count"))
 
-mean_RAVGcbi4_20182019_1ha <- extract_RAVG_var_1ha$mean.RAVGrdnbrcbi4_20182019
-min_RAVGcbi4_20182019_1ha <- extract_RAVG_var_1ha$min.RAVGrdnbrcbi4_20182019
-max_RAVGcbi4_20182019_1ha <- extract_RAVG_var_1ha$max.RAVGrdnbrcbi4_20182019
+mean_RAVGcbi_20182019_1ha <- extract_RAVG_var_1ha$mean.RAVGrdnbrcbi_20182019
+min_RAVGcbi_20182019_1ha <- extract_RAVG_var_1ha$min.RAVGrdnbrcbi_20182019
+max_RAVGcbi_20182019_1ha <- extract_RAVG_var_1ha$max.RAVGrdnbrcbi_20182019
 
-mean_RAVGcbi4_20182019_4ha <- extract_RAVG_var_4ha$mean.RAVGrdnbrcbi4_20182019
-min_RAVGcbi4_20182019_4ha <- extract_RAVG_var_4ha$min.RAVGrdnbrcbi4_20182019
-max_RAVGcbi4_20182019_4ha <- extract_RAVG_var_4ha$max.RAVGrdnbrcbi4_20182019
+mean_RAVGcbi_20182019_4ha <- extract_RAVG_var_4ha$mean.RAVGrdnbrcbi_20182019
+min_RAVGcbi_20182019_4ha <- extract_RAVG_var_4ha$min.RAVGrdnbrcbi_20182019
+max_RAVGcbi_20182019_4ha <- extract_RAVG_var_4ha$max.RAVGrdnbrcbi_20182019
 
-mean_RAVGcbi4_20202021_1ha <- extract_RAVG_var_1ha$mean.RAVGrdnbrcbi4_20202021
-min_RAVGcbi4_20202021_1ha <- extract_RAVG_var_1ha$median.RAVGrdnbrcbi4_20202021
-max_RAVGcbi4_20202021_1ha <- extract_RAVG_var_1ha$max.RAVGrdnbrcbi4_20202021
+mean_RAVGcbi_20202021_1ha <- extract_RAVG_var_1ha$mean.RAVGrdnbrcbi_20202021
+min_RAVGcbi_20202021_1ha <- extract_RAVG_var_1ha$median.RAVGrdnbrcbi_20202021
+max_RAVGcbi_20202021_1ha <- extract_RAVG_var_1ha$max.RAVGrdnbrcbi_20202021
 
-mean_RAVGcbi4_20202021_4ha <- extract_RAVG_var_4ha$mean.RAVGrdnbrcbi4_20202021
-min_RAVGcbi4_20202021_4ha <- extract_RAVG_var_4ha$median.RAVGrdnbrcbi4_20202021
-max_RAVGcbi4_20202021_4ha <- extract_RAVG_var_4ha$max.RAVGrdnbrcbi4_20202021
+mean_RAVGcbi_20202021_4ha <- extract_RAVG_var_4ha$mean.RAVGrdnbrcbi_20202021
+min_RAVGcbi_20202021_4ha <- extract_RAVG_var_4ha$median.RAVGrdnbrcbi_20202021
+max_RAVGcbi_20202021_4ha <- extract_RAVG_var_4ha$max.RAVGrdnbrcbi_20202021
 
 # split into named variables
 
@@ -912,12 +916,12 @@ Perc_LTg22mHt_2020_4ha <- std_layers[[12]] %>%
 #------------------------------------------------------------
 wide1havars <- cbind(
   wide_forest_variables_mean_perc_bin_1ha,
-  mean_RAVGcbi4_20182019_1ha,
-  min_RAVGcbi4_20182019_1ha,
-  max_RAVGcbi4_20182019_1ha,
-  mean_RAVGcbi4_20202021_1ha,
-  min_RAVGcbi4_20202021_1ha,
-  max_RAVGcbi4_20202021_1ha,
+  mean_RAVGcbi_20182019_1ha,
+  min_RAVGcbi_20182019_1ha,
+  max_RAVGcbi_20182019_1ha,
+  mean_RAVGcbi_20202021_1ha,
+  min_RAVGcbi_20202021_1ha,
+  max_RAVGcbi_20202021_1ha,
   Perc_LTg28mHt_2018_1ha,
   Perc_LTg28mHt_2019_1ha,
   Perc_LTg28mHt_2020_1ha,
@@ -940,12 +944,12 @@ wide1havars <- cbind(
 
 wide4havars <- cbind(
   wide_forest_variables_mean_perc_bin_4ha,
-  mean_RAVGcbi4_20182019_4ha,
-  min_RAVGcbi4_20182019_4ha,
-  max_RAVGcbi4_20182019_4ha,
-  mean_RAVGcbi4_20202021_4ha,
-  min_RAVGcbi4_20202021_4ha,
-  max_RAVGcbi4_20202021_4ha,
+  mean_RAVGcbi_20182019_4ha,
+  min_RAVGcbi_20182019_4ha,
+  max_RAVGcbi_20182019_4ha,
+  mean_RAVGcbi_20202021_4ha,
+  min_RAVGcbi_20202021_4ha,
+  max_RAVGcbi_20202021_4ha,
   Perc_LTg28mHt_2018_4ha,
   Perc_LTg28mHt_2019_4ha,
   Perc_LTg28mHt_2020_4ha,
@@ -973,13 +977,13 @@ wide4havars <- cbind(
 
 # make into a 'long or tall' dataset, 1ha
 metadatavars %>%
-  filter(Avian_Poin > 0) %>%
-  mutate(veg_point = as.factor(CSE_ID)) %>%
-  mutate(avian_point = as.factor(Avian_Poin)) %>%
+  # filter(avian_point > 0) %>%
+  mutate(veg_point = as.factor(veg_point)) %>%
+  mutate(avian_point = as.factor(avian_point)) %>%
   separate(col = SZ_DNS2, into = c("Size", "Density"), sep = 1) %>%
   mutate(Density = recode_factor(Density, SP = "Sparse", M = "Moderate", D = "Dense")) %>%
-  left_join(., wide1havars) %>%
-    pivot_longer(
+  left_join(., wide1havars, by = c("veg_point" = "veg_point")) %>%
+  pivot_longer(
     cols = contains("ha"),
     names_to = c("sum_fn", "var", "Year", "scale"),
     # min.Elevation_NA_4ha
@@ -987,10 +991,10 @@ metadatavars %>%
     names_pattern = "(.*)_(.*)_(.*)_(.*)",
     values_to = "value",
     values_drop_na = TRUE
-  ) %>%
+  ) %>% #-> tmp
   dplyr::select(
-  veg_point, avian_point, sum_fn, var, Year, scale, value,
-  Cpls_Wt, Treatment = Tretmnt, Size, Density, in_Caples_burn = inside_fire_boundary) -> tall_forest_variables_1ha
+    veg_point, avian_point = avian_point.x, sum_fn, var, Year, scale, value,
+    Cpls_Wt, Treatment = trtmt_plan, Size, Density, in_Caples_burn = vegetation_inside_fire_boundary) -> tall_forest_variables_1ha
 
 # make into a 'long or tall' dataset, 4ha
 metadatavars %>%
@@ -1045,6 +1049,7 @@ tallvars_filename <- paste0("tallvars", ".csv")
 fwrite(tall_forest_variables, here("spatial", "output", "tables", tallvars_filename))
 
 # sync up to Google drive, if not already, 'sunk' :)
-drive_sync(here("spatial", "output", "tables"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")[[1]])
-# currently ^ not working for upload, [ ]?'
+drive_sync(here("spatial", "output", "tables"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
+# currently ^ not working for upload, [ ]? 2022-11-23 worked for empty target directory on Google Drive BUT does work for resource [2] see below ###!!!'
+# drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[2])
 
