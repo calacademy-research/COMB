@@ -28,14 +28,13 @@ rasterdir <- here("spatial", "input", "rasters")
 # list of directories to use
 rasterdirs <- here(rasterdir, rastertypes[])
 # add in 'super' directories
-rasterdirs <- c("/Users/dkapan/GitHub/COMB/spatial/input/", "/Users/dkapan/GitHub/COMB/spatial/input/rasters/", rasterdirs)
+rasterdirs <- c(here("spatial","input"), here("spatial","input","rasters"), rasterdirs)
 # Creating the folder within inputs that contains the raw_files
 map(.x = rasterdirs, .f = function(.x) {
   if (dir.exists(.x) == F) {
     dir.create(.x)
   }
 })
-# wasn't able to write ^ as anonymous function, too tired.
 # Getting list of files that need to be downloaded
 google_raw_file_names <- drive_ls("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda", recursive = TRUE)
 local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
@@ -225,7 +224,7 @@ canopy_fuel_nbr_dem_RAVG_LIDAR <- raster::stack(canopy_imgStack, fuel_imgStack, 
 # [ ] check this doesn't corrupt everything ??? never did check, but is only adding a few decimeters to any pixel
 
 # make a place to output the raster brick
-outrasterdir <- c("/Users/dkapan/GitHub/COMB/spatial/output/")
+outrasterdir <- here("spatial","output")
 # Creating the folder within spatial to contains the processed raster brick
 map(.x = outrasterdir, .f = function(.x) {
   if (dir.exists(.x) == F) {
@@ -238,6 +237,25 @@ writeRaster(canopy_fuel_nbr_dem_RAVG_LIDAR, here("spatial", "output", "rasters",
 
 # sync up to google drive, if not already, 'sunk' :)
 drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
-# [ ]final drive sync doesn't work:
-# Error in curl::curl_fetch_memory(url, handle = handle) :
-# Error in the HTTP2 framing layer
+#[ ] final drive sync doesn't work with errors:
+'> drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
+Error in `filter()`:
+! Problem while computing `..1 = unlist(...)`.
+Caused by error in `google_files$drive_resource[[.x]]`:
+! subscript out of bounds
+Run `rlang::last_error()` to see where the error occurred.
+> rlang::last_error()
+<error/rlang_error>
+Error in `filter()`:
+! Problem while computing `..1 = unlist(...)`.
+Caused by error in `google_files$drive_resource[[.x]]`:
+! subscript out of bounds
+---
+Backtrace:
+  1. global drive_sync(here("spatial", "output", "rasters"), drive_folder = drive_ls("https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV")$id[1])
+ 10. purrr::map(...)
+ 11. .f(.x[[i]], ...)
+Run `rlang::last_trace()` to see the full context.
+> rlang::last_trace()
+Error in `$<-.data.frame`(`*tmp*`, "call_text", value = c("global drive_sync(here(\"spatial\", \"output\", \"rasters\"), drive_folder = drive_ls(\"https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV\")$id[1])",  : 
+  replacement has 14 rows, data has 13'
