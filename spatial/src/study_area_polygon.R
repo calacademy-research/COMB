@@ -47,16 +47,25 @@ veg_hull <- df.vegetation.sf  %>%
             joinStyle = "ROUND")  
 
 #view results
+mapView(cbi, alpha.regions = 0.8) +
+mapView(cbi_cuts) +
+mapView(cbi4) +
+mapView(cbi4_cuts) +
 mapView(plot, 
         zcol = "type", 
         col.regions=brewer.pal(3, "YlGn"), 
-        label = paste0("bird ", df.sf$avian_point,", veg ", df.sf$veg_point)) +
+        label = paste0("bird ", df.avian.sf$avian_point,", veg ", df.vegetation.sf$veg_point)) +
 mapView(list(avian_hull, veg_hull),
         layer.name = c("bird","vegetation"), 
         col.regions=brewer.pal(3, "BrBG")[c(1,3)])
 
+
 #save results to output 
 #[X] avian_hull
+sf::st_write(obj = avian_hull, 
+             dsn = here("spatial", "output", "objects","avian_hull.shp"))
+
+
 sf::st_write(obj = avian_hull, 
              dsn = here("spatial", "output", "objects","avian_hull.csv"), 
              layer_options = "GEOMETRY=AS_WKT",
