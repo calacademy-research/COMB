@@ -89,3 +89,9 @@ dfc$birdCode_fk[which(dfc$birdCode_fk=="ORJU")] <- "DEJU"
 
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
 write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
+
+#2021-11-29 QA/QC
+table(visits$point_ID_fk,visits$year) < 3 %>%
+  as_tibble(.) %>% 
+  mutate(sum = rowSums(across(c(1:4)))) -> visit_totals_lt_3
+  
