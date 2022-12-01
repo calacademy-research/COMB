@@ -4,6 +4,7 @@ library(ggplot2)
 library(dplyr)
 library(ggarrange)
 library(ggpubr)
+library(data.table)
 
 dataML_tall <- fread(paste0(here, "/acoustic/data_ingest/output/dataML_tall.csv"))
 
@@ -28,21 +29,14 @@ dataML_tall %>%
              mapping = aes(xintercept = focal_species_mean),
              color = c(2,3), linetype="dashed", size=1)
 
-
-model.0 <- lm(log(y - theta.0) ~ x, data=data.df)  
-
-
-
-###NOT WORKING 
-
 #a function to compare two species logits
 logitPlot <- function(dataML_tall, focsp1, focsp2){
-  pfocsp1 <- NULL 
-  pfocsp2 <- NULL
+  # focsp1 <- "AMDI" 
+  # focsp2 <- "YRWA"
   #get dataML (see appropriate 'output' ... )
   dataML_tall %>%
-    filter(Date_Time =="2020-06-12 05:30:00") %>%
-    filter(point == "408") %>%
+    #filter(Date_Time =="2020-06-12 05:30:00") %>%
+    #filter(point == "408") %>%
     arrange(Start_Time) %>%
     mutate(focal_species = if_else(species == focsp1, "yes", "no")) %>%
     ggplot(., aes(x=logit, color = focal_species)) +
@@ -57,8 +51,8 @@ logitPlot <- function(dataML_tall, focsp1, focsp2){
                mapping = aes(xintercept = focal_species_mean),
                color = c(2,3), linetype="dashed", size=1) -> pfocsp1
   dataML_tall %>%
-    filter(Date_Time =="2020-06-12 05:30:00") %>%
-    filter(point == "408") %>%
+    #filter(Date_Time =="2020-06-12 05:30:00") %>%
+    #filter(point == "408") %>%
     dplyr::arrange(Start_Time) %>%
     mutate(focal_species = if_else(species == focsp2, "yes", "no")) %>%
     ggplot(., aes(x=logit, color = focal_species)) +
