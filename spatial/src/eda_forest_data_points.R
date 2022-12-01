@@ -271,10 +271,5 @@ wide4havars %>%
   ggtitle(c("Relationship between fuel variables vs \nburn severity (RAVG) before and after fire")) +
   ylab("Change in ladder fuel (2020-2018)") +
   xlab("Change in surface fuel (2020-2018)") +
-<<<<<<< HEAD
   facet_wrap(~RAVG)
->>>>>>> 23919be (minor changes to eda_forest_data_points.R)
-=======
-  facet_wrap(~RAVG)
-
->>>>>>> 515425d ('updates on spatial analysis to get SALO and RAVG squared away')
+#('updates on spatial analysis to get SALO and RAVG squared away')
