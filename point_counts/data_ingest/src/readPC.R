@@ -8,7 +8,7 @@
 ## December 2021 - Reorganized Data Structure
 ## Mostly copied from old read_PC.R
 ## Mark Schulist
-rm(list = ls())
+# rm(list = ls())
 # Load Libraries and Caples Scripts -----------
 library(tidyverse)
 library(here)
