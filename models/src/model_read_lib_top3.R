@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #' model_read_lib: Functions to read observations used in JAGS models
+=======
+#' model_read_lib_top3: Functions to read observations used in JAGS models
+>>>>>>> main
 #'
 #' readCombined is the "do everything" function.
 #'
@@ -146,9 +150,15 @@ combineJagsData <- function(pointCountData, aruData) {
   }
   outerIndices <- getOuterIndices(pointCountData)
   stopifnot(identical(outerIndices, getOuterIndices(aruData)))
+<<<<<<< HEAD
 
   s <- aruData$sparseScore # alias for readability
 
+=======
+  
+  s <- aruData$sparseScore # alias for readability
+  
+>>>>>>> main
   list(
     indices = c(
       outerIndices,
@@ -205,7 +215,11 @@ readPointCounts <- function(outerIndices, squeeze = T) {
     Species = birdCode_fk, Year = year(DateTime),
     Point = point_ID_fk, Visit = visit, Score = abun
   )
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
   # the threshold to 0.
   visits <- counts %>%
@@ -215,10 +229,17 @@ readPointCounts <- function(outerIndices, squeeze = T) {
     filter(Score > 0) %>%
     select(Species, Year, Point, Visit, Score)
   countsData <- structureForJags(outerIndices, visits, scores,
+<<<<<<< HEAD
     visitLimit = NA,
     squeeze = squeeze
   )
 
+=======
+                                 visitLimit = NA,
+                                 squeeze = squeeze
+  )
+  
+>>>>>>> main
   # Add raw counts to the data list, to give the option of modeling a rate of
   # observer counts.
   indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
@@ -229,7 +250,11 @@ readPointCounts <- function(outerIndices, squeeze = T) {
   dimnames(y.raw)[[1]] <- indices$species$Species
   dimnames(y.raw)[[2]] <- indices$year$Year
   dimnames(y.raw)[[3]] <- indices$point$Point
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   c(countsData, list(y.raw = y.raw))
 }
 
@@ -258,7 +283,11 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
     beginTime,
     endTime
   )
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   # Visits
   if (visitAggregation == "file") {
     addVisitKeys <- function(.) {
@@ -277,7 +306,11 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
     select(Point = point, Date_Time) %>%
     addVisitKeys() %>%
     select(Year, Point, Visit, Date_Time)
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   # Scores
   if (length(thresholdOptions$value) != 1) {
     # TODO: Handle per-species array of thresholds.
@@ -293,10 +326,17 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
     filter(Score > threshold) %>%
     addVisitKeys() %>%
     select(Species, Year, Point, Visit, Score)
+<<<<<<< HEAD
 
   structureForJags(outerIndices, visits, scores,
     visitLimit = visitLimit,
     squeeze = squeeze
+=======
+  
+  structureForJags(outerIndices, visits, scores,
+                   visitLimit = visitLimit,
+                   squeeze = squeeze
+>>>>>>> main
   )
 }
 
@@ -325,13 +365,21 @@ readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
 structureForJags <- function(outerIndices, visits, visitLimit = NA, scores,
                              squeeze = T) {
   indices <- buildFullIndices(outerIndices, visits, visitLimit = visitLimit)
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   # Scores
   sparseScores <- scores %>%
     select(Species, Year, Point, Visit, Score) %>%
     inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
     select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   # Counts
   groupByIndices <- function(.) {
     group_by(., Species_Index, Year_Index, Point_Index, Visit_Index)
@@ -345,24 +393,40 @@ structureForJags <- function(outerIndices, visits, visitLimit = NA, scores,
   sparseCounts <- rbind(initialCounts, scoreCounts) %>%
     groupByIndices() %>%
     summarise(Count = sum(Count), .groups = "drop")
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   y.full <- sparseToDense(sparseCounts, indices$full)
   dimnames(y.full)[[1]] <- indices$species$Species
   dimnames(y.full)[[2]] <- indices$year$Year
   dimnames(y.full)[[3]] <- indices$point$Point
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   if (squeeze) {
     y <- drop(y.full)
   } else {
     y <- y.full
   }
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   list(
     # for reference
     indices = indices,
     sparseScores = sparseScores,
     sparseCounts = sparseCounts,
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> main
     # for JAGS
     nspecies = dim(y.full)[1],
     nyears = dim(y.full)[2],
@@ -396,6 +460,7 @@ structureForJags <- function(outerIndices, visits, visitLimit = NA, scores,
 #' @export
 buildOuterIndices <- function(species, years) {
   latlong <- readLatlong()
+<<<<<<< HEAD
 
   species <- tibble(Species = species)
   speciesIndices <- species %>% mutate(Species_Index = seq_along(Species))
@@ -403,12 +468,25 @@ buildOuterIndices <- function(species, years) {
   years <- tibble(Year = years)
   yearIndices <- years %>% mutate(Year_Index = seq_along(Year))
 
+=======
+  
+  species <- tibble(Species = species)
+  speciesIndices <- species %>% mutate(Species_Index = seq_along(Species))
+  
+  years <- tibble(Year = years)
+  yearIndices <- years %>% mutate(Year_Index = seq_along(Year))
+  
+>>>>>>> main
   points <- latlong %>%
     select(Point) %>%
     distinct() %>%
     arrange(Point)
   pointIndices <- points %>% mutate(Point_Index = seq_along(Point))
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   list(
     species = speciesIndices,
     year = yearIndices,
@@ -451,7 +529,11 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
   if (!is.na(visitLimit)) {
     visitIndices <- visitIndices %>% filter(Visit_Index <= visitLimit)
   }
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   fullIndices <- visitIndices %>%
     inner_join(outerIndices$point, by = "Point") %>%
     full_join(outerIndices$species, by = character()) %>%
@@ -460,7 +542,11 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
       Species, Year, Point, Visit
     ) %>%
     arrange(Species_Index, Year_Index, Point_Index, Visit_Index)
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> main
   c(
     outerIndices,
     list(
@@ -581,6 +667,7 @@ sparseToDense <- function(entryTable, indexTable) {
   valueCol <- ncol(entryTable)
   indexNames <- names(entryTable)[-valueCol]
   dims <- sapply(indexTable[indexNames], max)
+<<<<<<< HEAD
 
   indices <- entryTable[indexNames]
   values <- entryTable[, valueCol]
@@ -589,3 +676,13 @@ sparseToDense <- function(entryTable, indexTable) {
   dense[as.matrix(indices)] <- unlist(values)
   dense
 }
+=======
+  
+  indices <- entryTable[indexNames]
+  values <- entryTable[, valueCol]
+  
+  dense <- array(NA, dims)
+  dense[as.matrix(indices)] <- unlist(values)
+  dense
+}
+>>>>>>> main

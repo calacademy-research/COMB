@@ -34,11 +34,10 @@ library(future)
 library(promises)
 library(tidyverse)
 
-assumedNumChains <- 2
-# Too scary
-# plan(multisession, workers = availableCores() / assumedNumChains)
 
-plan(multisession, workers = 32)
+assumedNumChains <- 8
+plan(multisession, workers = availableCores() / assumedNumChains)
+
 
 #' Generates a hyperparameter sweep over species codes.
 #'
@@ -103,7 +102,32 @@ startTrials <- function(hparamsCollection, runTrial) {
   NULL
 }
 
+
+#' Generates the "p" value for the pp_checks (posterior predictive checks)
+#' Given the name of the simulated values and the observed values
+#' 
+#' @param jagsResults as returned from a call to jagsUI::jags()
+#' @param obs_sim is a named vector: c("Dobs" = "Dsim", "Tobs" = "Tsim")
+#' 
+#' @return list(Dobs_Dsim={}, ...)
+pp_check <- function(jagsResult, obs_sim){
+  simple_check <- function(observed, simulated){
+    obs <- c(mcmc_to_mat(jagsResult$samples, observed))
+    sim <- c(mcmc_to_mat(jagsResult$samples, simulated))
+    bpval <- mean(sim > obs)
+  }
+  pp_vals <- map2(
+    names(obs_sim), obs_sim,
+    simple_check
+  )
+  names(pp_vals) <- paste(names(obs_sim), obs_sim, sep = "_")
+  unlist(pp_vals)
+}
+
+
+
 #' Extracts a list of posterior parameter means and Rhats.
+#' Also aggregates the pp_checks (their respective "p" values)
 #'
 #' @param jagsResult as returned from a call to jagsUI::jags()
 #'
@@ -116,7 +140,10 @@ collectEstimates <- function(jagsResult) {
       paste("rhat", n, sep = "_")
     })
   )
-  append(means, rhats)
+  pp <- pp_check(jagsResult, c("Dobs" = "Dsim", 
+                 "TvegObs" = "TvegSim", 
+                 "T_pc_obs" = "T_pc_sim"))
+  append(pp, means) %>% append(rhats)
 }
 
 #' Returns a tibble of (params, estimates) for trials that have finished.
