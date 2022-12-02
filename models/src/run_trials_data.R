@@ -98,6 +98,27 @@ startTrials <- function(hparamsCollection, runTrial) {
   NULL
 }
 
+#' Generates the "p" value for the pp_checks (posterior predictive checks)
+#' Given the name of the simulated values and the observed values
+#' 
+#' @param jagsResults as returned from a call to jagsUI::jags()
+#' @param obs_sim is a named vector: c("Dobs" = "Dsim", "Tobs" = "Tsim")
+#' 
+#' @return list(Dobs_Dsim={}, ...)
+pp_check <- function(jagsResult, obs_sim){
+  simple_check <- function(observed, simulated){
+    obs <- c(mcmc_to_mat(jagsResult$samples, observed))
+    sim <- c(mcmc_to_mat(jagsResult$samples, simulated))
+    bpval <- mean(sim > obs)
+  }
+  pp_vals <- map2(
+    names(obs_sim), obs_sim,
+    simple_check
+  )
+  names(pp_vals) <- paste(names(obs_sim), obs_sim, sep = "_")
+  unlist(pp_vals)
+}
+
 #' Extracts a list of posterior parameter means and Rhats.
 #'
 #' @param jagsResult as returned from a call to jagsUI::jags()
@@ -111,11 +132,10 @@ collectEstimates <- function(jagsResult) {
       paste("rhat", n, sep = "_")
     })
   )
-  psi_bounds <- c(jagsResult$q2.5$mean_psi, jagsResult$q97.5$mean_psi, 
-                  jagsResult$q97.5$mean_psi - jagsResult$q2.5$mean_psi)
-  names(psi_bounds) <- c("psi_lower", "psi_upper", "psi_0.95_CI")
-  append(psi_bounds, means) %>% 
-    append(rhats)
+  pp <- pp_check(jagsResult, c("Dobs" = "Dsim", 
+                               "TcoverObs" = "TcoverSim", 
+                               "T_pc_obs" = "T_pc_sim"))
+  append(pp, means) %>% append(rhats)
 }
 
 #' Returns a tibble of (params, estimates) for trials that have finished.
