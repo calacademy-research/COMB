@@ -121,6 +121,13 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
       filter(str_detect(name, pattern = pattern))
   }
 
+  # fixing part where it tries to download folders (which throws an error)
+  google_files <- google_files %>%
+    filter(
+      unlist(map(1:length(google_files$drive_resource),
+                 ~ google_files$drive_resource[[.x]][["mimeType"]] != "application/vnd.google-apps.folder"))
+    )
+
   if (is.null(pattern) == TRUE) {
     local_files <- basename(system(paste0("find ", local_dir, " -mindepth 1 -maxdepth 1 ! -type l"), intern = TRUE))
   } else {
@@ -133,12 +140,12 @@ drive_sync <- function(local_dir, drive_folder, pattern = NULL) {
   only_google <- google_files %>% filter(!(google_files$name %in% local_files))
 
   # Uploading the only_local and downloading the only_google
-  map(
+  purrr::map(
     only_local,
     ~ drive_upload(paste0(local_dir, "/", .x), path = as_dribble(drive_folder))
   )
 
-  map2(
+  purrr::map2(
     only_google$id, only_google$name,
     ~ drive_download(.x, path = paste0(local_dir, "/", .y))
   )
@@ -159,3 +166,97 @@ logit_to_p <- function(logit) {
   p <- exp(logit) / (exp(logit) + 1)
   return(p)
 }
+
+#adjusted logit_to_p for the label smoothing
+#that adds about 0.1 in probability space ...
+#a sum of this is ~ a count with confidence
+
+logit_to_p_f <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
+  p <- (p - .1)/.9
+  return(p)
+}
+
+#unsmoothed (as @tomdenton)
+logit_to_p_f_us <- function(logit) {
+  p <- exp(logit) / (exp(logit) + 1)
+  p <- (p - .1)/.9 #subtract the unsmoothed bit (adds a constant ~ 0.1)
+  p <- if_else(p < 0, 0, p)#
+  return(p)
+}
+
+#weighted mean
+wmf<-function(value, coverage_fraction){stats::weighted.mean(x=value, w=coverage_fraction)}
+
+# FUNCTIONS FROM JAGSUI ------------
+#Functions for manipulating and extracting info from mcmc.list-class objects
+#from package rjags/coda
+
+# This is a subset of the functions in mcmc_tools in devel version 1.5.1.9024
+
+###------------------------------------------------------------------------------
+#Remove brackets and indices from parameter names in mcmc.list
+strip_params <- function(params_raw, unique=FALSE){
+  params_strip <- sapply(strsplit(params_raw,'[', fixed=T),'[',1)
+  if(unique) return( unique(params_strip) )
+  params_strip
+}
+#------------------------------------------------------------------------------
+
+###------------------------------------------------------------------------------
+#Identify which columns in mcmc.list object correspond to a given
+#parameter name (useful for non-scalar parameters)
+which_params <- function(param, params_raw){
+  params_strip <- strip_params(params_raw)
+  if( ! param %in% params_strip ){
+    return(NULL)
+  }
+  which(params_strip == param)
+}
+#------------------------------------------------------------------------------
+
+###------------------------------------------------------------------------------
+#Get names of parameters from an mcmc.list
+#If simplify=T, also drop brackets/indices
+param_names <- function(mcmc_list, simplify=FALSE){
+  raw <- colnames(mcmc_list[[1]])
+  if(!simplify) return(raw)
+  strip_params(raw, unique=T)
+}
+#------------------------------------------------------------------------------
+
+###------------------------------------------------------------------------------
+#Match parameter name to scalar or array versions of parameter name
+match_params <- function(params, params_raw){
+  unlist(lapply(params, function(x){
+    if(x %in% params_raw) return(x)
+    if(!x %in% strip_params(params_raw)) return(NULL)
+    params_raw[which_params(x, params_raw)]
+  }))
+}
+#------------------------------------------------------------------------------
+
+###------------------------------------------------------------------------------
+#Subset cols of mcmc.list (simple version of [.mcmc.list method)
+select_cols <- function(mcmc_list, col_inds){
+  out <- lapply(1:length(mcmc_list), FUN=function(x){
+    mcmc_element <- mcmc_list[[x]][,col_inds,drop=FALSE]
+    attr(mcmc_element,'mcpar') <- attr(mcmc_list[[x]], 'mcpar')
+    class(mcmc_element) <- 'mcmc'
+    mcmc_element
+  })
+  class(out) <- 'mcmc.list'
+  out
+}
+#------------------------------------------------------------------------------
+
+###------------------------------------------------------------------------------
+#Convert one parameter in mcmc.list to matrix, n_iter * n_chains
+mcmc_to_mat <- function(samples, param){
+  psamples <- select_cols(samples, param)
+  n_chain <- length(samples)
+  n_iter <- nrow(samples[[1]])
+  matrix(unlist(psamples), nrow=n_iter, ncol=n_chain)
+}
+#------------------------------------------------------------------------------
+

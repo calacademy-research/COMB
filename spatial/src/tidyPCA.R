@@ -5,20 +5,30 @@ library(tidyverse)
 library(broom)
 library(cowplot)
 
-# getting our data together (depends on Caples_Spatial_EDA.Rmd) to make "canopy_nbr_dem_cir"
-exactextractr::exact_extract(canopy_fuel_nbr_dem_cir, wldf_100) %>%
+#depends upon read_adjust_combine_rasters.R
+#source("read_adjust_combine_rasters.R")
+#read_points_output_data.R
+source(here("spatial","src","read_points_output_data.R"))
+
+
+
+# getting our data together (depends on Caples_Spatial_EDA.Rmd) to make "canopy_fuel_nbr_dem_RAVG_LIDAR"
+exactextractr::exact_extract(canopy_fuel_nbr_dem_RAVG_LIDAR, wldf_100) %>%
   do.call(rbind, .) -> pointdata
 
 # pca_fit <- pointdata %>%
-#   select(-aspect, -coverage_fraction) %>%
+#   dplyr::select(-aspect, -coverage_fraction) %>%
 #   dplyr::select(where(is.numeric)) %>% # retain only numeric columns
 #   prcomp(scale = TRUE) # do PCA on scaled data
 
 pointdata %>%
-  dplyr::select(-aspect, -coverage_fraction, -Caples_dNBR_Nov18_Nov19) %>% # head()
-  mutate(aspect_radians = as.numeric(cut(aspect_radians, 4))) %>%
+  dplyr::select(c(1:21,30:31,37)) %>% #head() #-aspect, -coverage_fraction, -Caples_dNBR_Nov18_Nov19, -StdDev_Height) %>%  head()
+  # mutate(aspect_radians = as.numeric(cut(aspect_radians, 4))) %>%
   dplyr::select(where(is.numeric)) %>% # retain only numeric columns
   scale() -> scaledpointdata # scale data
+
+M <- cor(scaledpointdata)
+corrplot::corrplot(corr=M, tl.cex = .5)
 
 pca_fit <- prcomp(scaledpointdata) # do PCA
 
@@ -74,7 +84,7 @@ var_coord_func <- function(loadings, comp.sdev) {
 loadings <- pca_fit %>%
   tidy(matrix = "loadings") %>%
   pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
-  select(-column)
+  dplyr::select(-column)
 sdev <- pca_fit$sdev
 var.coord <- t(apply(as.matrix(loadings), 1, var_coord_func, comp.sdev = sdev))
 var.coord[, 1:6]
@@ -93,7 +103,7 @@ contrib <- function(var.cos2, comp.cos2) {
 pca_fit %>%
   tidy(matrix = "loadings") %>%
   pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
-  select(column) -> vars
+  dplyr::select(column) -> vars
 var.contrib <- t(apply(var.cos2, 1, contrib, comp.cos2))
 var.contrib <- cbind(vars, var.contrib)
 view(var.contrib[, 1:7])
