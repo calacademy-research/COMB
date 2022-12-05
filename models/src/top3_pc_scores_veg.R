@@ -38,6 +38,9 @@ data <- readCombined(
   squeeze = T
 )
 
+data$y.pc[,1,,] # performs a quick check to see if pointcount data were read in properly
+data$y.aru # aru detections
+data$score
 
 # JAGS specification ------------------------------------------------------
 modelFile <- tempfile()
@@ -47,7 +50,8 @@ model {
   # Priors
   p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
   beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
-  beta1 ~ ddexp(0, sqrt(2.0)) # Slope for occupancy logistic regression with a Laplace prior for L1 regularization
+  beta1 ~ dnorm(0, 10) 
+  beta2 ~ dnorm(0, 10) 
 
   # Parameters of the observation model for the scores
   mu[1] ~ dnorm(-2, 3)
@@ -59,7 +63,7 @@ model {
 
   # Likelihood part 1: detection data and ARU counts
   for (i in 1:nsites) { # Loop over sites
-    logit(psi[i]) <- beta0 + beta1*veg[i]
+    logit(psi[i]) <- beta0 + beta1*cover[i] + beta2*burn[i]
     z[i] ~ dbern(psi[i]) # Latent occupancy states
 
     # Point count
@@ -73,7 +77,7 @@ model {
     Tsim0[i] <- (sqrt(ySim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
 
     #GOF - Regression: Simulations
-    psiSim[i] <- exp(beta0 + beta1*veg[i])/(1+exp(beta0 + beta1*veg[i]))
+    psiSim[i] <- exp(beta0 + beta1*cover[i] + beta2*burn[i])/(1+exp(beta0 + beta1*cover[i] + beta2*burn[i]))
     zSim[i] ~ dbern(psiSim[i])
 
   }
@@ -99,10 +103,10 @@ model {
   #GOF - Regression: Difference in mean vegetation
   cz1 <- sum(z)
   cz0 <- sum(1 - z)
-  TvegObs <- sum(veg*z) / ifelse(cz1>0,cz1, 1)  - sum(veg*(1-z)) / ifelse(cz0>0,cz0, 1)
+  TcoverObs <- sum(cover*z) / ifelse(cz1>0,cz1, 1)  - sum(cover*(1-z)) / ifelse(cz0>0,cz0, 1)
   czSim1 <- sum(zSim)
   czSim0 <- sum(1 - zSim)
-  TvegSim <- sum(veg*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(veg*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
+  TcoverSim <- sum(cover*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(cover*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
 
   mean_psi = mean(psi) # Mean occupancy across sites
 }
@@ -128,8 +132,9 @@ inits <- function() {
 
 # JAGS execution ----------------------------------------------------------
 
-monitored <- c("beta0", "beta1", "p11", "T_pc_obs", "T_pc_sim", "Dobs", "Dsim","mu", "sigma",
-               "TvegObs", "TvegSim" , "mean_psi")
+monitored <- c("beta0", "beta1", "beta2", "p11", 
+               "T_pc_obs", "T_pc_sim", "Dobs", "Dsim","mu", "sigma",
+               "TcoverObs", "TcoverSim" , "mean_psi")
 
 # MCMC settings
 na <- 1000
@@ -139,7 +144,7 @@ nb <- 1000
 nc <- 6
 
 
-n_v_per_site <- rowSums(!is.na(data$y.ind[, 1:3])) # number of visits
+n_v_per_site <- rowSums(!is.na(data$y.ind[, 1:3])) # number of point-count visits
 y_pc_sum <- rowSums(data$y.ind[, 1:3], na.rm = TRUE)
 n_samp_per_site <- rowSums(!is.na(data$y.aru[, 1:24])) # number of samples
 y_aru_sum <- rowSums(data$y.aru[, 1:24], na.rm = TRUE)
@@ -149,21 +154,27 @@ data2 <- append(data, list(n_v = n_v_per_site, y_pc_sum = y_pc_sum, n_s = n_samp
 
 jagsData <- within(data2, rm(indices))
 
-covs <- read_csv("./models/input/wide4havars.csv") %>%
+site_covars <- read_csv("./models/input/wide4havars.csv") %>%
   mutate(Point = avian_point) %>%
-  dplyr::select(Point, mean_CanopyCover_2020_4ha)
+  filter(Point %in% data$indices$point$Point)
+
+colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
+  
+covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi4_20202021_4ha)
 
 Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
-jagsData$veg <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
+jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
+jagsData$burn <- as.numeric(scale(Veg$mean_RAVGcbi4_20202021_4ha)) # check out a histogram of this... sort of bimodal 
 
 set.seed(123)
 
 jagsResult <- jags(jagsData, inits, monitored, modelFile,
   n.adapt = na,
   n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, parallel = TRUE,
+  verbose=T
 )
 
-pp.check(jagsResult, "TvegObs", "TvegSim", main=
+pp.check(jagsResult, "TcoverObs", "TcoverSim", main=
            paste("Posterior Predictive Check\nLogistic Regression: Difference in Occupied Means\n","Species = ", speciesCode,"; Year = ", year, sep = " ")
 )
 
