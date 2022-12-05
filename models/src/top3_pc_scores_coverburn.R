@@ -50,8 +50,8 @@ model {
   # Priors
   p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
   beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
-  beta1 ~ dnorm(0, 10) 
-  beta2 ~ dnorm(0, 10) 
+  beta1 ~ ddexp(0, sqrt(2.0)) # Slope for occupancy logistic regression with a Laplace prior for L1 regularization
+  beta2 ~ ddexp(0, sqrt(2.0)) # Slope for occupancy logistic regression with a Laplace prior for L1 regularization
 
   # Parameters of the observation model for the scores
   mu[1] ~ dnorm(-2, 3)
