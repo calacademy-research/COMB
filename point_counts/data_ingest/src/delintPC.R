@@ -89,3 +89,17 @@ dfc$birdCode_fk[which(dfc$birdCode_fk=="ORJU")] <- "DEJU"
 
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
 write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
+
+# #2021-11-29 QA/QC
+# visits %>%
+#   select(point_ID_fk, year, visit) %>% 
+#   group_by(point_ID_fk) %>%
+#   rowwise(.) %>%
+#   mutate(maxvisit = max(visit)) %>% View()
+#   pivot_wider(., names_from = year, values_from = visit, ) %>% View()
+#   
+# table(visits$,visits$year) < 3 %>% 
+#   as_data_frame(.) %>% View() 
+#   as_tibble(.) %>% 
+#   mutate(sum = rowSums(across(c(1:4)))) %>% View()
+  
