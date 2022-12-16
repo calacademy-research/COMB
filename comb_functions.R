@@ -167,14 +167,9 @@ logit_to_p <- function(logit) {
   return(p)
 }
 
-<<<<<<< HEAD
-
 #adjusted logit_to_p for the label smoothing
 #that adds about 0.1 in probability space ... 
-=======
-#adjusted logit_to_p for the label smoothing
-#that adds about 0.1 in probability space ...
->>>>>>> main
+
 #a sum of this is ~ a count with confidence
 
 logit_to_p_f <- function(logit) {

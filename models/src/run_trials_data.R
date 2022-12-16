@@ -119,6 +119,23 @@ pp_check <- function(jagsResult, obs_sim){
   unlist(pp_vals)
 }
 
+#' Finds some sort of statistic (eg. variance) for the posterior samples
+#' for a parameter (or multiple parameters)
+#' 
+#' @param jagsResult as returned from a call to jagsUI::jags()
+#' @param FUN Functions to be used on the posterior samples
+#' @param parameter Vector of parameters to have functions preformed on
+#' 
+#' @return list()
+post_stats <- function(jagsResult, FUN, parameter){
+  x <- map(parameter, 
+      function(.){jagsResult$sims.list[[.]] %>% FUN}
+  ) %>% unlist()
+  
+  names(x) <- paste0(parameter, "_var") # change 'var' to other fun later
+  x
+}
+
 #' Extracts a list of posterior parameter means and Rhats.
 #'
 #' @param jagsResult as returned from a call to jagsUI::jags()
@@ -133,10 +150,14 @@ collectEstimates <- function(jagsResult) {
     })
   )
   pp <- pp_check(jagsResult, c("Dobs" = "Dsim", 
-                               "TcoverObs" = "TcoverSim", 
-                               "T_pc_obs" = "T_pc_sim"))
-  append(pp, means) %>% append(rhats)
+                                "TvegObs" = "TvegSim", 
+                                "T_pc_obs" = "T_pc_sim",
+                                "T_aru_obs" = "T_aru_sim"))
+  stats <- post_stats(jagsResult, FUN = function(.){1/var(.)}, "mean_psi")
+  append(stats, means) %>% append(pp) %>% append(rhats)
 }
+
+
 
 #' Returns a tibble of (params, estimates) for trials that have finished.
 #'
