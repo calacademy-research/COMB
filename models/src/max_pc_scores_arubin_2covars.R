@@ -204,17 +204,17 @@ data2 <-
 # readCombined, or some other alternative.
 jagsData <- within(data2, rm(indices))
 
-site_covars <- read_csv("./models/input/wide4havars.csv") %>%
-  mutate(Point = avian_point) %>%
-  filter(Point %in% data$indices$point$Point)
+site_covars <- read_csv("models/input/wide4havars.csv") %>%
+  mutate(Point = avian_point) #%>%
+  #filter(Point %in% data$indices$point$Point)
 
 colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
 
-covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi_20202021_4ha)
+covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi4_20202021_4ha)
 
 Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
-jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
-jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20202021_4ha) # check out a histogram of this... sort of bimodal 
+jagsData$cover <- as.numeric(scale(covs$mean_CanopyCover_2020_4ha))[1:data$nsites]
+jagsData$burn <- as.numeric(covs$mean_RAVGcbi4_20202021_4ha)[1:data$nsites] # check out a histogram of this... sort of bimodal 
 
 set.seed(123)
 
