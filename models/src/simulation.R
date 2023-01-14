@@ -18,9 +18,9 @@ source("comb_functions.R")
 #' the positive. 
 #' @return List similar to that of `model_read_lib` that JAGS can read
 
-simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3, n_points = 82, 
-                       n_recordings = 24, mu, sigma){
-  ## Point Count Simulation ------------------------------------------------------
+simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3, 
+                       n_points = 82, n_recordings = 24, mu, sigma){
+  ## Point Count Simulation ----------------------------------------------------
   # Generate some Bernoulli trials
   set.seed(123)
   
@@ -38,7 +38,7 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3, n_poin
     # rbinom(n_visits * n_points, size = 1, prob = p) %>% 
     # matrix(nrow = n_points, ncol = n_visits)
   
-  ## ARU Simulation --------------------------------------------------------------
+  ## ARU Simulation ------------------------------------------------------------
   
   # We will first define the `y.aru` which is a matrix similar to y.ind
   # and has binary data on if the ARU has a detection of the species above an
@@ -77,7 +77,7 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3, n_poin
   # making the `scores` vector with random order
   scores <- c(negatives, positives)
   
-  # Combining for JAGS -----------------------------------------------------------
+  # Combining for JAGS ---------------------------------------------------------
   
   data <- list(
     "nsites" = n_points,
@@ -92,6 +92,6 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3, n_poin
   data
 }
 
-data <- simulation("GCKI", n_points = 80, psi = 0.62, p11 = 0.6, p_aru11 = 0.7,
-                   p_aru01 = 0.05, mu = c(-2, 1.5), sigma = c(0.8, 2.3), 
-                   n_visits = 1, n_recordings = 1)
+# data <- simulation("GCKI", n_points = 80, psi = 0.62, p11 = 0.6, p_aru11 = 0.7,
+#                    p_aru01 = 0.05, mu = c(-2, 1.5), sigma = c(0.8, 2.3), 
+#                    n_visits = 1, n_recordings = 1)
