@@ -1,0 +1,34 @@
+---
+title: "Investigating the Simulation Results"
+author: "Mark Schulist"
+output: html_document
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(here)
+source("comb_functions.R")
+```
+
+
+# Overview
+
+Now that we've made a bunch of simulated data, we need to interpret it. The output from the model (the input to this document) is a list with names that follow the following schema: `nPC_nARU_psi_p11_p_aru11_p_aru01`, where all of the values are numeric. 
+
+Here are a few of the questions I want to ask of the results:
+
+1. After how much data does the precision of the `mean_psi` parameter asymptote?
+2. Do the other parameters, such as psi, affect how well the model is able to estimate the parameters? In other words, does the model struggle on the extreme ends of these parameters? Does more data help the model estimate these extreme parameters?
+
+# Finding the asymptote
+
+A key component of this document is finding when the precision hits a limit and will not increase. 
+
+This normally happens at around 5 to 10 ARU recordings, and adding PCs will make it slightly earlier and make the asymptote a little higher. 
+
+```{r}
+knitr::include_graphics(here("models/output/asymptote_example.png"))
+```
+
+Instead of having to graph every single combination of parameters, it would be nice to be able to systematically find the asymptote given the points. 
+

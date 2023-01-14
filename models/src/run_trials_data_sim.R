@@ -40,17 +40,26 @@ assumedNumChains <- 2
 # Too scary
 # plan(multisession, workers = availableCores() / assumedNumChains)
 
-plan(multisession, workers = 8)
+plan(multisession, workers = 48)
 
 #' Generates a hyperparameter sweep over species codes.
 #'
 #' @return list [list(speciesCode=c, year=2021)] for each species code c.
 perTrialHparams <- function(speciesCode) {
-  combinations <- expand_grid(1:3, 1:24) %>% rename(nPC = 1, nARU = 2)
+  p11 <- seq(0, 0.8, by = 0.15)
+  p_aru11 <- seq(0, 0.3, by = 0.1)
+  p_aru01 <- 0.025 # we should probably not have this parameter...
+  psi = seq(0.1, 0.9, by = 0.1)
   
-  map2(combinations$nPC, combinations$nARU, 
-    ~ list(speciesCode = speciesCode, year = 2021, nARU = .y, nPC = .x)
-    )
+  combs <- expand_grid(1:3, 1:24, p11, p_aru11, p_aru01, psi) %>% 
+    rename(nPC = 1, nARU = 2, p11 = 3, p_aru11 = 4, p_aru01 = 5, psi = 6) %>% 
+    as.list()
+  
+  pmap(combs, function (nARU, nPC, p11, p_aru11, p_aru01, psi) {
+      list(speciesCode = speciesCode, year = 2021, nPC = nPC, nARU = nARU, 
+           p11 = p11, p_aru11 = p_aru11, p_aru01 = p_aru01, psi = psi)
+  }
+  )
   
 }
 
@@ -80,7 +89,8 @@ startTrials <- function(hparamsCollection, runTrial) {
         # structure and use it to pass param values through to fields of the
         # results frame. The current code is cheating and using a list to pass
         # the species code, but that leaves no room for other params.
-        names(kv) <- paste(hparams$nPC, hparams$nARU, sep = "_") # PC comes first in names (then ARU)
+        names(kv) <- paste(hparams$nPC, hparams$nARU, hparams$psi, hparams$p11, 
+                           hparams$p_aru11, hparams$p_aru01, sep = "_")
         return(kv)
       },
       seed = 123
@@ -168,9 +178,12 @@ collectEstimates <- function(jagsResult) {
 #'   means of the model parameters.
 getCurrentResults <- function() {
   table <- t(sapply(trialResults, collectEstimates))
-  data.frame(table) %>% rownames_to_column("nPC_nARU") %>% 
-    separate(nPC_nARU, c("nPC", "nARU")) %>% 
-    mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU))
+  data.frame(table) %>% rownames_to_column("params") %>% 
+    separate(params, c("nPC", "nARU", "psi", "p11", "p_aru11", "p_aru01")) %>% 
+    mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU), 
+           psi = as.numeric(psi), p11 = as.numeric(p11), 
+           p_aru11 = as.numeric(p_aru11), p_aru01 = as.numeric(p_aru01)
+           )
 }
 
 # x <- getCurrentResults()

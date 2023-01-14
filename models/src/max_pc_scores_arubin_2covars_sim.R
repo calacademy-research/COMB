@@ -24,15 +24,20 @@ ModelTrial <- function(params) {
   threshold <- 0
   aruVisitLimit <- params$nARU # only consider this many ARU visits per site (ordered)
   PCVisitLimit <- params$nPC
+  p11 = params$p11
+  p_aru11 = params$p_aru11
+  p_aru01 = params$p_aru01
+  psi = params$psi
+  
 
   data <- simulation(
     speciesCode,
-    psi = 0.6,
-    p11 = 0.6,
-    p_aru11 = 0.7,
-    p_aru01 = 0.05,
-    mu = c(-2, 1.5),
-    sigma = c(0.8, 2.3),
+    psi = psi,
+    p11 = p11,
+    p_aru11 = p_aru11,
+    p_aru01 = p_aru01,
+    mu = c(-2.5, -1),
+    sigma = c(0.5, 1.5),
     n_visits = PCVisitLimit,
     n_recordings = aruVisitLimit,
     n_points = 80
