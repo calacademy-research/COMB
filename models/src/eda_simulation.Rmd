@@ -32,3 +32,59 @@ knitr::include_graphics(here("models/output/asymptote_example.png"))
 
 Instead of having to graph every single combination of parameters, it would be nice to be able to systematically find the asymptote given the points. 
 
+Here is a function that will fit linear models to the data until it finds one that it sufficiently flat. It records the nARU needed to get a sufficiently flat line. 
+
+```{r}
+find_asymptote <- function(df, nPCs) {
+  asymptote <- NULL
+  for(i in 1:24) {
+    model <- lm(precision ~ nARU, data = filter(df, nPC == nPCs, nARU > i)) %>% 
+      summary()
+    slope <- model$coefficients[2,1] # the slope for the linear model
+    if (slope < 0.2) {
+      asymptote = i
+      break()
+    }
+  }
+  return(asymptote)
+}
+```
+
+We will make a tibble with the names of from the output of the simulation and then split the names into different columns. We can then group by everything except nARU and get a single value (when it hits the asymptote) for every combination of parameters. 
+
+First, we need to make a function that will get the precision from the trialResults list given the list element name. 
+
+```{r}
+precision <- function(values) {
+  1 / var(values)
+}
+get_prec <- function(trialResults, element) {
+  singleResult <- trialResults[[element]]
+  singleResult$sims.list$mean_psi %>% 
+    precision()
+}
+```
+
+Then, we can use that function to get the precision and add it to the tibble. 
+
+```{r}
+indices <- names(trialResults) %>% 
+  tibble() %>% 
+  rename(params = 1) %>% 
+  separate(params, c("nPC", "nARU", "psi", "p11", "p_aru11", "p_aru01"), 
+           sep = "_", remove = F) %>% 
+  mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU), psi = as.numeric(psi), 
+         p11 = as.numeric(p11), p_aru11 = as.numeric(p_aru11), 
+         p_aru01 = as.numeric(p_aru01))
+
+prec_values <- map_df(indices$params, 
+              ~ get_prec(trialResults, .x) %>%
+                  tibble(params = .x)) %>% 
+                  rename(precision = 1) %>% 
+                  left_join(indices, by = "params")
+
+result <- prec_values %>% 
+  group_by(nPC, psi, p11, p_aru11, p_aru01) %>% 
+  summarize(nARU_for_asymp = find_asymptote(., max(nPC)))
+```
+
