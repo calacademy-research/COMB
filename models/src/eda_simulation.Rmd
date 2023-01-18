@@ -7,7 +7,8 @@ output: html_document
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
 library(here)
-source("comb_functions.R")
+source(here("comb_functions.R"))
+load(here("models/output/trialResults_sim.RData"))
 ```
 
 
@@ -50,6 +51,8 @@ find_asymptote <- function(df, nPCs) {
 }
 ```
 
+# Using the Asymptote
+
 We will make a tibble with the names of from the output of the simulation and then split the names into different columns. We can then group by everything except nARU and get a single value (when it hits the asymptote) for every combination of parameters. 
 
 First, we need to make a function that will get the precision from the trialResults list given the list element name. 
@@ -86,5 +89,119 @@ prec_values <- map_df(indices$params,
 result <- prec_values %>% 
   group_by(nPC, psi, p11, p_aru11, p_aru01) %>% 
   summarize(nARU_for_asymp = find_asymptote(., max(nPC)))
+
+head(result)
+```
+
+Wow, that's pretty cool. So, basically, it only takes 6-7 nARU to get to the asymptote. Maybe we can visualize these asymptotes to see if more PC means a higher precision. 
+
+# Understanding the Precision
+
+```{r}
+ggplot(prec_values, aes(nARU, precision, color = as.factor(nPC))) +
+  geom_jitter() +
+  geom_smooth()
+```
+
+Okay, so it seems that nPC does not affect the precision of the posterior. But there must be something to explain the 4 "levels" of values we see in the figure. 
+
+So we can get the precision that each combination asymptotes at and see if we can find correlations between certain parameters and the precision. 
+
+```{r}
+asymptote <- prec_values %>% 
+  filter(nARU > 10) %>% # 10 just to be sure it's at the asymptote
+  group_by(nPC, psi, p11, p_aru11, p_aru01) %>% 
+  summarize(asym_prec = mean(precision))
+head(asymptote)
+```
+
+So it seems that the model only struggles when psi is high and p11 is low. This makes sense since it would have very little to judge the high probability of occupancy on. It actually still does a decent job with just a tiny bit of data!
+
+```{r}
+ggplot(asymptote, aes(psi, asym_prec, color = as.factor(p11))) +
+  geom_jitter() +
+  labs(title = "psi vs the Precision once the model is saturated with data")
+
+ggplot(asymptote, aes(p11, asym_prec, color = as.factor(psi))) +
+  geom_jitter() +
+  labs(title = "p11 vs the Precision once the model is saturated with data")
+
+ggplot(asymptote, aes(nPC, asym_prec)) +
+  geom_jitter() +
+  geom_smooth(method = "lm")
+  
+```
+
+Psi values that are near the middle (0.5ish) tend to have lower precision values than those closer to the edge of the spectrum. Of course, the times when p11 is 0, the model struggles and falls outside of the norm. 
+
+This makes sense because the variance for the binomial distribution is described by $\sigma ^2 = npq$. So when p is close to 0.5, the variance is the highest (and therefore precision is low). 
+
+# Testing the Parameters
+
+Now that we know that we don't need a ton of data to hit the asymtote and that psi values close to the extremes change the variance, let's see how well the model did at "recovering" the parameters I inputted into the simulation. 
+
+To do this, we'll get the means from the `trialResults` and compare them to the names of the trialResults (the names correspond to the parameters inputted). 
+
+```{r}
+get_means <- function(trialResults, element) {
+  singleResult <- trialResults[[element]]
+  singleResult$mean %>% unlist()
+}
+
+indices <- names(trialResults) %>% 
+  tibble() %>% 
+  rename(params = 1) %>% 
+  separate(params, c("nPC", "nARU", "psi", "p11", "p_aru11", "p_aru01"), 
+           sep = "_", remove = F) %>% 
+  mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU), psi = as.numeric(psi), 
+         p11 = as.numeric(p11), p_aru11 = as.numeric(p_aru11), 
+         p_aru01 = as.numeric(p_aru01))
+
+mean_values <- map_df(indices$params, 
+              ~ get_means(trialResults, .x) %>%
+                  t() %>% 
+                  as_tibble() %>% 
+                  tibble(params = .x)) %>%
+                  left_join(indices, by = "params", suffix = c(".model", ".sim"))
+```
+
+Now we can plot some of the values to see if they are related (they should be). 
+
+```{r}
+ggplot(mean_values, aes(mean_psi, psi)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  xlab("model") +
+  ylab("simulated parameter") +
+  labs(title = "psi") +
+  xlim(c(0,1)) +
+  ylim(c(0,1))
+
+ggplot(mean_values, aes(p11.model, p11.sim)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  xlab("model") +
+  ylab("simulated parameter") +
+  labs(title = "p11") +
+  xlim(c(0,1)) +
+  ylim(c(0,1))
+
+ggplot(mean_values, aes(p_aru11.model, p_aru11.sim)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  xlab("model") +
+  ylab("simulated parameter") +
+  labs(title = "p_aru11") +
+  xlim(c(0,1)) +
+  ylim(c(0,1))
+
+ggplot(mean_values, aes(p_aru01.model, p_aru01.sim)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  xlab("model") +
+  ylab("simulated parameter") +
+  labs(title = "p_aru01") +
+  xlim(c(0,1)) +
+  ylim(c(0,1))
 ```
 
