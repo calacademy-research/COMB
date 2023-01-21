@@ -3,7 +3,7 @@
 #' Example usage:
 #'
 #' ```
-#' source('models/src/combined.R')
+#' source('models/src/max_pc_scores_arubin_2covars.R')
 #' source('models/src/run_trials.R')
 #' startTrials(perSpeciesHparams(), singleSpeciesCombined)
 #'
