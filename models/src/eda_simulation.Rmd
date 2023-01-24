@@ -168,40 +168,40 @@ mean_values <- map_df(indices$params,
 Now we can plot some of the values to see if they are related (they should be). 
 
 ```{r}
-ggplot(mean_values, aes(mean_psi, psi)) +
-  geom_point() +
+ggplot(mean_values, aes(psi, mean_psi)) +
+  geom_jitter() +
   geom_smooth(method = "lm") +
-  xlab("model") +
-  ylab("simulated parameter") +
+  ylab("model") +
+  xlab("simulated parameter") +
   labs(title = "psi") +
   xlim(c(0,1)) +
   ylim(c(0,1))
 
-ggplot(mean_values, aes(p11.model, p11.sim)) +
-  geom_point() +
+ggplot(mean_values, aes(p11.sim, p11.model)) +
+  geom_jitter() +
   geom_smooth(method = "lm") +
-  xlab("model") +
-  ylab("simulated parameter") +
+  ylab("model") +
+  xlab("simulated parameter") +
   labs(title = "p11") +
   xlim(c(0,1)) +
   ylim(c(0,1))
 
-ggplot(mean_values, aes(p_aru11.model, p_aru11.sim)) +
-  geom_point() +
+ggplot(mean_values, aes(p_aru11.sim, p_aru11.model)) +
+  geom_jitter() +
   geom_smooth(method = "lm") +
-  xlab("model") +
-  ylab("simulated parameter") +
+  ylab("model") +
+  xlab("simulated parameter") +
   labs(title = "p_aru11") +
   xlim(c(0,1)) +
   ylim(c(0,1))
 
-ggplot(mean_values, aes(p_aru01.model, p_aru01.sim)) +
-  geom_point() +
+ggplot(mean_values, aes(p_aru01.sim, p_aru01.model)) +
+  geom_jitter() +
   geom_smooth(method = "lm") +
-  xlab("model") +
-  ylab("simulated parameter") +
+  ylab("model") +
+  xlab("simulated parameter") +
   labs(title = "p_aru01") +
-  xlim(c(0,1)) +
-  ylim(c(0,1))
+  xlim(c(0,0.25)) +
+  ylim(c(0,0.25))
 ```
 
