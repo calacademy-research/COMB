@@ -65,10 +65,10 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
     if (n_recordings != 0) {
       for (j in 1:n_recordings) {
         if (z[i] == 1) {
-          scores[i * j] <- rnorm(1, mean = mu[2], sd = sigma[2])
+          scores[(i - 1) * n_recordings + j] <- rnorm(1, mean = mu[2], sd = sigma[2])
         }
         if (z[i] == 0) {
-          scores[i * j] <- rnorm(1, mean = mu[1], sd = sigma[1])
+          scores[(i - 1) * n_recordings + j] <- rnorm(1, mean = mu[1], sd = sigma[1])
         }
       }
     }
@@ -94,4 +94,4 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
 
 # data <- simulation("GCKI", n_points = 80, psi = 0.62, p11 = 0.6, p_aru11 = 0.7,
 #                    p_aru01 = 0.05, mu = c(-2, 1.5), sigma = c(0.8, 2.3),
-#                    n_visits = 1, n_recordings = 1)
+#                    n_visits = 3, n_recordings = 24)
