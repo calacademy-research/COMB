@@ -19,47 +19,61 @@ source("comb_functions.R")
 #' @return List similar to that of `model_read_lib` that JAGS can read
 
 simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
-                       n_points = 82, n_recordings = 24, mu, sigma) {
+                       n_points = 82, n_recordings = 24, mu, sigma, 
+                       beta0, beta1) {
+  set.seed(123)
+  
+  ## Generate Covariates
+  
+  burn <- runif(n_points, 0, 3)
+  
+  psi_int = NULL
+  
+  for (i in 1:n_points) {
+    psi_int[i] <- logit_to_p(beta0 + beta1*burn[i])
+  }
+  
+  # psi ~ beta0 + beta1*burn
+  
+  z <- rbinom(n_points, 1, psi_int) # occupancy states
+  
+  
   ## Point Count Simulation ----------------------------------------------------
   # Generate some Bernoulli trials
-  set.seed(123)
 
-  z <- rbinom(n_points, 1, psi) # occupancy states
-
-  # p <- psi * p11 # detection probability
-
+  
   y.ind <- matrix(NA, nrow = n_points, ncol = n_visits)
-
+  
   for (i in 1:n_points) {
     pr_yequals1 <- p11 * z[i]
     y.ind[i, ] <- rbinom(n_visits, 1, pr_yequals1)
   }
-
+  
   # rbinom(n_visits * n_points, size = 1, prob = p) %>%
   # matrix(nrow = n_points, ncol = n_visits)
-
+  
   ## ARU Simulation ------------------------------------------------------------
-
+  
   # We will first define the `y.aru` which is a matrix similar to y.ind
   # and has binary data on if the ARU has a detection of the species above an
   # arbitrary logit
   nsamples <- n_recordings * n_points
-
+  
   y.aru <- matrix(NA, nrow = n_points, ncol = n_recordings)
-
+  
   for (i in 1:n_points) {
     p_aru <- z[i] * p_aru11 + p_aru01
     y.aru[i, ] <- rbinom(n_recordings, 1, p_aru)
   }
-
-
+  
+  
   # Next we will simulate the scores
-
+  
   # The scores are distributed as two truncated Gaussian distributions
   # with parameters mu and sigma.
-
+  
   scores <- c()
-
+  
   # for each of the positive pts, simulate a vector of scores with len=n_recordings
   for (i in 1:n_points) {
     if (n_recordings != 0) {
@@ -73,12 +87,12 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
       }
     }
   }
-
+  
   sites <- rep(1:n_points, each = n_recordings)
-
-
+  
+  
   # Combining for JAGS ---------------------------------------------------------
-
+  
   data <- list(
     "nsites" = n_points,
     "nsurveys.pc" = n_visits,
