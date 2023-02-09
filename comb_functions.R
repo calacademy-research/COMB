@@ -167,6 +167,11 @@ logit_to_p <- function(logit) {
   return(p)
 }
 
+p_to_logit <- function(prob) {
+logit <- log(prob /(1-prob))
+return(logit)
+}
+
 #adjusted logit_to_p for the label smoothing
 #that adds about 0.1 in probability space ...
 #a sum of this is ~ a count with confidence

@@ -626,7 +626,8 @@ extract_std_var_4ha <- exactextractr::exact_extract(std_layers, wldf_100, c("mea
 RAVG_var <- names(canopy_fuel_nbr_dem_RAVG_LIDAR)[c(36, 45)]
 RAVG_layers <- subset(canopy_fuel_nbr_dem_RAVG_LIDAR, RAVG_var)
 names(RAVG_layers) <- c("RAVGrdnbrcbi_20182019", "RAVGrdnbrcbi_20202021")
-
+# CAPLES FIRE == 20182019 differences
+# CALDOR FIRE == 20202021 differences
 extract_RAVG_var_1ha <- exactextractr::exact_extract(RAVG_layers, wldf_50, c("mean", "median", "min", "max", "count"))
 extract_RAVG_var_4ha <- exactextractr::exact_extract(RAVG_layers, wldf_100, c("mean", "median", "min", "max", "count"))
 

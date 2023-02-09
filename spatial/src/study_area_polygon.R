@@ -6,6 +6,7 @@ library(sf)
 library(mapview)
 library(RColorBrewer)
 library(here)
+library(tidyverse)
 
 #depends upon the total points from "both_points_v" 
 #generated in "read_points_output_data.R"
@@ -49,16 +50,50 @@ veg_hull <- df.vegetation.sf  %>%
 #view results
 mapView(cbi, alpha.regions = 0.8) +
 mapView(cbi_cuts) +
-mapView(cbi4) +
-mapView(cbi4_cuts) +
-mapView(plot, 
-        zcol = "type", 
-        col.regions=brewer.pal(3, "YlGn"), 
-        label = paste0("bird ", df.avian.sf$avian_point,", veg ", df.vegetation.sf$veg_point)) +
+# mapView(cbi4) +
+# mapView(cbi4_cuts) +
+# mapView(vegetation_points) +
+mapView(avian_points, ) +
+# mapView(plot, 
+#         zcol = "type", 
+#         col.regions=brewer.pal(3, "YlGn"), 
+#         label = paste0("bird ", df.avian.sf$avian_point,", veg ", df.vegetation.sf$veg_point)) +
 mapView(list(avian_hull, veg_hull),
         layer.name = c("bird","vegetation"), 
         col.regions=brewer.pal(3, "BrBG")[c(1,3)])
 
+mapView(list(avian_hull, veg_hull),
+        layer.name = c("bird","vegetation"), 
+        col.regions=brewer.pal(3, "BrBG")[c(1,3)]) +
+mapView(avian_points, ) +
+mapView(cbi_cuts) +
+mapView(fire_boundary)
+
+exactextractr::exact_extract(cbi_cuts, avian_hull, c("mean","median","min","max","count","sum"))
+
+#stats for study area paragraph
+sf::st_intersection(fire_boundary, avian_hull, cbi_cuts) -> test_intersection
+
+exactextractr::exact_extract(cbi_cuts, test_intersection, c("mean","median","min","max","count","sum"))
+
+# find overall min and max extents x ...
+min_ext_x <- min(extent(fire_boundary)[1],extent(avian_hull)[1], extent(cbi_cuts)[1])
+max_ext_x <- max(extent(fire_boundary)[2],extent(avian_hull)[2], extent(cbi_cuts)[2])
+# and y ... 
+min_ext_y <- min(extent(fire_boundary)[3],extent(avian_hull)[3], extent(cbi_cuts)[3])
+max_ext_y <- max(extent(fire_boundary)[4],extent(avian_hull)[4], extent(cbi_cuts)[4])
+
+#putting it together
+overall_extent <- extent(fire_boundary)
+overall_extent[1] <- min(min_ext_x, extent(fire_boundary)[1])
+overall_extent[2] <- max_ext_x
+overall_extent[3] <- min(min_ext_y, extent(fire_boundary)[3])
+overall_extent[4] <- max_ext_y
+
+sf::st_crop(fire_boundary, overall_extent)
+
+extent(overall_extent)
+extent(fire_boundary)
 
 #save results to output 
 #[X] avian_hull
