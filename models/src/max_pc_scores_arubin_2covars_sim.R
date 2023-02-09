@@ -13,7 +13,7 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source("models/src/simulation.R")
+source("models/src/simulation_with_covars.R")
 # source(here("models/src/model_read_lib_agg.R")) # Functions were modified to read in ARU data that was pre-aggregated
 
 
@@ -40,7 +40,8 @@ ModelTrial <- function(params) {
     sigma = c(0.5, 1.5),
     n_visits = PCVisitLimit,
     n_recordings = aruVisitLimit,
-    n_points = 80
+    n_points = 80, 
+    beta0, beta1
   )
 
   # JAGS specification ------------------------------------------------------
@@ -56,7 +57,6 @@ ModelTrial <- function(params) {
       p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
       beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
       beta1 ~ dnorm(0, 10)
-      beta2 ~ dnorm(0, 10)
     
       # Parameters of the observation model for the scores
       mu[1] ~ dnorm(-2, 5)
@@ -68,7 +68,7 @@ ModelTrial <- function(params) {
     
       # Likelihood part 1 & 2: PC and ARU detections
       for (i in 1:nsites) { # Loop over sites
-        logit(psi[i]) <- beta0 + beta1*cover[i] + beta2*burn[i]
+        logit(psi[i]) <- beta0 + beta1*burn[i]
         z[i] ~ dbern(psi[i]) # Latent occupancy states
     
         # Point count
@@ -82,7 +82,7 @@ ModelTrial <- function(params) {
         T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
     
         #GOF - Regression: Simulations
-        psiSim[i] <- exp(beta0 + beta1*cover[i] + beta2*burn[i])/(1+exp(beta0 + beta1*cover[i] + beta2*burn[i]))
+        psiSim[i] <- exp(beta0 + beta1*burn[i])/(1+exp(beta0 + beta1*burn[i]))
         zSim[i] ~ dbern(psiSim[i])
     
         # ARU - binomial
@@ -118,11 +118,9 @@ ModelTrial <- function(params) {
       #GOF - Regression: Difference in mean vegetation
       cz1 <- sum(z)
       cz0 <- sum(1 - z)
-      TvegObs <- sum(cover*z) / ifelse(cz1>0,cz1, 1)  - sum(cover*(1-z)) / ifelse(cz0>0,cz0, 1)
       czSim1 <- sum(zSim)
       czSim0 <- sum(1 - zSim)
-      TvegSim <- sum(cover*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(cover*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
-    
+
       mean_psi <- mean(psi)
       NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
       PropOcc <- NOcc/nsites
@@ -148,7 +146,6 @@ ModelTrial <- function(params) {
       g = gst,
       beta0 = 0,
       beta1 = 0,
-      beta2 = 0,
       reg_parm = 1
     )
   }
@@ -159,7 +156,6 @@ ModelTrial <- function(params) {
   monitored <- c(
     "beta0",
     "beta1",
-    "beta2",
     "p11",
     "p_aru11",
     "p_aru01",
@@ -174,7 +170,9 @@ ModelTrial <- function(params) {
     "TvegObs",
     "TvegSim",
     "Dobs",
-    "Dsim"
+    "Dsim", 
+    "psi", 
+    "z"
   )
 
   # MCMC settings
@@ -206,20 +204,19 @@ ModelTrial <- function(params) {
   # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
   # Discuss team preferences on whether to omit it, nest the return value of
   # readCombined, or some other alternative.
-  jagsData <- within(data2, rm(indices))
+  jagsData <- data2
 
-  site_covars <- read_csv("models/input/wide4havars.csv") %>%
-    mutate(Point = avian_point) # %>%
-  # filter(Point %in% data$indices$point$Point)
-
-  colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
-
-  covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi4_20202021_4ha)
+  # site_covars <- read_csv("models/input/wide4havars.csv") %>%
+  #   mutate(Point = avian_point) # %>%
+  # # filter(Point %in% data$indices$point$Point)
+  # 
+  # colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
+  # 
+  # covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi4_20202021_4ha)
 
   # Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
-  jagsData$cover <- as.numeric(scale(covs$mean_CanopyCover_2020_4ha))[1:data$nsites]
-  jagsData$burn <- as.numeric(covs$mean_RAVGcbi4_20202021_4ha)[1:data$nsites] # check out a histogram of this... sort of bimodal
-
+  # jagsData$cover <- as.numeric(scale(covs$mean_CanopyCover_2020_4ha))[1:data$nsites]
+  # jagsData$burn <- as.numeric(covs$mean_RAVGcbi4_20202021_4ha)[1:data$nsites] # check out a histogram of this... sort of bimodal
   set.seed(123)
 
   jagsResult <- jags(
