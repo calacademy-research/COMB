@@ -27,12 +27,9 @@ ModelTrial <- function(params) {
   p11 = params$p11
   p_aru11 = params$p_aru11
   p_aru01 = params$p_aru01
-  psi = params$psi
   
 
   data <- simulation(
-    speciesCode,
-    psi = psi,
     p11 = p11,
     p_aru11 = p_aru11,
     p_aru01 = p_aru01,
@@ -41,7 +38,8 @@ ModelTrial <- function(params) {
     n_visits = PCVisitLimit,
     n_recordings = aruVisitLimit,
     n_points = 80, 
-    beta0, beta1
+    beta0 = 0, 
+    beta1 = 1
   )
 
   # JAGS specification ------------------------------------------------------
@@ -191,7 +189,7 @@ ModelTrial <- function(params) {
   y_aru_sum <- rowSums(data$y.aru[, 1:aruVisitLimit, drop = F], na.rm = TRUE)
 
 
-  data2 <-
+  jagsData <-
     append(
       data,
       list(
@@ -201,22 +199,7 @@ ModelTrial <- function(params) {
         y_aru_sum = y_aru_sum
       )
     )
-  # TODO(matth79): JAGS does not like indices in the list, since it's non-numeric.
-  # Discuss team preferences on whether to omit it, nest the return value of
-  # readCombined, or some other alternative.
-  jagsData <- data2
-
-  # site_covars <- read_csv("models/input/wide4havars.csv") %>%
-  #   mutate(Point = avian_point) # %>%
-  # # filter(Point %in% data$indices$point$Point)
-  # 
-  # colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
-  # 
-  # covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi4_20202021_4ha)
-
-  # Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
-  # jagsData$cover <- as.numeric(scale(covs$mean_CanopyCover_2020_4ha))[1:data$nsites]
-  # jagsData$burn <- as.numeric(covs$mean_RAVGcbi4_20202021_4ha)[1:data$nsites] # check out a histogram of this... sort of bimodal
+  
   set.seed(123)
 
   jagsResult <- jags(

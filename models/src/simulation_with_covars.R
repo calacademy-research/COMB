@@ -27,15 +27,9 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
   
   burn <- runif(n_points, 0, 3)
   
-  psi_int = NULL
+  psi_c <- logit_to_p(beta0 + beta1*burn)
   
-  for (i in 1:n_points) {
-    psi_int[i] <- logit_to_p(beta0 + beta1*burn[i])
-  }
-  
-  # psi ~ beta0 + beta1*burn
-  
-  z <- rbinom(n_points, 1, psi_int) # occupancy states
+  z <- rbinom(n_points, 1, psi_c) # occupancy states
   
   
   ## Point Count Simulation ----------------------------------------------------
@@ -101,11 +95,14 @@ simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
     "y.aru" = y.aru,
     "nsamples" = length(scores),
     "siteid" = sites,
-    "score" = scores
+    "score" = scores,
+    "burn" = burn, 
+    "trueZ" = z,
+    "truepsic" = psi_c
   )
   data
 }
 
 # data <- simulation("GCKI", n_points = 80, psi = 0.62, p11 = 0.6, p_aru11 = 0.7,
 #                    p_aru01 = 0.05, mu = c(-2, 1.5), sigma = c(0.8, 2.3),
-#                    n_visits = 3, n_recordings = 24)
+#                    n_visits = 3, n_recordings = 24, beta0 = 0, beta1 = 1)
