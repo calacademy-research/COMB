@@ -169,7 +169,8 @@ singleSpeciesCombined <- function(params){
     "TvegObs",
     "TvegSim",
     "Dobs",
-    "Dsim"
+    "Dsim", 
+    "psi"
   )
   
   # MCMC settings
@@ -217,7 +218,7 @@ singleSpeciesCombined <- function(params){
   
   set.seed(123)
   
-  jags(
+  jagsResult <- jags(
     jagsData,
     inits,
     monitored,
@@ -229,6 +230,7 @@ singleSpeciesCombined <- function(params){
     n.burnin = nb,
     parallel = TRUE,
   )
+  jagsResult
 }
 # pp.check(
 #   jagsResult,
