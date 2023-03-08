@@ -45,83 +45,83 @@ ModelTrial <- function(params){
   cat(
     file = modelFile,
     "
-  model {
-  
-    # Priors
-    p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
-    p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
-    p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
-    beta0 ~ dnorm(0, 10) # Intercept for regression
-    beta1 ~ ddexp(0, sqrt(2.0)) # Slope for regression with a Laplace prior for L1 regularization
-  
-    # Parameters of the observation model for the scores
-    mu[1] ~ dnorm(-2, 5)
-    mu[2] ~ dnorm(-2, 5)
-    sigma[1] ~ dunif(0.1, 5)
-    tau[1] <- 1 / (sigma[1] * sigma[1])
-    sigma[2] ~ dunif(0.1, 5)
-    tau[2] <- 1 / (sigma[2] * sigma[2])
-  
-    # Likelihood part 1 & 2: PC and ARU detections
-    for (i in 1:nsites) { # Loop over sites
-      logit(psi[i]) <- beta0 + beta1*veg[i]
-      z[i] ~ dbern(psi[i]) # Latent occupancy states
-  
-      # Point count
-      p[i] <- z[i]*p11 # Detection probability
-      for(j in 1:nsurveys.pc) {
-        y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
+    model {
+    
+      # Priors
+      p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
+      p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
+      p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
+      beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
+      beta1 ~ dnorm(0, 10)
+    
+      # Parameters of the observation model for the scores
+      mu[1] ~ dnorm(-2, 5)
+      mu[2] ~ dnorm(-2, 5)
+      sigma[1] ~ dunif(0.1, 5)
+      tau[1] <- 1 / (sigma[1] * sigma[1])
+      sigma[2] ~ dunif(0.1, 5)
+      tau[2] <- 1 / (sigma[2] * sigma[2])
+    
+      # Likelihood part 1 & 2: PC and ARU detections
+      for (i in 1:nsites) { # Loop over sites
+        logit(psi[i]) <- beta0 + beta1*burn[i]
+        z[i] ~ dbern(psi[i]) # Latent occupancy states
+    
+        # Point count
+        p[i] <- z[i]*p11 # Detection probability
+        for(j in 1:nsurveys.pc) {
+          y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
+        }
+        # GOF Point Count - Tukey-Freeman Discrepancy
+        T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
+        y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
+        T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
+    
+        #GOF - Regression: Simulations
+        psiSim[i] <- exp(beta0 + beta1*burn[i])/(1+exp(beta0 + beta1*burn[i]))
+        zSim[i] ~ dbern(psiSim[i])
+    
+        # ARU - binomial
+        p_aru[i] <- z[i]*p_aru11 + p_aru01 # Detection probability with false positives
+        for(j in 1:nsurveys.aru) {
+          y.aru[i,j] ~ dbern(p_aru[i])  # n_surveys.aru = Total files processed
+        }
+        # GOF ARU Count - Tukey-Freeman Discrepancy
+        T_aru_obs0[i] <- (sqrt(y_aru_sum[i]) - sqrt(p_aru[i]*n_s[i]))^2  # FT discrepancy for observed data
+        y_aru_Sim[i] ~ dbin(p_aru[i], n_v[i])
+        T_aru_sim0[i] <- (sqrt(y_aru_Sim[i]) - sqrt(p_aru[i]*n_s[i]))^2  # ...and for simulated data
       }
-      # GOF Point Count - Tukey-Freeman Discrepancy
-      T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
-      y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
-      T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
-  
-      #GOF - Regression: Simulations
-      psiSim[i] <- exp(beta0 + beta1*veg[i])/(1+exp(beta0 + beta1*veg[i]))
-      zSim[i] ~ dbern(psiSim[i])
-  
-      # ARU - binomial
-      p_aru[i] <- z[i]*p_aru11 + p_aru01 # Detection probability with false positives
-      for(j in 1:nsurveys.aru) {
-        y.aru[i,j] ~ dbern(p_aru[i])  # n_surveys.aru = Total files processed
+    
+      # Likelihood part 2: feature score data
+      for(k in 1:nsamples) {
+        score[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+        #GOF for ARU scores
+          LLobs_score[k] <- logdensity.norm(score[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+          score_Sim[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+          LLsim_score[k] <- logdensity.norm(score_Sim[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
       }
-      # GOF ARU Count - Tukey-Freeman Discrepancy
-      T_aru_obs0[i] <- (sqrt(y_aru_sum[i]) - sqrt(p_aru[i]*n_s[i]))^2  # FT discrepancy for observed data
-      y_aru_Sim[i] ~ dbin(p_aru[i], n_v[i])
-      T_aru_sim0[i] <- (sqrt(y_aru_Sim[i]) - sqrt(p_aru[i]*n_s[i]))^2  # ...and for simulated data
+    
+      # GOF assessment
+      T_pc_obs <- sum(T_pc_obs0)
+      T_pc_sim <- sum(T_pc_sim0)
+      T_aru_obs <- sum(T_aru_obs0)
+      T_aru_sim <- sum(T_aru_sim0)
+    
+      #GOF assessment for scores
+      Dobs <- -2 * sum(LLobs_score)
+      Dsim <- -2 * sum(LLsim_score)
+    
+      #GOF - Regression: Difference in mean vegetation
+      cz1 <- sum(z)
+      cz0 <- sum(1 - z)
+      czSim1 <- sum(zSim)
+      czSim0 <- sum(1 - zSim)
+      mean_psi <- mean(psi)
+      NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
+      PropOcc <- NOcc/nsites
+    
     }
-  
-    # Likelihood part 2: feature score data
-    for(k in 1:nsamples) {
-      score[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
-      #GOF for ARU scores
-        LLobs_score[k] <- logdensity.norm(score[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
-        score_Sim[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
-        LLsim_score[k] <- logdensity.norm(score_Sim[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
-    }
-  
-    # GOF assessment
-    T_pc_obs <- sum(T_pc_obs0)
-    T_pc_sim <- sum(T_pc_sim0)
-    T_aru_obs <- sum(T_aru_obs0)
-    T_aru_sim <- sum(T_aru_sim0)
-  
-    #GOF assessment for scores
-    Dobs <- -2 * sum(LLobs_score)
-    Dsim <- -2 * sum(LLsim_score)
-  
-    #GOF - Regression: Difference in mean vegetation
-    cz1 <- sum(z)
-    cz0 <- sum(1 - z)
-    TvegObs <- sum(veg*z) / ifelse(cz1>0,cz1, 1)  - sum(veg*(1-z)) / ifelse(cz0>0,cz0, 1)
-    czSim1 <- sum(zSim)
-    czSim0 <- sum(1 - zSim)
-    TvegSim <- sum(veg*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(veg*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
-  
-    mean_psi <- mean(psi)
-  }
-  ")
+    ")
   
   # initialization
   zst <- rep(1, data$nsites)
@@ -163,7 +163,9 @@ ModelTrial <- function(params){
     "TvegObs",
     "TvegSim",
     "Dobs",
-    "Dsim"
+    "Dsim", 
+    "psi",
+    "z"
   )
   
   # MCMC settings
@@ -197,13 +199,16 @@ ModelTrial <- function(params){
   # readCombined, or some other alternative.
   jagsData <- within(data2, rm(indices))
   
-  covs <- read_csv("./models/input/wide4havars.csv") %>%
+  site_covars <- read_csv("./models/input/wide4havars.csv") %>%
     mutate(Point = avian_point) %>%
-    dplyr::select(Point, mean_CanopyCover_2020_4ha)
+    filter(Point %in% data$indices$point$Point)
   
-  Veg <-
-    left_join(as.data.frame(data$indices$point), covs, by = "Point")
-  jagsData$veg <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
+  covs <- site_covars %>% 
+    dplyr::select(Point, mean_RAVGcbi4_20202021_4ha)
+  
+  Veg <- left_join(as.data.frame(data$indices$point), covs, by = "Point")
+  
+  jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20202021_4ha) 
   
   set.seed(123)
   
