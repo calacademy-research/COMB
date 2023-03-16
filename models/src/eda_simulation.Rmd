@@ -126,6 +126,10 @@ ggplot(asymptote, aes(p11, asym_prec, color = as.factor(psi))) +
   geom_jitter() +
   labs(title = "p11 vs the Precision once the model is saturated with data")
 
+ggplot(asymptote, aes(p_aru11, asym_prec, color = as.factor(psi))) +
+  geom_jitter() +
+  labs(title = "p_aru11 vs the Precision once the model is saturated with data")
+
 ggplot(asymptote, aes(nPC, asym_prec)) +
   geom_jitter() +
   geom_smooth(method = "lm")
