@@ -19,14 +19,13 @@ source("models/src/simulation_with_covars.R")
 
 ModelTrial <- function(params) {
   # parameters --------------------------------------------------------------
-  speciesCode <- params$speciesCode
-  year <- params$year
-  threshold <- 0
   aruVisitLimit <- params$nARU # only consider this many ARU visits per site (ordered)
   PCVisitLimit <- params$nPC
   p11 = params$p11
   p_aru11 = params$p_aru11
   p_aru01 = params$p_aru01
+  beta0 <- params$beta0
+  beta1 <- params$beta1
   
 
   data <- simulation(
@@ -38,8 +37,8 @@ ModelTrial <- function(params) {
     n_visits = PCVisitLimit,
     n_recordings = aruVisitLimit,
     n_points = 80, 
-    beta0 = 0, 
-    beta1 = 1
+    beta0 = beta0, 
+    beta1 = beta1
   )
 
   # JAGS specification ------------------------------------------------------
@@ -200,7 +199,7 @@ ModelTrial <- function(params) {
       )
     )
   
-  set.seed(123)
+  # set.seed(123)
 
   jagsResult <- jags(
     jagsData,

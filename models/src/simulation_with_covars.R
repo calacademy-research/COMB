@@ -21,11 +21,11 @@ source("comb_functions.R")
 simulation <- function(species, psi, p11, p_aru11, p_aru01, n_visits = 3,
                        n_points = 82, n_recordings = 24, mu, sigma, 
                        beta0, beta1) {
-  set.seed(123)
   
   ## Generate Covariates
   
   burn <- runif(n_points, 0, 3)
+  burn <- rnorm(n_points)
   
   psi_c <- logit_to_p(beta0 + beta1*burn)
   
