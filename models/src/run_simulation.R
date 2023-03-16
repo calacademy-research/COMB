@@ -43,5 +43,5 @@ run_sim <- function(params, n_iter) {
 }
 
 # means <- map(1:length(simResults), 
-             ~ simResults[[.x]][["mean"]][["beta0"]]
-             ) %>% unlist
+#              ~ simResults[[.x]][["mean"]][["beta0"]]
+#              ) %>% unlist
