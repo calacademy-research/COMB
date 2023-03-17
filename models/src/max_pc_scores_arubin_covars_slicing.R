@@ -208,7 +208,7 @@ ModelTrial <- function(params){
   
   Veg <- left_join(as.data.frame(data$indices$point), covs, by = "Point")
   
-  jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20202021_4ha) 
+  jagsData$burn <- as.numeric(scale(Veg$mean_RAVGcbi4_20202021_4ha))
   
   set.seed(123)
   
