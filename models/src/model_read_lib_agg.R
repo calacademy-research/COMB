@@ -16,8 +16,11 @@ library(dplyr)
 library(here)
 library(lubridate)
 library(readr)
+library(tidyverse)
 library(stringr)
 library(tibble)
+library(chron)
+library(reshape2)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
@@ -167,6 +170,9 @@ combineJagsData <- function(pointCountData, aruData) {
     nsurveys.aru = max(aruData$indices$visit$Visit_Index),
     y.ind = pointCountData$y,
     y.pc = pointCountData$y.raw,
+    y.obs = pointCountData$y.obs[1,,,],
+    date.pc = pointCountData$date.pc, 
+    time.pc = pointCountData$time.pc, 
     y.aru = aruData$y,
     # ARU scores (sparse)
     nsamples = nrow(s),
@@ -206,7 +212,8 @@ readPointCounts <- function(outerIndices, squeeze = T) {
     )
   ) %>% mutate(
     Species = birdCode_fk, Year = year(DateTime),
-    Point = point_ID_fk, Visit = visit, Score = abun
+    Point = point_ID_fk, Visit = visit, Score = abun, 
+    Observer = observer_fk
   )
 
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
@@ -227,14 +234,51 @@ readPointCounts <- function(outerIndices, squeeze = T) {
   indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
   sparseRawCounts <- counts %>%
     inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
-  y.raw <- sparseToDense(sparseRawCounts, indices$full)
+    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score, Observer)
+  # Making the df with Observer for later use
+  y.raw <- sparseRawCounts %>% select(-Observer) %>% 
+    sparseToDense(indices$full)
   dimnames(y.raw)[[1]] <- indices$species$Species
   dimnames(y.raw)[[2]] <- indices$year$Year
   dimnames(y.raw)[[3]] <- indices$point$Point
-  y.raw <- ifelse(y.raw > 1, 1, y.raw)
-
-  c(countsData, list(y.raw = y.raw))
+  
+  # Making an "index" of sorts that matches a PC with an observer
+  obs.raw <- sparseRawCounts %>% select(-Score) %>% 
+    sparseToDense(indices$full)
+  dimnames(obs.raw)[[1]] <- indices$species$Species
+  dimnames(obs.raw)[[2]] <- indices$year$Year
+  dimnames(obs.raw)[[3]] <- indices$point$Point
+  
+  # Add standardized date and time indices
+  # Start with dates
+  dates <- counts %>% 
+    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+    filter(Year == indices$year$Year) %>% 
+    mutate(JDay = as.numeric(format(DateTime, "%j"))) %>% 
+    melt(id.var = c("Point", "Year", "Visit"), measure.var = "JDay") %>%
+    acast(Year ~ Point ~ Visit)
+  # Standardize dates
+  mdate <- mean(dates, na.rm = T)
+  sddate <- sd(dates, na.rm = T)
+  dates <- (dates - mdate) / sddate
+  
+  counts %>% 
+    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+    filter(Year == indices$year$Year) %>% head
+  
+  # Add time indices
+  times <- counts %>% 
+    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+    filter(Year == indices$year$Year) %>% 
+    mutate(Time = as.numeric(times(format(DateTime, "%H:%M:%S")))) %>%
+    melt(id.var = c("Point", "Year", "Visit"), measure.var = "Time") %>%
+    acast(Year ~ Point ~ Visit)
+  # Standardize times
+  mtime <- mean(times, na.rm = T)
+  sdtime <- sd(times, na.rm = T)
+  times <- (times - mtime) / sdtime
+  
+  c(countsData, list(y.raw = y.raw, y.obs = obs.raw, date.pc = dates, time.pc = times))
 }
 
 #' Reads and structures machine learning model outputs
