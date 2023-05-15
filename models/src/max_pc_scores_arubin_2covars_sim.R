@@ -26,17 +26,20 @@ ModelTrial <- function(params) {
   p_aru01 = params$p_aru01
   beta0 <- params$beta0
   beta1 <- params$beta1
+  mu <- c(-2.465888, -1.677518)
+  sigma <- c(0.444645, 2.723917)
+  n_points <- params$n_points
   
 
   data <- simulation(
     p11 = p11,
     p_aru11 = p_aru11,
     p_aru01 = p_aru01,
-    mu = c(-2.5, -1),
-    sigma = c(0.5, 1.5),
+    mu = mu,
+    sigma = sigma,
     n_visits = PCVisitLimit,
     n_recordings = aruVisitLimit,
-    n_points = 80, 
+    n_points = n_points, 
     beta0 = beta0, 
     beta1 = beta1
   )

@@ -40,26 +40,37 @@ assumedNumChains <- 2
 # Too scary
 # plan(multisession, workers = availableCores() / assumedNumChains)
 
-plan(multisession, workers = 48)
+plan(multisession, workers = 12)
 
 #' Generates a hyperparameter sweep over species codes.
 #'
 #' @return list [list(speciesCode=c, year=2021)] for each species code c.
 perTrialHparams <- function(speciesCode) {
-  p11 <- seq(0, 0.8, by = 0.15)
-  p_aru11 <- seq(0, 0.3, by = 0.1)
-  p_aru01 <- 0.025 # we should probably not have this parameter...
-  psi = seq(0.1, 0.9, by = 0.1)
+  nPC <- 3
+  nARU <- 24
+  p11 <- 0.2152284
+  p_aru11 <- 0.07759751
+  p_aru01 <- 0.006519603 # we should probably not have this parameter...
+  beta0 <- -0.4639691
+  beta1 <- -0.2282195
+  mu <- c(-2.465888, -1.677518)
+  sigma <- c(0.444645, 2.723917)
+  n_points <- seq(from=1, to=250, by=5)
   
-  combs <- expand_grid(1:3, 1:24, p11, p_aru11, p_aru01, psi) %>% 
-    rename(nPC = 1, nARU = 2, p11 = 3, p_aru11 = 4, p_aru01 = 5, psi = 6) %>% 
+  combs <- expand_grid(nPC, nARU, p11, p_aru11, p_aru01, beta0, beta1, 
+                       n_points) %>% 
+    rename(nPC = 1, nARU = 2, p11 = 3, p_aru11 = 4, p_aru01 = 5, beta0 = 6, 
+           beta1 = 7, n_points = 8) %>% 
     as.list()
   
-  pmap(combs, function (nARU, nPC, p11, p_aru11, p_aru01, psi) {
+  
+  out <- pmap(combs, function (nARU, nPC, p11, p_aru11, p_aru01, beta0, beta1, n_points, mu, sigma) {
       list(speciesCode = speciesCode, year = 2021, nPC = nPC, nARU = nARU, 
-           p11 = p11, p_aru11 = p_aru11, p_aru01 = p_aru01, psi = psi)
+           p11 = p11, p_aru11 = p_aru11, p_aru01 = p_aru01, beta0 = beta0, 
+           beta1 = beta1, n_points = n_points)
   }
   )
+  rep(out, 20)
   
 }
 
@@ -89,8 +100,9 @@ startTrials <- function(hparamsCollection, runTrial) {
         # structure and use it to pass param values through to fields of the
         # results frame. The current code is cheating and using a list to pass
         # the species code, but that leaves no room for other params.
-        names(kv) <- paste(hparams$nPC, hparams$nARU, hparams$psi, hparams$p11, 
-                           hparams$p_aru11, hparams$p_aru01, sep = "_")
+        names(kv) <- paste(hparams$nPC, hparams$nARU, hparams$p11, 
+                           hparams$p_aru11, hparams$p_aru01, hparams$n_points, 
+                           sep = "_")
         return(kv)
       },
       seed = 123
@@ -159,12 +171,12 @@ collectEstimates <- function(jagsResult) {
       paste("rhat", n, sep = "_")
     })
   )
-  pp <- pp_check(jagsResult, c("Dobs" = "Dsim", 
-                                "TvegObs" = "TvegSim", 
-                                "T_pc_obs" = "T_pc_sim",
-                                "T_aru_obs" = "T_aru_sim"))
-  stats <- post_stats(jagsResult, FUN = function(.){1/var(.)}, "mean_psi")
-  append(stats, means) %>% append(pp) %>% append(rhats)
+  # pp <- pp_check(jagsResult, c("Dobs" = "Dsim", 
+  #                               "TvegObs" = "TvegSim", 
+  #                               "T_pc_obs" = "T_pc_sim",
+  #                               "T_aru_obs" = "T_aru_sim"))
+  stats <- post_stats(jagsResult, FUN = function(.){1/var(.)}, "beta1")
+  append(stats, means) %>% append(rhats)
 }
 
 
@@ -179,11 +191,10 @@ collectEstimates <- function(jagsResult) {
 getCurrentResults <- function() {
   table <- t(sapply(trialResults, collectEstimates))
   data.frame(table) %>% rownames_to_column("params") %>% 
-    separate(params, c("nPC", "nARU", "psi", "p11", "p_aru11", "p_aru01")) %>% 
+    separate(params, c("nPC", "nARU", "p11", "p_aru11", "p_aru01", "n_points"), sep = "_") %>% 
     mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU), 
-           psi = as.numeric(psi), p11 = as.numeric(p11), 
-           p_aru11 = as.numeric(p_aru11), p_aru01 = as.numeric(p_aru01)
-           )
+           p11 = as.numeric(p11), p_aru11 = as.numeric(p_aru11), 
+           p_aru01 = as.numeric(p_aru01), n_points = as.numeric(n_points))
 }
 
 # x <- getCurrentResults()
