@@ -48,7 +48,6 @@ ModelTrial <- function(params){
     model {
     
       # Priors
-      p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
       p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
       p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
       beta0 ~ dnorm(0, 0.10) # Intercept for occupancy logistic regression
@@ -66,16 +65,6 @@ ModelTrial <- function(params){
       for (i in 1:nsites) { # Loop over sites
         logit(psi[i]) <- beta0 + beta1*burn[i]
         z[i] ~ dbern(psi[i]) # Latent occupancy states
-    
-        # Point count
-        p[i] <- z[i]*p11 # Detection probability
-        for(j in 1:nsurveys.pc) {
-          y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
-        }
-        # GOF Point Count - Tukey-Freeman Discrepancy
-        T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
-        y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
-        T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
     
         #GOF - Regression: Simulations
         psiSim[i] <- exp(beta0 + beta1*burn[i])/(1+exp(beta0 + beta1*burn[i]))
@@ -102,8 +91,6 @@ ModelTrial <- function(params){
       }
     
       # GOF assessment
-      T_pc_obs <- sum(T_pc_obs0)
-      T_pc_sim <- sum(T_pc_sim0)
       T_aru_obs <- sum(T_aru_obs0)
       T_aru_sim <- sum(T_aru_sim0)
     
@@ -116,12 +103,14 @@ ModelTrial <- function(params){
       cz0 <- sum(1 - z)
       czSim1 <- sum(zSim)
       czSim0 <- sum(1 - zSim)
+
       mean_psi <- mean(psi)
       NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
       PropOcc <- NOcc/nsites
     
     }
-    ")
+    "
+  )
   
   # initialization
   zst <- rep(1, data$nsites)
@@ -150,7 +139,6 @@ ModelTrial <- function(params){
   monitored <- c(
     "beta0",
     "beta1",
-    "p11",
     "p_aru11",
     "p_aru01",
     "mu",
@@ -176,12 +164,10 @@ ModelTrial <- function(params){
   nc <- 6
   
   
-  n_v_per_site <-
-    rowSums(!is.na(data$y.ind[, 1:PCVisitLimit, drop=F])) # number of visits
-  y_pc_sum <- rowSums(data$y.ind[, 1:PCVisitLimit, drop=F], na.rm = TRUE)
+  n_v_per_site <- rep(0, data$nsites) # number of visits
   n_samp_per_site <-
-    rowSums(!is.na(data$y.aru[, 1:aruVisitLimit, drop=F])) # number of samples
-  y_aru_sum <- rowSums(data$y.aru[, 1:aruVisitLimit, drop=F], na.rm = TRUE)
+    rowSums(!is.na(data$y.aru[, 1:aruVisitLimit, drop = F])) # number of samples
+  y_aru_sum <- rowSums(data$y.aru[, 1:aruVisitLimit, drop = F], na.rm = TRUE)
   
   
   data2 <-
@@ -189,7 +175,6 @@ ModelTrial <- function(params){
       data,
       list(
         n_v = n_v_per_site,
-        y_pc_sum = y_pc_sum,
         n_s = n_samp_per_site,
         y_aru_sum = y_aru_sum
       )

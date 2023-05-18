@@ -181,3 +181,9 @@ getCurrentResults <- function() {
 #   geom_area(stat = "function", fun = dnorm, args = c(mean = x$mu2[1], sd = (1/sqrt(x$sigma[1]))), fill = "red", alpha = 0.5) + 
 #   labs(title = "The Two Gaussian Distributions for the Gaussian Mixture Model") + 
 #   ylab("density") +xlab("logit")
+
+
+# map(1:length(trialResults), ~ trialResults[[.]][["sd"]][["mean_psi"]]^2) %>%
+# unlist %>% tibble %>% rename(var=1) %>% mutate(names=names(trialResults)) %>%
+# separate(names, into=c("nPC", "nARU")) %>% mutate(nARU=as.numeric(nARU),
+# nPC=0, precision=1/var) -> x
