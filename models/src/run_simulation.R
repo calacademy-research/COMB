@@ -6,20 +6,20 @@ source("models/src/max_pc_scores_arubin_2covars_sim.R")
 library(future)
 library(promises)
 
-plan(multisession, workers = 16)
+plan(multisession, workers = 10)
 
 simResults <- list()
 
 params <- list(
   nARU = 24,
   nPC = 3,
-  p11 = 0.626,
-  p_aru11 = 0.549,
-  p_aru01 = 0.0536,
-  beta0 = 0.607,
-  beta1 = 0.516,
-  mu = c(-1.483, 1.278),
-  sigma = c(0.811, 2.343), 
+  p11 = 0.6,
+  p_aru11 = 0.4,
+  p_aru01 = 0.05,
+  beta0 = 0,
+  beta1 = 1,
+  mu = c(-2.5, -1.5),
+  sigma = c(0.3, 1),
   n_points = 80
 )
 
@@ -35,7 +35,7 @@ run_sim <- function(params, n_iter) {
         kv <- list(result)
         return(kv)
       },
-      seed = T
+      seed=T
     )
     then(
       promise,
@@ -57,3 +57,7 @@ collectMeans <- function(simResults, param) {
   means
 }
 
+map(1:length(trialResults), ~ trialResults[[.]][["sd"]][["mean_psi"]]^2) %>%
+unlist %>% tibble %>% rename(var=1) %>% mutate(names=names(trialResults)) %>%
+separate(names, into=c("nPC", "nARU")) %>% mutate(nARU=as.numeric(nARU),
+nPC=as.numeric(nPC), precision=1/var) -> x

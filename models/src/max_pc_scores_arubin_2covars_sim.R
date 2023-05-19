@@ -26,8 +26,8 @@ ModelTrial <- function(params) {
   p_aru01 = params$p_aru01
   beta0 <- params$beta0
   beta1 <- params$beta1
-  mu <- c(-2.465888, -1.677518)
-  sigma <- c(0.444645, 2.723917)
+  mu <- c(-2.5, -1.5)
+  sigma <- c(0.3, 1)
   n_points <- params$n_points
   
 
@@ -55,12 +55,12 @@ ModelTrial <- function(params) {
       p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
       p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
       p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
-      beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
-      beta1 ~ dnorm(0, 10)
+      beta0 ~ dnorm(0, 0.10) # Intercept for occupancy logistic regression
+      beta1 ~ dnorm(0, 0.10)
     
       # Parameters of the observation model for the scores
-      mu[1] ~ dnorm(-2, 5)
-      mu[2] ~ dnorm(-2, 5)
+      mu[1] ~ dnorm(-2, 0.2)
+      mu[2] ~ dnorm(-2, 0.2)
       sigma[1] ~ dunif(0.1, 5)
       tau[1] <- 1 / (sigma[1] * sigma[1])
       sigma[2] ~ dunif(0.1, 5)
