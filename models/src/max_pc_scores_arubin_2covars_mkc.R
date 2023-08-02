@@ -16,9 +16,8 @@ library(tidyverse)
 source(here("comb_functions.R"))
 source(here("models/src/model_read_lib_agg.R")) # Functions were modified to read in ARU data that was pre-aggregated
 
-
 # parameters --------------------------------------------------------------
-speciesCode <- "BBWO" # must match prefiltering of dataML_model.csv
+speciesCode <- "PIWO" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -52,11 +51,9 @@ model {
   p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
   p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
   p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
-  #beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
-  mean.psi ~ dunif(0, 1) 
-  beta0 <- logit(mean.psi)
-  beta1 ~ dnorm(0, 10) 
-  beta2 ~ dnorm(0, 10) 
+  beta0 ~ dunif(-5, 5) # Intercept for occupancy logistic regression
+  beta1 ~ dunif(-5, 5)
+  beta2 ~ dunif(-5, 5)
 
   # Parameters of the observation model for the scores
   mu[1] ~ dnorm(-2, 5)
@@ -68,7 +65,7 @@ model {
 
   # Likelihood part 1 & 2: PC and ARU detections
   for (i in 1:nsites) { # Loop over sites
-    logit(psi[i]) <- beta0 + beta1*cover[i] + beta2*burn[i]
+    logit(psi[i]) <- beta0 + beta1*cover[i] + beta2*burn[i] 
     z[i] ~ dbern(psi[i]) # Latent occupancy states
 
     # Point count
@@ -82,7 +79,7 @@ model {
     T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
 
     #GOF - Regression: Simulations
-    psiSim[i] <- exp(beta0 + beta1*cover[i] + beta2*burn[i])/(1+exp(beta0 + beta1*cover[i] + beta2*burn[i]))
+    psiSim[i] <- exp(beta0 + beta1*cover[i] + beta2*burn[i])/(1+exp(beta0 + beta1*cover[i] + beta2*burn[i])) 
     zSim[i] ~ dbern(psiSim[i])
 
     # ARU - binomial
@@ -125,6 +122,7 @@ model {
 
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
   PropOcc <- NOcc/nsites
+  mean_psi <- mean(psi)
  
   # simulate psi over a range of data
   for(k in 1:100) {
@@ -182,17 +180,20 @@ site_covars <- read_csv("./models/input/wide4havars.csv") %>%
   filter(Point %in% data$indices$point$Point) # filter to only points with avian data
 
 colnames(site_covars) # list of options for site-level covariates to choose from-- with select() below I chose measures of canopy cover and burn severity at the 4ha scale
-covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi_20182019_4ha) %>% arrange(Point)
+covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi_20182019_4ha, Perc_LTg22mHt_2020_4ha) %>% arrange(Point)
 
 Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point") # ensures veg vars are in the same point order as the count data
 Veg$cover.s <- scale(Veg$mean_CanopyCover_2020_4ha)
+Veg$lgTree.s <- scale(Veg$Perc_LTg22mHt_2020_4ha)
 
-jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
-jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20182019_4ha) # TODO: should we scale this or no?
+jagsData$cover <- as.numeric(Veg$cover.s) # needs as.numeric() bc the vector in veg retains scaling information 
+jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20182019_4ha) 
+jagsData$lgTree <- as.numeric(Veg$lgTree.s)
+
 summary(jagsData$burn)
 summary(jagsData$cover)
-jagsData$Xburn = seq(0, 2.5, length.out=100)
-jagsData$Xcover = seq(-2.75, 1.8, length.out=100)
+jagsData$Xburn = seq(min(jagsData$burn), max(jagsData$burn), length.out=100)
+jagsData$Xcover = seq(min(jagsData$cover), max(jagsData$cover), length.out=100)
 
 # Set monitored parameters and starting values ----------------------------
 # initialization
@@ -212,7 +213,6 @@ inits <- function() {
   )
 }
 monitored <- c(
-  "mean.psi",
   "beta0",
   "beta1",
   "beta2",
@@ -333,3 +333,36 @@ pp.check(
       sep = " "
     )
 )
+
+
+b1 <- as.data.frame(jagsResult$summary[13:112,]) # predicted psi for values of Xburn
+b1$Xburn <- jagsData$Xburn
+ggplot(b1) +
+  geom_ribbon(aes(x=Xburn, ymin=`2.5%`, ymax=`97.5%`, alpha=0.2)) +
+  geom_line(aes(x=Xburn, y=mean)) +
+  #facet_wrap(~spp) +
+  theme_classic() +
+  labs(y="predicted occupancy probability (psi)", x = "RAVG score", title="Black-backed Woodpecker") +
+  theme(legend.position = "none")
+
+jagsData$Xcover
+
+c_unb <- as.data.frame(jagsResult$summary[113:212,]) # predicted psi for values of Xburn
+c_unb$Xburn <- jagsData$Xcover
+ggplot(c_unb) +
+  geom_ribbon(aes(x=Xburn, ymin=`2.5%`, ymax=`97.5%`, alpha=0.2)) +
+  geom_line(aes(x=Xburn, y=mean)) +
+  #facet_wrap(~spp) +
+  theme_classic() +
+  labs(y="predicted occupancy probability (psi)", x = "Cover", title="Black-backed Woodpecker") +
+  theme(legend.position = "none")
+
+c_b <- as.data.frame(jagsResult$summary[213:312,]) # predicted psi for values of Xburn
+c_b$Xburn <- jagsData$Xcover
+ggplot(c_b) +
+  geom_ribbon(aes(x=Xburn, ymin=`2.5%`, ymax=`97.5%`, alpha=0.2)) +
+  geom_line(aes(x=Xburn, y=mean)) +
+  #facet_wrap(~spp) +
+  theme_classic() +
+  labs(y="predicted occupancy probability (psi)", x = "Cover", title="Black-backed Woodpecker") +
+  theme(legend.position = "none")

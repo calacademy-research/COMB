@@ -17,7 +17,7 @@ source(here("models/src/model_read_lib_agg.R")) # Functions were modified to rea
 
 
 # parameters --------------------------------------------------------------
-speciesCode <- "WEWP" # must match prefiltering of dataML_model.csv
+speciesCode <- "BBWO" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -48,24 +48,16 @@ cat(
 model {
 
   # Priors
-  #p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1) # commenting out both p11 bc we are providing parameters for p below 
-  #p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
-  p_aru10 ~ dbeta(1, 3)I(0, 1 - mean.p) # p11 = Pr(y = 1 | z = 0) # not sure exactly what this is specifying
-  #p_aru10 ~ dbeta(2, 2)
+  #p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1) # commenting out p11 bc we are providing parameters for p below 
+  p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
+  p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
   
-  mean.p ~ dunif(0, 1) # Detection intercept for point counts on prob. scale
-  alpha0 <- logit(mean.p)
-  alpha1 ~ dnorm(0, 10)
-  
-  mean.p_aru ~ dunif(0, 1) # Detection intercept for p11[ARU] on prob. scale
-  alpha0_aru <- logit(mean.p_aru)
-  alpha1_aru ~ dnorm(0, 10)
-  
-  mean.psi ~ dunif(0, 1)
-  beta0 <- logit(mean.psi) # Occupancy intercept on prob. scale
-  
-  beta1 ~ dnorm(0, 10) 
-  beta2 ~ dnorm(0, 10) 
+  alpha0 ~ dunif(-5, 5)
+  alpha1 ~ dunif(-5, 5)
+
+  beta0 ~ dunif(-5, 5) # Occupancy intercept on prob. scale
+  beta1 ~ dunif(-5, 5)
+  beta2 ~ dunif(-5, 5)
 
   # Parameters of the observation model for the scores
   mu[1] ~ dnorm(-2, 5)
@@ -84,23 +76,23 @@ model {
    
     for(j in 1:nsurveys.pc) {
       y.ind[i,j] ~ dbern(p11[i,j]*z[i]) # Observed occ. data (if available)
-      logit(p11[i,j]) <- alpha0 + alpha1 * Time[i,j]
+      logit(p11[i,j]) <- alpha0 + alpha1*Time[i,j]
     }
     # GOF Point Count - Tukey-Freeman Discrepancy
-    T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
-    y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
-    T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
+#    T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
+#    y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
+#    T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
 
     #GOF - Regression: Simulations
     psiSim[i] <- exp(beta0 + beta1*cover[i] + beta2*burn[i])/(1+exp(beta0 + beta1*cover[i] + beta2*burn[i]))
     zSim[i] ~ dbern(psiSim[i])
 
     # ARU - binomial
+    p_aru[i] <- z[i] * p_aru11 + p_aru01 # Detection probability with false positives
     for(j in 1:nsurveys.aru) {
-      p_aru[i,j] <- z[i]*p_aru11 + p_aru01 # Detection probability with false positives
-      y.aru[i,j] ~ dbern(p_aru[i,j])  # n_surveys.aru = Total files processed
-      logit(p_aru11) <- alpha0_aru + alpha1_aru * Time[i,j]
+      y.aru[i,j] ~ dbern(p_aru[i])  # n_surveys.aru = Total files processed
     }
+
     # GOF ARU Count - Tukey-Freeman Discrepancy
     T_aru_obs0[i] <- (sqrt(y_aru_sum[i]) - sqrt(p_aru[i]*n_s[i]))^2  # FT discrepancy for observed data
     y_aru_Sim[i] ~ dbin(p_aru[i], n_v[i])
@@ -117,8 +109,8 @@ model {
   }
 
   # GOF assessment
-  T_pc_obs <- sum(T_pc_obs0)
-  T_pc_sim <- sum(T_pc_sim0)
+#  T_pc_obs <- sum(T_pc_obs0)
+#  T_pc_sim <- sum(T_pc_sim0)
   T_aru_obs <- sum(T_aru_obs0)
   T_aru_sim <- sum(T_aru_sim0)
 
@@ -170,7 +162,9 @@ monitored <- c(
   "beta0",
   "beta1",
   "beta2",
-  "p11",
+  "alpha0",
+  "alpha1",
+ # "p11",
   "p_aru11",
   "p_aru01",
   "mu",
@@ -227,11 +221,12 @@ site_covars <- read_csv("./models/input/wide4havars.csv") %>%
 
 colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
 
-covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi_20202021_4ha)
+covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi_20182019_4ha, Perc_LTg22mHt_2020_4ha) %>% arrange(Point)
 
-Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
+Veg <-left_join(as.data.frame(data2$indices$point), covs, by = "Point") 
+
 jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
-jagsData$burn <- as.numeric(scale(Veg$mean_RAVGcbi_20202021_4ha)) 
+jagsData$burn <- Veg$mean_RAVGcbi_20182019_4ha
 
 # UNDER CONSTRUCTION. need to troubleshoot why melt and cast aren't working.
 # VISIT covars: ARU data
@@ -244,17 +239,18 @@ jagsData$burn <- as.numeric(scale(Veg$mean_RAVGcbi_20202021_4ha))
 
 #jagsData$aruDate <-  visit_aru %>% group_by(Point, Visit_Index) %>% dplyr::select(Point, Visit_Index, Jday.s) %>% pivot_wider(names_from = Visit_Index, values_from = Jday.s)
 
-# PC <- read_csv("./models/input/PC_delinted.csv")
-# PC$DateTime <- with_tz(PC$DateTime, tzone = "America/Los_Angeles")
-# PC$JDay <- as.numeric(format(PC$DateTime, "%j"))
-# PC$Time <- times(format(PC$DateTime, "%H:%M:%S"))
-# PC$JDay.s <- scale(PC$JDay)
-# PC$Time.s <- scale(PC$Time)
-# 
-# visit_pc <- PC %>% filter(year==2021, birdCode_fk==speciesCode) %>% dplyr::select(year, point_ID_fk, visit, JDay, Time, JDay.s, Time.s)
-# pcTime <- as.matrix(visit_pc %>% group_by(point_ID_fk, visit) %>% dplyr::select(point_ID_fk, visit, Time.s) %>% pivot_wider(names_from = visit, values_from = Time.s))
-# 
-# jagsData$pcTime <- pcTime[,2:4]
+PC <- read_csv("./models/input/PC_delinted.csv")
+PC$DateTime <- with_tz(PC$DateTime, tzone = "America/Los_Angeles")
+PC$JDay <- as.numeric(format(PC$DateTime, "%j"))
+PC$Time <- times(format(PC$DateTime, "%H:%M:%S"))
+PC$JDay.s <- scale(PC$JDay)
+PC$Time.s <- scale(PC$Time)
+
+visit_pc <- PC %>% filter(year==2021, birdCode_fk==speciesCode) %>% dplyr::select(year, point_ID_fk, visit, JDay, Time, JDay.s, Time.s)
+pcTime <- as.matrix(visit_pc %>% group_by(point_ID_fk, visit) %>% dplyr::select(point_ID_fk, visit, Time.s) %>% pivot_wider(names_from = visit, values_from = Time.s))
+
+jagsData$Time <- pcTime[,2:4]
+jagsData$Time[is.na(jagsData$Time)] <- 0
 
 set.seed(123)
 

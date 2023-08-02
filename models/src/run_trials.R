@@ -52,7 +52,8 @@ perSpeciesHparams <- function() {
       code4 = col_character(),
       guild = col_character()
     )
-  )
+  ) %>%
+    filter(guild=="woodpecker")
   map(guilds$code4, function(c) {
     list(speciesCode = c, year = 2021, nARU = 24, nPC = 3)
   })

@@ -17,7 +17,7 @@ source(here("models/src/model_read_lib_agg.R")) # Functions were modified to rea
 
 
 # parameters --------------------------------------------------------------
-speciesCode <- "RBSA" # must match prefiltering of dataML_model.csv
+speciesCode <- "HAWO" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- 0
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
@@ -36,9 +36,9 @@ data <- readCombined(
   squeeze = T,
   logit_col = "max_logit" # This is specifying we want the max_logit column from aggregated data
 )
-#data$y.pc[,1,,] # quick look at point count data
-#data$y.aru # aru detection data
-#data$score # score data
+data$y.pc[,1,,] # quick look at point count data
+data$y.aru # aru detection data
+data$score # score data
 
 # JAGS specification ------------------------------------------------------
 modelFile <- tempfile()
@@ -124,10 +124,20 @@ model {
   TvegSim <- sum(cover*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(cover*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
 
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-  PropOcc <- NOcc/nsites # 'finite sample occupancy'
+  psi.fs <- NOcc/nsites # 'finite sample occupancy'
 
   mean_psi <- mean(psi)
-
+  
+    # simulate psi over a range of data
+  for(k in 1:100) {
+    logit(psi.pred.burn[k]) <- beta0 + beta2 * Xburn[k] # psi predictions for burn severity, holding canopy cover and large trees at mean
+    logit(psi.pred.cov.ub[k]) <- beta0 + beta1 * Xcover[k] # psi predictions across cover, holding burn = 0 (unburned)
+    logit(psi.pred.cov.b[k]) <- beta0 + beta1 * Xcover[k] + beta3 * 0.9 # psi predictions across cover, holding burn = 0.9 (avg RAVG score in burned plots)
+    logit(psi.pred.tree.ub[k]) <- beta0 + beta2 * XlgTree[k] # psi predictions across large trees, holding burn = 0 (unburned)
+    logit(psi.pred.tree.b[k]) <- beta0 + beta2 * XlgTree[k] + beta3 * 0.9 # psi predictions across large trees, holding burn = 0.9 (avg RAVG score in burned plots)
+    
+  }
+ 
 }
 ")
 
@@ -175,9 +185,15 @@ covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, Perc_LTg
 
 Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point") # ensures veg vars are in the same point order as the count data
 
-jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
-jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20182019_4ha) # TODO: should we scale this or no?
+jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha/100))
+jagsData$burn <- as.numeric(Veg$mean_RAVGcbi_20182019_4ha)
 jagsData$lgTree <- as.numeric(scale(Veg$Perc_LTg22mHt_2020_4ha))
+summary(jagsData$burn)
+summary(jagsData$cover)
+summary(jagsData$lgTree)
+jagsData$Xburn = seq(0, 2.5, length.out=100)
+jagsData$Xcover = seq(-2.75, 1.8, length.out=100)
+jagsData$XlgTree = seq(-1.1, 2.5, length.out=100)
 
 # Set monitored parameters and starting values ----------------------------
 # initialization
@@ -206,8 +222,13 @@ monitored <- c(
   "p_aru01",
   "mu", # score distributions 
   "sigma", # sd for score distributions
-  "NOcc", "PropOcc",
+  "NOcc", "psi.fs",
   "mean_psi",
+  "psi.pred.burn",
+  "psi.pred.cov.ub",
+  "psi.pred.cov.b",
+  "psi.pred.tree.ub",
+  "psi.pred.tree.b",
   "T_pc_obs",
   "T_pc_sim",
   "T_aru_obs",
@@ -316,5 +337,4 @@ pp.check(
       sep = " "
     )
 )
-
-rbsa <- as.data.frame(jagsResult$summary)
+hawo_2 <- as.data.frame(jagsResult$summary)
