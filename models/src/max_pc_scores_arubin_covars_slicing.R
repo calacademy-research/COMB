@@ -13,15 +13,15 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib_agg.R")) # Functions were modified to read in ARU data that was pre-aggregated
+source(here("models/src/model_read_lib_agg_slicing.R")) # Functions were modified to read in ARU data that was pre-aggregated
 
-singleSpeciesCombined <- function(params){
+ModelTrial <- function(params){
   # parameters --------------------------------------------------------------
   speciesCode <- params$speciesCode
   year <- params$year
   threshold <- 0
-  aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
-  PCVisitLimit <- 3 # only consider this many PC visits per site (ordered)
+  aruVisitLimit <- params$nARU # only consider this many ARU visits per site (ordered)
+  PCVisitLimit <- params$nPC
   
   
   # JAGS structuring --------------------------------------------------------
@@ -31,6 +31,7 @@ singleSpeciesCombined <- function(params){
     beginTime = dhours(6),
     endTime = dhours(10),
     visitLimit = aruVisitLimit,
+    PCvisitlimit = PCVisitLimit,
     visitAggregation = "file",
     thresholdOptions = list(value = threshold,
                             is.quantile = F),
@@ -50,9 +51,8 @@ singleSpeciesCombined <- function(params){
     p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
     p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
     p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
-    beta0 ~ dnorm(0, 10) # Intercept for occupancy logistic regression
-    beta1 ~ dnorm(0, 10) 
-    beta2 ~ dnorm(0, 10) 
+    beta0 ~ dnorm(0, 10) # Intercept for regression
+    beta1 ~ ddexp(0, sqrt(2.0)) # Slope for regression with a Laplace prior for L1 regularization
   
     # Parameters of the observation model for the scores
     mu[1] ~ dnorm(-2, 5)
@@ -64,7 +64,7 @@ singleSpeciesCombined <- function(params){
   
     # Likelihood part 1 & 2: PC and ARU detections
     for (i in 1:nsites) { # Loop over sites
-      logit(psi[i]) <- beta0 + beta1*cover[i] + beta2*burn[i]
+      logit(psi[i]) <- beta0 + beta1*veg[i]
       z[i] ~ dbern(psi[i]) # Latent occupancy states
   
       # Point count
@@ -78,7 +78,7 @@ singleSpeciesCombined <- function(params){
       T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
   
       #GOF - Regression: Simulations
-      psiSim[i] <- exp(beta0 + beta1*cover[i] + beta2*burn[i])/(1+exp(beta0 + beta1*cover[i] + beta2*burn[i]))
+      psiSim[i] <- exp(beta0 + beta1*veg[i])/(1+exp(beta0 + beta1*veg[i]))
       zSim[i] ~ dbern(psiSim[i])
   
       # ARU - binomial
@@ -114,15 +114,12 @@ singleSpeciesCombined <- function(params){
     #GOF - Regression: Difference in mean vegetation
     cz1 <- sum(z)
     cz0 <- sum(1 - z)
-    TvegObs <- sum(cover*z) / ifelse(cz1>0,cz1, 1)  - sum(cover*(1-z)) / ifelse(cz0>0,cz0, 1)
+    TvegObs <- sum(veg*z) / ifelse(cz1>0,cz1, 1)  - sum(veg*(1-z)) / ifelse(cz0>0,cz0, 1)
     czSim1 <- sum(zSim)
     czSim0 <- sum(1 - zSim)
-    TvegSim <- sum(cover*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(cover*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
+    TvegSim <- sum(veg*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(veg*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
   
     mean_psi <- mean(psi)
-    NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-    PropOcc <- NOcc/nsites
-  
   }
   ")
   
@@ -143,7 +140,6 @@ singleSpeciesCombined <- function(params){
       g = gst,
       beta0 = 0,
       beta1 = 0,
-      beta2=0,
       reg_parm = 1
     )
   }
@@ -154,14 +150,12 @@ singleSpeciesCombined <- function(params){
   monitored <- c(
     "beta0",
     "beta1",
-    "beta2",
     "p11",
     "p_aru11",
     "p_aru01",
     "mu",
     "sigma",
     "mean_psi",
-    "NOcc", "PropOcc",
     "T_pc_obs",
     "T_pc_sim",
     "T_aru_obs",
@@ -181,11 +175,11 @@ singleSpeciesCombined <- function(params){
   
   
   n_v_per_site <-
-    rowSums(!is.na(data$y.ind[, 1:3])) # number of visits
-  y_pc_sum <- rowSums(data$y.ind[, 1:3], na.rm = TRUE)
+    rowSums(!is.na(data$y.ind[, 1:PCVisitLimit, drop=F])) # number of visits
+  y_pc_sum <- rowSums(data$y.ind[, 1:PCVisitLimit, drop=F], na.rm = TRUE)
   n_samp_per_site <-
-    rowSums(!is.na(data$y.aru[, 1:24])) # number of samples
-  y_aru_sum <- rowSums(data$y.aru[, 1:24], na.rm = TRUE)
+    rowSums(!is.na(data$y.aru[, 1:aruVisitLimit, drop=F])) # number of samples
+  y_aru_sum <- rowSums(data$y.aru[, 1:aruVisitLimit, drop=F], na.rm = TRUE)
   
   
   data2 <-
@@ -203,21 +197,17 @@ singleSpeciesCombined <- function(params){
   # readCombined, or some other alternative.
   jagsData <- within(data2, rm(indices))
   
-  site_covars <- read_csv("./models/input/wide4havars.csv") %>%
+  covs <- read_csv("./models/input/wide4havars.csv") %>%
     mutate(Point = avian_point) %>%
-    filter(Point %in% data$indices$point$Point)
+    dplyr::select(Point, mean_CanopyCover_2020_4ha)
   
-  colnames(site_covars) # list of options for site-level covariates-- I chose measures of canopy cover and burn severity at the 4ha scale
-  
-  covs <- site_covars %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi4_20202021_4ha)
-  
-  Veg <-left_join(as.data.frame(data$indices$point), covs, by = "Point")
-  jagsData$cover <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
-  jagsData$burn <- as.numeric(Veg$mean_RAVGcbi4_20202021_4ha) # check out a histogram of this... sort of bimodal 
+  Veg <-
+    left_join(as.data.frame(data$indices$point), covs, by = "Point")
+  jagsData$veg <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
   
   set.seed(123)
   
-  jags(
+  jagsResult <- jags(
     jagsData,
     inits,
     monitored,
@@ -229,7 +219,9 @@ singleSpeciesCombined <- function(params){
     n.burnin = nb,
     parallel = TRUE,
   )
+  jagsResult
 }
+
 # pp.check(
 #   jagsResult,
 #   "TvegObs",
@@ -245,7 +237,7 @@ singleSpeciesCombined <- function(params){
 #       sep = " "
 #     )
 # )
-# 
+
 # pp.check(
 #   jagsResult,
 #   "T_pc_obs",
@@ -290,12 +282,12 @@ singleSpeciesCombined <- function(params){
 #       sep = " "
 #     )
 # )
-# 
-# ## Result QC checks
+
+## Result QC checks
 # print(jagsResult)
 # table(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max)) # comparing sites with detections by ARU versus point count
-# (site_pos <-
-#   cbind(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max)))
+# site_pos <-
+#   cbind(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max))
 # mean(apply(site_pos, 1, max), na.rm = TRUE) # average number of sites with positive detections from either source
 # jagsResult$mean$mean_psi # Mean of the posterior of the mean occupancy rate psi across sites from model
 # 

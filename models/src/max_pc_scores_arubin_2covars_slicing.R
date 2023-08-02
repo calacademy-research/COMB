@@ -13,15 +13,15 @@ library(lubridate)
 library(tidyverse)
 
 source(here("comb_functions.R"))
-source(here("models/src/model_read_lib_agg.R")) # Functions were modified to read in ARU data that was pre-aggregated
+source(here("models/src/model_read_lib_agg_slicing.R")) # Functions were modified to read in ARU data that was pre-aggregated
 
-singleSpeciesCombined <- function(params){
+ModelTrial <- function(params){
   # parameters --------------------------------------------------------------
   speciesCode <- params$speciesCode
   year <- params$year
   threshold <- 0
-  aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
-  PCVisitLimit <- 3 # only consider this many PC visits per site (ordered)
+  aruVisitLimit <- params$nARU # only consider this many ARU visits per site (ordered)
+  PCVisitLimit <- params$nPC
   
   
   # JAGS structuring --------------------------------------------------------
@@ -31,6 +31,7 @@ singleSpeciesCombined <- function(params){
     beginTime = dhours(6),
     endTime = dhours(10),
     visitLimit = aruVisitLimit,
+    PCvisitlimit = PCVisitLimit,
     visitAggregation = "file",
     thresholdOptions = list(value = threshold,
                             is.quantile = F),
@@ -181,12 +182,11 @@ singleSpeciesCombined <- function(params){
   
   
   n_v_per_site <-
-    rowSums(!is.na(data$y.ind[, 1:3])) # number of visits
-  y_pc_sum <- rowSums(data$y.ind[, 1:3], na.rm = TRUE)
+    rowSums(!is.na(data$y.ind[, 1:PCVisitLimit, drop=F])) # number of visits
+  y_pc_sum <- rowSums(data$y.ind[, 1:PCVisitLimit, drop=F], na.rm = TRUE)
   n_samp_per_site <-
-    rowSums(!is.na(data$y.aru[, 1:24])) # number of samples
-  y_aru_sum <- rowSums(data$y.aru[, 1:24], na.rm = TRUE)
-  
+    rowSums(!is.na(data$y.aru[, 1:aruVisitLimit, drop=F])) # number of samples
+  y_aru_sum <- rowSums(data$y.aru[, 1:aruVisitLimit, drop=F], na.rm = TRUE)
   
   data2 <-
     append(
@@ -203,7 +203,7 @@ singleSpeciesCombined <- function(params){
   # readCombined, or some other alternative.
   jagsData <- within(data2, rm(indices))
   
-  site_covars <- read_csv("./models/input/wide4havars.csv") %>%
+  site_covars <- read_csv("./models/input/wide4havars.csv", show_col_types = F) %>%
     mutate(Point = avian_point) %>%
     filter(Point %in% data$indices$point$Point)
   
@@ -217,7 +217,8 @@ singleSpeciesCombined <- function(params){
   
   set.seed(123)
   
-  jags(
+  
+  jagsResult <- jags(
     jagsData,
     inits,
     monitored,
@@ -229,7 +230,9 @@ singleSpeciesCombined <- function(params){
     n.burnin = nb,
     parallel = TRUE,
   )
+  jagsResult
 }
+
 # pp.check(
 #   jagsResult,
 #   "TvegObs",
@@ -245,7 +248,7 @@ singleSpeciesCombined <- function(params){
 #       sep = " "
 #     )
 # )
-# 
+
 # pp.check(
 #   jagsResult,
 #   "T_pc_obs",
@@ -290,12 +293,12 @@ singleSpeciesCombined <- function(params){
 #       sep = " "
 #     )
 # )
-# 
-# ## Result QC checks
+
+## Result QC checks
 # print(jagsResult)
 # table(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max)) # comparing sites with detections by ARU versus point count
-# (site_pos <-
-#   cbind(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max)))
+# site_pos <-
+#   cbind(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max))
 # mean(apply(site_pos, 1, max), na.rm = TRUE) # average number of sites with positive detections from either source
 # jagsResult$mean$mean_psi # Mean of the posterior of the mean occupancy rate psi across sites from model
 # 

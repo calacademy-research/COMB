@@ -1,11 +1,13 @@
-#' run_trials: Parallel estimation using multiple hyperparameter settings.
+#' run_trials_data: Parallel estimation using multiple hyperparameter settings.
+#' This derivative of `run_trials` is meant to run the model on a single speciest with varying
+#' the amount of data it is fed (# of PC days/# of ARU recordings)
 #'
 #' Example usage:
 #'
 #' ```
-#' source('models/src/max_pc_scores_arubin_2covars.R')
-#' source('models/src/run_trials.R')
-#' startTrials(perSpeciesHparams(), singleSpeciesCombined)
+#' source("models/src/combined_slicing.R")
+#' source("models/src/run_trials_data.R")
+#' startTrials(perTrialHparams("GCKI"), ModelTrial)
 #'
 #' # Wait for some time
 #'
@@ -17,7 +19,7 @@
 #' code uses a generic list as the hyperparameter data structure.
 #'
 #' A run of the model under particular hyperparameters should be encapsulated
-#' by the caller as a funtion "trialFn" that takes a single argument, a generic
+#' by the caller as a function "trialFn" that takes a single argument, a generic
 #' list of parameters.
 #'
 #' Appendix: Why not purrr?
@@ -34,28 +36,22 @@ library(future)
 library(promises)
 library(tidyverse)
 
+assumedNumChains <- 2
+# Too scary
+# plan(multisession, workers = availableCores() / assumedNumChains)
 
-assumedNumChains <- 8
-plan(multisession, workers = availableCores() / assumedNumChains)
-
+plan(multisession, workers = 8)
 
 #' Generates a hyperparameter sweep over species codes.
 #'
 #' @return list [list(speciesCode=c, year=2021)] for each species code c.
-perSpeciesHparams <- function() {
-  guilds <- read_csv(
-    "models/input/bird_guilds.csv",
-    col_names = c("name", "code6", "code4", "guild"),
-    col_types = cols(
-      name = col_character(),
-      code6 = col_character(),
-      code4 = col_character(),
-      guild = col_character()
+perTrialHparams <- function(speciesCode) {
+  combinations <- expand_grid(1:3, 1:24) %>% rename(nPC = 1, nARU = 2)
+  
+  map2(combinations$nPC, combinations$nARU, 
+    ~ list(speciesCode = speciesCode, year = 2021, nARU = .y, nPC = .x)
     )
-  )
-  map(guilds$code4, function(c) {
-    list(speciesCode = c, year = 2021, nARU = 24, nPC = 3)
-  })
+  
 }
 
 #' Global list which will be populated by per-trial calls to a "promise
@@ -84,7 +80,7 @@ startTrials <- function(hparamsCollection, runTrial) {
         # structure and use it to pass param values through to fields of the
         # results frame. The current code is cheating and using a list to pass
         # the species code, but that leaves no room for other params.
-        names(kv) <- hparams$speciesCode
+        names(kv) <- paste(hparams$nPC, hparams$nARU, sep = "_") # PC comes first in names (then ARU)
         return(kv)
       },
       seed = 123
@@ -101,7 +97,6 @@ startTrials <- function(hparamsCollection, runTrial) {
   }
   NULL
 }
-
 
 #' Generates the "p" value for the pp_checks (posterior predictive checks)
 #' Given the name of the simulated values and the observed values
@@ -124,10 +119,24 @@ pp_check <- function(jagsResult, obs_sim){
   unlist(pp_vals)
 }
 
-
+#' Finds some sort of statistic (eg. variance) for the posterior samples
+#' for a parameter (or multiple parameters)
+#' 
+#' @param jagsResult as returned from a call to jagsUI::jags()
+#' @param FUN Functions to be used on the posterior samples
+#' @param parameter Vector of parameters to have functions preformed on
+#' 
+#' @return list()
+post_stats <- function(jagsResult, FUN, parameter){
+  x <- map(parameter, 
+      function(.){jagsResult$sims.list[[.]] %>% FUN}
+  ) %>% unlist()
+  
+  names(x) <- paste0(parameter, "_var") # change 'var' to other fun later
+  x
+}
 
 #' Extracts a list of posterior parameter means and Rhats.
-#' Also aggregates the pp_checks (their respective "p" values)
 #'
 #' @param jagsResult as returned from a call to jagsUI::jags()
 #'
@@ -141,10 +150,14 @@ collectEstimates <- function(jagsResult) {
     })
   )
   pp <- pp_check(jagsResult, c("Dobs" = "Dsim", 
-                 "TvegObs" = "TvegSim", 
-                 "T_pc_obs" = "T_pc_sim"))
-  append(pp, means) %>% append(rhats)
+                                "TvegObs" = "TvegSim", 
+                                "T_pc_obs" = "T_pc_sim",
+                                "T_aru_obs" = "T_aru_sim"))
+  stats <- post_stats(jagsResult, FUN = function(.){1/var(.)}, "mean_psi")
+  append(stats, means) %>% append(pp) %>% append(rhats)
 }
+
+
 
 #' Returns a tibble of (params, estimates) for trials that have finished.
 #'
@@ -155,5 +168,16 @@ collectEstimates <- function(jagsResult) {
 #'   means of the model parameters.
 getCurrentResults <- function() {
   table <- t(sapply(trialResults, collectEstimates))
-  data.frame(table) %>% rownames_to_column("species")
+  data.frame(table) %>% rownames_to_column("nPC_nARU") %>% 
+    separate(nPC_nARU, c("nPC", "nARU")) %>% 
+    mutate(nPC = as.numeric(nPC), nARU = as.numeric(nARU))
 }
+
+# x <- getCurrentResults()
+
+## Plotting the two Gaussian Distributions for the Scores
+# ggplot(x, aes(x = seq(-4, 5, length.out = nrow(x)))) + 
+#   geom_area(stat = "function", fun = dnorm, args = c(mean = x$mu1[1], sd = (1/sqrt(x$sigma[1]))), fill = "blue", alpha = 0.5) + 
+#   geom_area(stat = "function", fun = dnorm, args = c(mean = x$mu2[1], sd = (1/sqrt(x$sigma[1]))), fill = "red", alpha = 0.5) + 
+#   labs(title = "The Two Gaussian Distributions for the Gaussian Mixture Model") + 
+#   ylab("density") +xlab("logit")
