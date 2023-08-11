@@ -4,6 +4,7 @@
 #   * Run interactively
 #   * or ```   source('models/src/combined.R')   ```
 
+# CURRENTLY NOT RUNNING - DET COVARS UNDER CONSTRUCTON. DIMENSION MISMATCH IN P11
 
 # libraries ---------------------------------------------------------------
 library(googledrive)
@@ -48,12 +49,13 @@ cat(
 model {
 
   # Priors
-  #p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1) # commenting out p11 bc we are providing parameters for p below 
+
   p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
   p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
   
-  alpha0 ~ dunif(-5, 5)
-  alpha1 ~ dunif(-5, 5)
+  p11 ~ dunif(0,1)
+  alpha0 <- logit(p11)
+  alpha1 ~ dnorm(0, 0.01)
 
   beta0 ~ dunif(-5, 5) # Occupancy intercept on prob. scale
   beta1 ~ dunif(-5, 5)
@@ -74,9 +76,9 @@ model {
 
     # Point count
    
-    for(j in 1:nsurveys.pc) {
-      y.ind[i,j] ~ dbern(p11[i,j]*z[i]) # Observed occ. data (if available)
-      logit(p11[i,j]) <- alpha0 + alpha1*Time[i,j]
+    for(k in 1:nsurveys.pc) {
+      y.ind[i,k] ~ dbern(p11[i,k]) # Observed occ. data (if available)
+      logit(p11[i,k]) <- alpha0 + alpha1*Time[i,k]
     }
     # GOF Point Count - Tukey-Freeman Discrepancy
 #    T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
@@ -145,7 +147,7 @@ inits <- function() {
     sigma = c(1, 1),
     z = zst,
     # psi = psit,
-    p11 = runif(1, 0.2, 0.8),
+  #  p11 = runif(1, 0.2, 0.8),
     #  lambda = runif(1, 1, 20), omega = runif(1, 0, 15),
     g = gst,
     beta0 = 0,
@@ -164,7 +166,7 @@ monitored <- c(
   "beta2",
   "alpha0",
   "alpha1",
- # "p11",
+  "p11",
   "p_aru11",
   "p_aru01",
   "mu",
