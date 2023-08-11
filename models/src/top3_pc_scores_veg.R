@@ -21,6 +21,7 @@ speciesCode <- "BBWO" # must match prefiltering of dataML_model.csv
 year <- 2021
 threshold <- -100
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
+PCVisitLimit <- 3
 
 
 # JAGS structuring --------------------------------------------------------
@@ -30,6 +31,7 @@ data <- readCombined(
   beginTime = dhours(6),
   endTime = dhours(10),
   visitLimit = aruVisitLimit,
+  PCvisitlimit = PCVisitLimit, 
   visitAggregation = "file",
   thresholdOptions = list(
     value = threshold,
