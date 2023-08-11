@@ -1,5 +1,6 @@
 #logit_comparison.R
 #graphic to show logit distributions
+
 library(ggplot2)
 library(dplyr)
 library(ggarrange)
@@ -28,6 +29,7 @@ dataML_tall %>%
                summarize(focal_species_mean = mean(logit)),
              mapping = aes(xintercept = focal_species_mean),
              color = c(2,3), linetype="dashed", size=1)
+
 
 #a function to compare two species logits
 logitPlot <- function(dataML_tall, focsp1, focsp2){

@@ -22,7 +22,6 @@ PC <- PointC %>%
     dist_detect != "flyover", # comment these on/off to restrict distances
     dist_detect != "100m+",
     # dist_detect !="50to100m",
-    # point_ID_fk != "1072", # missing veg data for this point
     birdCode_fk != "UNKN", birdCode_fk != "0", !is.na(birdCode_fk),
     birdCode_fk != "XXHU", birdCode_fk != "XXWO", birdCode_fk != "XXWA",
     birdCode_fk != "SPHY", birdCode_fk != "GCCR",# comment on/off to include XX__ entries
@@ -32,8 +31,8 @@ PC <- PointC %>%
   mutate(year = year(DateTime)) %>%
   group_by(pointCount_ID_fk, point_ID_fk, DateTime, year, observer_fk, birdCode_fk) %>%
   summarise(abun = n()) %>%
-  spread(birdCode_fk, value = abun, fill = 0) %>%
-  pivot_longer(AMDI:WIWA, names_to = "birdCode_fk", values_to = "abun")
+  spread(birdCode_fk, value = abun, fill = 0) %>% # this and the following step effectively add 0 entries for every bird in the species list not detected at the point
+  pivot_longer(6:ncol(.), names_to = "birdCode_fk", values_to = "abun") # the range of columns to be pivoted relies on the start of the species list being the 7th column in the frame before pivoting. 
 
 visits <- PointC %>%
   mutate(year = year(DateTime)) %>%
@@ -88,8 +87,11 @@ dfc$birdCode_fk[which(dfc$birdCode_fk=="AUWA")] <- "YRWA"
 dfc$birdCode_fk[which(dfc$birdCode_fk=="ORJU")] <- "DEJU"
 dfc$birdCode_fk[which(dfc$birdCode_fk=="NOPY")] <- "NOPO"
 
+# make sure data are written to all locations that need them
 write_csv(dfc, "point_counts/data_ingest/output/PC_delinted.csv")
+write_csv(dfc, "models/input/PC_delinted.csv")
 write_csv(visits, "point_counts/data_ingest/output/PC_visit_metadata.csv")
+write_csv(visits, "models/input/PC_visit_metadata.csv")
 
 # #2021-11-29 QA/QC
 # visits %>%

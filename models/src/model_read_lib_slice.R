@@ -1,4 +1,4 @@
-#' model_read_lib_top3: Functions to read observations used in JAGS models
+#' model_read_lib: Functions to read observations used in JAGS models
 #'
 #' readCombined is the "do everything" function.
 #'
@@ -12,18 +12,20 @@
 #' names are a superset of those used in JAGS models from `AHMbook`.
 NULL
 
+library(fst)
 library(dplyr)
 library(here)
 library(lubridate)
 library(readr)
 library(stringr)
 library(tibble)
+library(data.table)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
 latlongPath <- here("models/input/latlong.csv")
 aru2pointPath <- here("models/input/aru2point.csv")
-dataMlPath <- here("models/input/dataML_top3.csv")
+dataMlPath <- here("models/input/dataML_tall.fst")
 pointCountsPath <- here("models/input/PC_delinted.csv")
 
 # The functions in this library are ordered approximately top-down, from those
@@ -205,12 +207,12 @@ readPointCounts <- function(outerIndices, PCvisitlimit, squeeze = T) {
     Species = birdCode_fk, Year = year(DateTime),
     Point = point_ID_fk, Visit = visit, Score = abun
   ) %>% filter(Visit <= PCvisitlimit)
-  # arrange(Point, Year, Visit) %>% 
-  # group_by(Point, Year) %>% 
-  # mutate(
-  #  Visit = seq_along(Visit)
-  # ) #%>% 
-  # filter(Visit <= PCvisitlimit) %>% ungroup()
+    # arrange(Point, Year, Visit) %>% 
+    # group_by(Point, Year) %>% 
+    # mutate(
+    #  Visit = seq_along(Visit)
+    # ) #%>% 
+    # filter(Visit <= PCvisitlimit) %>% ungroup()
   
   # (y == 1 if occupied) can be had by treating counts as "scores" and setting
   # the threshold to 0.
@@ -494,7 +496,7 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA) {
 #'
 #' @export
 readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10)) {
-  fread(
+  read_fst(
     dataMlPath
   ) %>%
     select(Species = species, Point = point, Date_Time, Score = logit) %>%

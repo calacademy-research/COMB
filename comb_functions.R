@@ -168,7 +168,8 @@ logit_to_p <- function(logit) {
 }
 
 #adjusted logit_to_p for the label smoothing
-#that adds about 0.1 in probability space ...
+#that adds about 0.1 in probability space ... 
+
 #a sum of this is ~ a count with confidence
 
 logit_to_p_f <- function(logit) {
@@ -185,8 +186,10 @@ logit_to_p_f_us <- function(logit) {
   return(p)
 }
 
+
 #weighted mean
 wmf<-function(value, coverage_fraction){stats::weighted.mean(x=value, w=coverage_fraction)}
+
 
 # FUNCTIONS FROM JAGSUI ------------
 #Functions for manipulating and extracting info from mcmc.list-class objects
