@@ -1,12 +1,6 @@
-# combined.R: Script to fit a (point count)+(ARU) occupancy model
-#
-# Usage:
-#   * Run interactively
-#   * or ```   source('models/src/combined.R')   ```
+# Experiment: Run current model on ~5 species that differ in detectability, model performance... 
+# Expand model to include a derived quantity of separation between the two score means; compare to estimates of psi (?)
 
-
-# libraries ---------------------------------------------------------------
-library(googledrive)
 library(here)
 library(jagsUI)
 library(lubridate)
@@ -18,7 +12,7 @@ source(here("models/src/model_read_lib_agg.R")) # Functions were modified to rea
 
 # parameters --------------------------------------------------------------
 speciesCode <- "BBWO" # must match prefiltering of dataML_model.csv
-year <- 2021
+year <- 2020
 threshold <- 0
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 
@@ -65,7 +59,7 @@ model {
 
   # Likelihood part 1 & 2: PC and ARU detections
   for (i in 1:nsites) { # Loop over sites
-    logit(psi[i]) <- beta0 + beta1*burn[i] 
+    logit(psi[i]) <- beta0 + beta1*Cover[i] 
     z[i] ~ dbern(psi[i]) # Latent occupancy states
 
     # Point count
@@ -95,7 +89,7 @@ model {
         T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
 
       # GOF - Regression: Simulations
-        psiSim[i] <- exp(beta0 + beta1*burn[i])/(1+exp(beta0 + beta1*burn[i])) 
+        psiSim[i] <- exp(beta0 + beta1*Cover[i])/(1+exp(beta0 + beta1*Cover[i])) 
         zSim[i] ~ dbern(psiSim[i])
         
       # GOF ARU Count - Tukey-Freeman Discrepancy
@@ -123,18 +117,19 @@ model {
   #GOF - Regression: Difference in mean vegetation
   cz1 <- sum(z)
   cz0 <- sum(1 - z)
-  TvegObs <- sum(burn*z) / ifelse(cz1>0,cz1, 1)  - sum(burn*(1-z)) / ifelse(cz0>0,cz0, 1)
+  TvegObs <- sum(Cover*z) / ifelse(cz1>0,cz1, 1)  - sum(Cover*(1-z)) / ifelse(cz0>0,cz0, 1)
   czSim1 <- sum(zSim)
   czSim0 <- sum(1 - zSim)
-  TvegSim <- sum(burn*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(burn*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
+  TvegSim <- sum(Cover*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(Cover*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
 
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
   PropOcc <- NOcc/nsites
   mean_psi <- mean(psi)
+  sep <- abs(mu[1]-mu[2])
  
   # simulate psi over a range of data
   for(k in 1:100) {
-    logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for severity
+    logit(psi.pred.cover[k]) <- beta0 + beta1 * XCover[k] # psi predictions for canopy cover
   }
 }
 ")
@@ -172,6 +167,8 @@ monitored <- c(
   "mu",
   "sigma",
   "mean_psi",
+  "sep",
+  "psi.pred.cover",
   "T_pc_obs",
   "T_pc_sim",
   "T_aru_obs",
@@ -217,9 +214,13 @@ covs <- read_csv("./models/input/wide4havars.csv") %>%
   mutate(Point = avian_point) %>%
   dplyr::select(Point, mean_CanopyCover_2020_4ha)
 
-Veg <-
+Veg <- 
   left_join(as.data.frame(data$indices$point), covs, by = "Point")
-jagsData$veg <- as.numeric(scale(Veg$mean_CanopyCover_2020_4ha))
+
+Veg$Cover.s <- scale(Veg$mean_CanopyCover_2020_4ha)
+jagsData$Cover <- as.numeric(Veg$Cover.s)
+summary(jagsData$Cover)
+jagsData$XCover = seq(-3, 2, length.out=100)
 
 set.seed(123)
 
@@ -236,74 +237,25 @@ jagsResult <- jags(
   parallel = TRUE,
 )
 
-pp.check(
-  jagsResult,
-  "TvegObs",
-  "TvegSim",
-  main =
-    paste(
-      "Posterior Predictive Check\n
-       Logistic Regression: Difference in Occupied Means\n",
-      "Species = ",
-      speciesCode,
-      "; Year = ",
-      year,
-      sep = " "
-    )
-)
-
-pp.check(
-  jagsResult,
-  "T_pc_obs",
-  "T_pc_sim",
-  main =
-    paste(
-      "Posterior Predictive Check\nFreeman-Tukey discrepancy - Point Count\n",
-      "Species = ",
-      speciesCode,
-      "; Year = ",
-      year,
-      sep = " "
-    )
-)
-
-pp.check(
-  jagsResult,
-  "T_aru_obs",
-  "T_aru_sim",
-  main =
-    paste(
-      "Posterior Predictive Check\nFreeman-Tukey discrepancy - ARU\n",
-      "Species = ",
-      speciesCode,
-      "; Year = ",
-      year,
-      sep = " "
-    )
-)
-
-pp.check(
-  jagsResult,
-  "Dobs",
-  "Dsim",
-  main =
-    paste(
-      "Posterior Predictive Check\nDeviance - ARU\n",
-      "Species = ",
-      speciesCode,
-      "; Year = ",
-      year,
-      sep = " "
-    )
-)
-
-## Result QC checks
 print(jagsResult)
-table(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max)) # comparing sites with detections by ARU versus point count
-site_pos <-
-  cbind(apply(data$y.pc[, 1, , ], 1, max), apply(data$y.aru, 1, max))
-mean(apply(site_pos, 1, max), na.rm = TRUE) # average number of sites with positive detections from either source
-jagsResult$mean$mean_psi # Mean of the posterior of the mean occupancy rate psi across sites from model
 
-mean(apply(data$y.pc[, 1, , ], 1, max), na.rm = TRUE)
-mean(apply(data$y.aru, 1, max), na.rm = TRUE)
+scorepost <- as.data.frame(jagsResult$sims.list$mu) %>%
+  pivot_longer(1:2,names_to = "distribution", values_to = "score")
+
+ggplot(scorepost) + 
+  geom_histogram(aes(score, fill=distribution), alpha=0.5, binwidth = .01) + 
+  labs(x="feature score")
+
+coverfx <- as.data.frame(jagsResult$summary[12:111,]) # predicted psi for values of Xburn
+coverfx$XCover <- jagsData$XCover
+# need to translate to original scale of data
+coverfx$CoverReal <- coverfx$XCover * attr(Veg$Cover.s, 'scaled:scale') + attr(Veg$Cover.s, 'scaled:center')
+
+ggplot(coverfx) +
+  geom_ribbon(aes(x=CoverReal, ymin=`2.5%`, ymax=`97.5%`, alpha=0.2)) +
+  geom_line(aes(x=CoverReal, y=mean)) +
+  #facet_wrap(~spp) +
+  theme_classic() +
+  labs(y="predicted occupancy probability (psi)", x = "% Canopy Cover", title="Black-backed Woodpecker") +
+  theme(legend.position = "none")
+
