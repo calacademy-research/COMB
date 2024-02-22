@@ -1,8 +1,9 @@
-#library(R2jags)
+library(R2jags)
 library(runjags)
 library(mcmcplots)
 library(jagsUI)
 library(tidyverse)
+
 
 gen_data_text <- function(
     include_aru = TRUE,
@@ -79,6 +80,7 @@ return(data_mod_string)
 
 sim_input_data <- function(
     nsites = 100,
+    psi = 0.5,
     p11 = 0.1,
     p_aru11 = 0.1,
     p_aru01 = 0.025,
@@ -90,32 +92,54 @@ sim_input_data <- function(
     nsurveys.pc = 3,
     covar_prob = 0.5,
     threshold = 0,
+    include_covar = TRUE,
     covar_continuous = FALSE) {
   tau <- 1 / (sigma * sigma)
   siteid <- rep(1:nsites, each = 1)
   nsamples <- length(siteid)
-  if (covar_continuous) {
-    covar <- rnorm(n = nsites)
-  } else {
-    covar <- rbinom(n = nsites, size = 1, prob = covar_prob)
-  }
   
-  input_data <- list(
-    nsites = nsites,
-    p11 = p11,
-    p_aru11 = p_aru11,
-    p_aru01 = p_aru01,
-    beta0 = beta0,
-    beta1 = beta1,
-    mu = mu,
-    tau = tau,
-    siteid = siteid,
-    nsamples = nsamples,
-    nsurveys.aru = nsurveys.aru,
-    nsurveys.pc = nsurveys.pc,
-    covar = covar,
-    threshold = threshold
-  )
+  if (include_covar) {
+    if (covar_continuous) {
+      covar <- rnorm(n = nsites)
+    } else {
+    covar <- rbinom(n = nsites, size = 1, prob = covar_prob)
+    } 
+    input_data <- list(
+      nsites = nsites,
+      p11 = p11,
+      p_aru11 = p_aru11,
+      p_aru01 = p_aru01,
+      beta0 = beta0,
+      beta1 = beta1,
+      mu = mu,
+      tau = tau,
+      siteid = siteid,
+      #nsamples = nsamples,
+      nsurveys.aru = nsurveys.aru,
+      nsurveys.pc = nsurveys.pc,
+      covar = covar,
+      threshold = threshold
+    )
+  } else {
+  	input_data <- list(
+      nsites = nsites,
+      p11 = p11,
+      p_aru11 = p_aru11,
+      p_aru01 = p_aru01,
+      mu = mu,
+      tau = tau,
+      siteid = siteid,
+      #nsamples = nsamples,
+      nsurveys.aru = nsurveys.aru,
+      nsurveys.pc = nsurveys.pc,
+      psi = psi,
+      covar = NA,
+      threshold = threshold
+    )
+  }
+
+
+  
   return(input_data)
 }
 
@@ -138,6 +162,7 @@ gen_simulated_data <- function(
     covar_prob = 0.5,
     threshold = 0,
     covar_continuous = FALSE,
+    psi = 0.5, 
     return_inputs = TRUE) {
   data_gen_string <- gen_data_text(
     include_aru,
@@ -159,6 +184,8 @@ gen_simulated_data <- function(
     nsurveys.pc = nsurveys.pc,
     covar_prob = covar_prob,
     threshold = threshold,
+    psi = psi,
+    include_covar = include_covar,
     covar_continuous = covar_continuous
   )
   
@@ -168,11 +195,11 @@ gen_simulated_data <- function(
   y.pc.sim <- matrix(sim_data[(1 + (nsurveys.aru * nsites)):((nsurveys.aru * nsites) + (nsurveys.pc * nsites))], nrow = nsites)
   score.sim <- matrix(sim_data[(1 + (nsurveys.aru * nsites) + (nsurveys.pc * nsites)):length(sim_data)], nrow = nsites)
   
-  if (return_inputs) {
+  if (return_inputs & include_covar) {
     sim_data_out <- list(
       nsites = nsites,
       siteid = input_data$siteid,
-      nsamples = input_data$nsamples,
+      # nsamples = input_data$nsamples,
       nsurveys.aru = nsurveys.aru,
       nsurveys.pc = nsurveys.pc,
       covar = input_data$covar,
@@ -181,7 +208,21 @@ gen_simulated_data <- function(
       y.pc = y.pc.sim,
       score = score.sim
     )
-  } else {
+  } else if (return_inputs) {
+  	sim_data_out <- list(
+      nsites = nsites,
+      siteid = input_data$siteid,
+      # nsamples = input_data$nsamples,
+      nsurveys.aru = nsurveys.aru,
+      nsurveys.pc = nsurveys.pc,
+      # covar = input_data$covar,
+      threshold = threshold,
+      y.aru = y.aru.sim,
+      y.pc = y.pc.sim,
+      score = score.sim
+    )
+  }
+  else {
     sim_data_out <- list(
       y.aru = y.aru.sim,
       y.pc = y.pc.sim,
@@ -406,6 +447,7 @@ run_n_simulation_and_fit <- function(
     include_scores = TRUE,
     include_covar = TRUE,
     nsites = 100,
+    psi = 0.5,
     p11 = 0.1,
     p_aru11 = 0.1,
     p_aru01 = 0.025,
@@ -454,7 +496,8 @@ run_n_simulation_and_fit <- function(
     nsurveys.pc = nsurveys.pc,
     covar_prob = covar_prob,
     threshold = threshold,
-    covar_continuous = covar_continuous
+    covar_continuous = covar_continuous, 
+    psi = psi
   )
   
   jags_model_fit_text <- gen_jags_model_text(
@@ -525,7 +568,8 @@ run_n_simulation_and_fit <- function(
       nsurveys.aru = nsurveys.aru,
       nsurveys.pc = nsurveys.pc,
       covar_prob = covar_prob,
-      threshold = threshold
+      threshold = threshold,
+      psi = psi
     )
     
     jagsResult <- fit_model_to_sim_data(
@@ -637,8 +681,11 @@ get_all_metric_df <- function(stacked_list, metric_name, param_list) {
 
 
 results_test <- run_n_simulation_and_fit(
-  n_sims = 5,
-  condition_name = "Base model - test"
+  n_sims = 1,
+  condition_name = "Base model - test, no covar",
+  include_covar = FALSE, 
+  include_covar_model = FALSE,
+  psi = 0.2
 )
 
 results_list <- run_n_simulation_and_fit(
