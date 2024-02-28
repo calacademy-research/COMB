@@ -11,8 +11,8 @@ source(here("models/src/model_read_lib_agg.R")) # Functions were modified to rea
 
 
 # parameters --------------------------------------------------------------
-speciesCode <- "BBWO" # must match prefiltering of dataML_model.csv
-year <- 2020
+speciesCode <- BHGR # must match prefiltering of dataML_model.csv
+year <- 2021
 threshold <- 0
 aruVisitLimit <- 24 # only consider this many ARU visits per site (ordered)
 
@@ -30,6 +30,13 @@ data <- readCombined(
   squeeze = T,
   logit_col = "max_logit" # This is specifying we want the max_logit column from aggregated data
 )
+
+
+# Naive Occupancy ---------------------------------------------------------
+
+data$y.aru
+colSums(max(data$y.pc[1,1,,]))
+colSums(rowSums(data$y.ind))
 
 
 # JAGS specification ------------------------------------------------------
@@ -50,8 +57,8 @@ model {
   beta1 ~ dnorm(0, 0.01)
 
   # Parameters of the observation model for the scores
-  mu[1] ~ dnorm(-2, 0.01) # changed to increase variance
-  mu[2] ~ dnorm(-2, 0.01)
+  mu[1] ~ dnorm(-2, 0.001) # changed to increase variance
+  mu[2] ~ dnorm(-2, 0.001)
   sigma[1] ~ dunif(0.1, 5)
   tau[1] <- 1 / (sigma[1] * sigma[1])
   sigma[2] ~ dunif(0.1, 5)
@@ -240,6 +247,7 @@ jagsResult <- jags(
 print(jagsResult)
 
 scorepost <- as.data.frame(jagsResult$sims.list$mu) %>%
+  rename(mu1 = V1, mu2 = V2) %>%
   pivot_longer(1:2,names_to = "distribution", values_to = "score")
 
 ggplot(scorepost) + 
@@ -256,6 +264,6 @@ ggplot(coverfx) +
   geom_line(aes(x=CoverReal, y=mean)) +
   #facet_wrap(~spp) +
   theme_classic() +
-  labs(y="predicted occupancy probability (psi)", x = "% Canopy Cover", title="Black-backed Woodpecker") +
+  labs(y="predicted occupancy probability (psi)", x = "% Canopy Cover", title="Hermit Warbler") +
   theme(legend.position = "none")
 
