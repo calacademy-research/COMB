@@ -21,10 +21,10 @@ library(tibble)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
-latlongPath <- here("models/input/latlong.csv")
-aru2pointPath <- here("models/input/aru2point.csv")
-dataMlPath <- here("models/input/file_logit_agg.csv")
-pointCountsPath <- here("models/input/PC_delinted.csv")
+latlongPath <- here("Documents/COMB minimal/models/input/latlong.csv")
+aru2pointPath <- here("Documents/COMB minimal/models/input/aru2point.csv")
+dataMlPath <- here("Documents/COMB minimal/models/input/file_logit_agg.csv")
+pointCountsPath <- here("Documents/COMB minimal/models/input/PC_delinted.csv")
 
 # The functions in this library are ordered approximately top-down, from those
 # most likely to be called by a dependent script to those most purely internal /
@@ -160,8 +160,35 @@ combineJagsData <- function(pointCountData, aruData) {
 
   s <- aruData$sparseScore # alias for readability
 
-#ADD IN THE number of samples per site here 
+  #Adding in the number of samples per site here - these are needed for 
+  #posterior predictive checks, but also can be a quick QC check on the data
+  if (max(outerIndices$year$Year_Index) == 1 && 
+      max(outerIndices$species$Species_Index) == 1) {
+    n_v_per_site <-
+      rowSums(!is.na(pointCountData$y)) # number of visits per site
+    y_pc_sum <- rowSums(pointCountData$y, na.rm = TRUE)
+    n_samp_per_site <-
+      rowSums(!is.na(aruData$y)) # number of samples per site
+    y_aru_sum <- rowSums(aruData$y, na.rm = TRUE)
+  } else if (xor(max(outerIndices$year$Year_Index) > 1,
+                 max(outerIndices$species$Species_Index) > 1)) {
+    n_v_per_site <-
+      rowSums(!is.na(pointCountData$y), dims = 2) # number of visits per site/yr
+    y_pc_sum <- rowSums(pointCountData$y, na.rm = TRUE , dims = 2)
+    n_samp_per_site <-
+      rowSums(!is.na(aruData$y), dims = 2) # number of samples per site/year
+    y_aru_sum <- rowSums(aruData$y, na.rm = TRUE, dims = 2)
+  } else{
+    n_v_per_site <-
+      rowSums(!is.na(pointCountData$y), dims = 3) # number of visits per site/yr
+    y_pc_sum <- rowSums(pointCountData$y, na.rm = TRUE , dims = 3)
+    n_samp_per_site <-
+      rowSums(!is.na(aruData$y), dims = 3) # number of samples per site/year
+    y_aru_sum <- rowSums(aruData$y, na.rm = TRUE, dims = 3)
+  }
+
   
+
   
   list(
     indices = c(
@@ -179,6 +206,10 @@ combineJagsData <- function(pointCountData, aruData) {
     y.ind = pointCountData$y,
     y.pc = pointCountData$y.raw,
     y.aru = aruData$y,
+    n_v = n_v_per_site,
+    y_pc_sum = y_pc_sum,
+    n_s = n_samp_per_site,
+    y_aru_sum = y_aru_sum,
     # ARU scores (sparse)
     nsamples = nrow(s),
     speciesid = s$Species_Index,
@@ -440,7 +471,8 @@ structureForJagsARU <- function(outerIndices, visits, visitLimit = NA,
   sparseScores <- scores %>%
     select(Species, Year, Point, Visit, Score, Date_Time) %>%
     inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Visit, Score, Date_Time)
+    select(Species_Index, Year_Index, Point_Index, Visit_Index, Visit, Score, Date_Time) %>%
+    arrange(Species_Index, Year_Index, Point_Index, Visit_Index)
   
   # Counts
   groupByIndices <- function(.) {
