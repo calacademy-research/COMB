@@ -21,10 +21,10 @@ library(tibble)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
-latlongPath <- here("Documents/COMB minimal/models/input/latlong.csv")
-aru2pointPath <- here("Documents/COMB minimal/models/input/aru2point.csv")
-dataMlPath <- here("Documents/COMB minimal/models/input/file_logit_agg.csv")
-pointCountsPath <- here("Documents/COMB minimal/models/input/PC_delinted.csv")
+latlongPath <- here("models/input/latlong.csv")
+aru2pointPath <- here("models/input/aru2point.csv")
+dataMlPath <- here("models/input/file_logit_agg.csv")
+pointCountsPath <- here("models/input/PC_delinted.csv")
 
 # The functions in this library are ordered approximately top-down, from those
 # most likely to be called by a dependent script to those most purely internal /
