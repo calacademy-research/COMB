@@ -20,7 +20,7 @@ source(here("models/src/model_read_lib_agg.R")) # Functions were modified to rea
 # parameters --------------------------------------------------------------
 speciesCode <- "BBWO" # must match prefiltering of dataML_model.csv
 year <- 2020
-threshold <- 1
+threshold <- 0
 aruVisitLimit <- 32 # only consider this many ARU visits per site (ordered). 32=4 mornings
 
 
@@ -263,7 +263,7 @@ PC$Time <- times(format(PC$DateTime, "%H:%M:%S"))
 PC$JDay.s <- scale(PC$JDay)
 PC$Time.s <- scale(PC$Time)
 
-visit_pc <- PC %>% filter(year==2020, birdCode_fk==speciesCode) %>% dplyr::select(year, point_ID_fk, visit, JDay, Time, JDay.s, Time.s)
+visit_pc <- PC %>% filter(year==year, birdCode_fk==speciesCode) %>% dplyr::select(year, point_ID_fk, visit, JDay, Time, JDay.s, Time.s)
 pcTime <- as.matrix(visit_pc %>% group_by(point_ID_fk, visit) %>% dplyr::select(point_ID_fk, visit, Time.s) %>% pivot_wider(names_from = visit, values_from = Time.s))
 
 pcDate <- as.matrix(visit_pc %>% group_by(point_ID_fk, visit) %>% dplyr::select(point_ID_fk, visit, JDay.s) %>% pivot_wider(names_from = visit, values_from = JDay.s))
