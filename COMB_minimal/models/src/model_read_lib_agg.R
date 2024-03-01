@@ -21,6 +21,7 @@ library(tibble)
 
 # All of these are symlinks, which adds a layer of indirection, so we don't do
 # any drive_sync here.
+
 latlongPath <- here("models/input/latlong.csv")
 aru2pointPath <- here("models/input/aru2point.csv")
 dataMlPath <- here("models/input/file_logit_agg.csv")
@@ -66,9 +67,9 @@ pointCountsPath <- here("models/input/PC_delinted.csv")
 #'   ARU visits.)
 #' @param visitLimit Only this many visits will be kept, per the definition and
 #'   ordering determined by visitAggregation. (Only applies to ARU visits.)
-#' @param daysLimit Only this many distinct days will be kept, 
+#' @param daysLimit Only this many distinct days will be kept,
 #'   ordering determined by visitAggregation. (Only applies to ARU visits.)
-#' @param samplesperdayLimit Only this many distinct samples per day will be kept, 
+#' @param samplesperdayLimit Only this many distinct samples per day will be kept,
 #'   ordering determined by visitAggregation. (Only applies to ARU visits.)
 #' @param thresholdOptions list with two names
 #'     - value: numeric scalar to use the same threshold for all species or
@@ -79,6 +80,10 @@ pointCountsPath <- here("models/input/PC_delinted.csv")
 #' @param squeeze Whether to drop the year or species axes when their size is 1.
 #'   This lets this same function work for any rank of counts matrix assumed by
 #'   the downstream JAGS model.
+#'
+#' @param scale_datetime Whether to scale the days/times for use in regression
+#'   models.
+#'
 #'
 #' @return list of data, including all variable names used in JAGS models as
 #'   well as additional values for reference.
@@ -107,30 +112,39 @@ pointCountsPath <- here("models/input/PC_delinted.csv")
 #'     - score: Vector of scores. (As a check, (len(score) == sum(y.aru)).)
 #'
 #' @export
-readCombined <- function(species, years, beginTime = NA, endTime = dhours(10),
-                         visitAggregation = "file", 
-                         visitLimit = NA,
-                         daysLimit = NA,
-                         samplesperdayLimit = NA,
-                         thresholdOptions = list(
-                           value = -2.0,
-                           is.quantile = F
-                         ),
-                         squeeze = T,
-                         logit_col = "logit") {
-  outerIndices <- buildOuterIndices(species, years)
-  pointCountData <- readPointCounts(outerIndices, squeeze = squeeze)
-  aruData <- readML(
-    outerIndices,
-    beginTime = beginTime, endTime = endTime,
-    visitAggregation = visitAggregation, visitLimit = visitLimit,
-    daysLimit = daysLimit,
-    samplesperdayLimit = samplesperdayLimit,
-    thresholdOptions = thresholdOptions, squeeze = squeeze,
-    logit_col = logit_col
-  )
-  combineJagsData(pointCountData, aruData)
-}
+readCombined <-
+  function(species,
+           years,
+           beginTime = NA,
+           endTime = dhours(10),
+           visitAggregation = "file",
+           visitLimit = NA,
+           daysLimit = NA,
+           samplesperdayLimit = NA,
+           thresholdOptions = list(value = -2.0,
+                                   is.quantile = F),
+           squeeze = T,
+           logit_col = "logit",
+           scale_datetime = F) {
+    outerIndices <- buildOuterIndices(species, years)
+    pointCountData <- readPointCounts(outerIndices,
+                                      squeeze = squeeze,
+                                      scale_datetime = scale_datetime)
+    aruData <- readML(
+      outerIndices,
+      beginTime = beginTime,
+      endTime = endTime,
+      visitAggregation = visitAggregation,
+      visitLimit = visitLimit,
+      daysLimit = daysLimit,
+      samplesperdayLimit = samplesperdayLimit,
+      thresholdOptions = thresholdOptions,
+      squeeze = squeeze,
+      logit_col = logit_col,
+      scale_datetime = scale_datetime
+    )
+    combineJagsData(pointCountData, aruData)
+  }
 
 #' Combines point counts with ML outputs based on ARU data
 #'
@@ -157,12 +171,12 @@ combineJagsData <- function(pointCountData, aruData) {
   }
   outerIndices <- getOuterIndices(pointCountData)
   stopifnot(identical(outerIndices, getOuterIndices(aruData)))
-
+  
   s <- aruData$sparseScore # alias for readability
-
-  #Adding in the number of samples per site here - these are needed for 
+  
+  #Adding in the number of samples per site here - these are needed for
   #posterior predictive checks, but also can be a quick QC check on the data
-  if (max(outerIndices$year$Year_Index) == 1 && 
+  if (max(outerIndices$year$Year_Index) == 1 &&
       max(outerIndices$species$Species_Index) == 1) {
     n_v_per_site <-
       rowSums(!is.na(pointCountData$y)) # number of visits per site
@@ -170,8 +184,10 @@ combineJagsData <- function(pointCountData, aruData) {
     n_samp_per_site <-
       rowSums(!is.na(aruData$y)) # number of samples per site
     y_aru_sum <- rowSums(aruData$y, na.rm = TRUE)
-  } else if (xor(max(outerIndices$year$Year_Index) > 1,
-                 max(outerIndices$species$Species_Index) > 1)) {
+  } else if (xor(
+    max(outerIndices$year$Year_Index) > 1,
+    max(outerIndices$species$Species_Index) > 1
+  )) {
     n_v_per_site <-
       rowSums(!is.na(pointCountData$y), dims = 2) # number of visits per site/yr
     y_pc_sum <- rowSums(pointCountData$y, na.rm = TRUE , dims = 2)
@@ -186,9 +202,9 @@ combineJagsData <- function(pointCountData, aruData) {
       rowSums(!is.na(aruData$y), dims = 3) # number of samples per site/year
     y_aru_sum <- rowSums(aruData$y, na.rm = TRUE, dims = 3)
   }
-
   
-
+  
+  
   
   list(
     indices = c(
@@ -205,7 +221,19 @@ combineJagsData <- function(pointCountData, aruData) {
     nsurveys.aru = max(aruData$indices$visit$Visit_Index),
     y.ind = pointCountData$y,
     y.pc = pointCountData$y.raw,
+    pc_DateTime = as.POSIXct(
+      pointCountData$pc_DateTime,
+      format = "%Y-%m-%dT%H:%M",
+      tz = "America/Los_Angeles"
+    ),
+    pc_YDay = pointCountData$pc_YDay,
+    pc_Time = pointCountData$pc_Time,
     y.aru = aruData$y,
+    aru_DateTime = as.POSIXct(aruData$aru_DateTime,
+                              format = "%Y-%m-%dT%H:%M",
+                              tz = "America/Los_Angeles"),
+    aru_YDay = aruData$aru_YDay,
+    aru_Time = aruData$aru_Time,
     n_v = n_v_per_site,
     y_pc_sum = y_pc_sum,
     n_s = n_samp_per_site,
@@ -216,7 +244,7 @@ combineJagsData <- function(pointCountData, aruData) {
     yearid = s$Year_Index,
     siteid = s$Point_Index,
     occid = s$Visit_Index,
-    scores_datetime = s$Date_Time,
+    scores_datetime = force_tz(s$Date_Time, "America/Los_Angeles"),
     score = s$Score
   )
 }
@@ -235,52 +263,128 @@ combineJagsData <- function(pointCountData, aruData) {
 #'   are not present.
 #'
 #' @export
-readPointCounts <- function(outerIndices, squeeze = T) {
-  #Note:within site, year, and visit, only one timestamp reflects that visit (i.e. no multiple timestamps per visit within a site assumed)
-  counts <- read_csv(
-    pointCountsPath,
-    col_types = cols(
-      observer_fk = col_character(),
-      birdCode_fk = col_character(),
-      abun = col_integer(),
-      point_ID_fk = col_integer(),
-      year = col_integer(),
-      visit = col_integer(),
-      DateTime = col_datetime()
+readPointCounts <-
+  function(outerIndices,
+           squeeze = T,
+           scale_datetime = F) {
+    #Note:within site, year, and visit, only one timestamp reflects that visit (i.e. no multiple timestamps per visit within a site assumed)
+    counts <- read_csv(
+      pointCountsPath,
+      col_types = cols(
+        observer_fk = col_character(),
+        birdCode_fk = col_character(),
+        abun = col_integer(),
+        point_ID_fk = col_integer(),
+        year = col_integer(),
+        visit = col_integer(),
+        DateTime = col_datetime()
+      )
+    ) %>% mutate(
+      Species = birdCode_fk,
+      Year = year(DateTime),
+      Point = point_ID_fk,
+      Visit = visit,
+      Score = abun,
+      Date_Time = DateTime
     )
-  ) %>% mutate(
-    Species = birdCode_fk, Year = year(DateTime),
-    Point = point_ID_fk, Visit = visit, Score = abun, Date_Time = DateTime
-  )
-
-  # (y == 1 if occupied) can be had by treating counts as "scores" and setting
-  # the threshold to 0.
-
-  visits <- counts %>%
-    select(Year, Point, Visit) %>%
-    distinct()
-  scores <- counts %>%
-    filter(Score > 0) %>%
-    select(Species, Year, Point, Visit, Score)
-  countsData <- structureForJagsPC(outerIndices, visits, scores,
-    visitLimit = NA,
-    squeeze = squeeze
-  )
-
-  # Add raw counts to the data list, to give the option of modeling a rate of
-  # observer counts.
-  indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
-  sparseRawCounts <- counts %>%
-    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
-  y.raw <- sparseToDense(sparseRawCounts, indices$full)
-  dimnames(y.raw)[[1]] <- indices$species$Species
-  dimnames(y.raw)[[2]] <- indices$year$Year
-  dimnames(y.raw)[[3]] <- indices$point$Point
-  y.raw <- ifelse(y.raw > 1, 1, y.raw)
-
-  c(countsData, list(y.raw = y.raw))
-}
+    
+    # (y == 1 if occupied) can be had by treating counts as "scores" and setting
+    # the threshold to 0.
+    
+    visits <- counts %>%
+      select(Year, Point, Visit) %>%
+      distinct()
+    scores <- counts %>%
+      filter(Score > 0) %>%
+      select(Species, Year, Point, Visit, Score)
+    countsData <- structureForJagsPC(outerIndices,
+                                     visits,
+                                     scores,
+                                     visitLimit = NA,
+                                     squeeze = squeeze)
+    
+    # Add raw counts to the data list, to give the option of modeling a rate of
+    # observer counts.
+    indices <- buildFullIndices(outerIndices, visits, visitLimit = NA)
+    sparseRawCounts <- counts %>%
+      inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+      select(Species_Index, Year_Index, Point_Index, Visit_Index, Score)
+    y.raw <- sparseToDense(sparseRawCounts, indices$full)
+    dimnames(y.raw)[[1]] <- indices$species$Species
+    dimnames(y.raw)[[2]] <- indices$year$Year
+    dimnames(y.raw)[[3]] <- indices$point$Point
+    y.raw <- ifelse(y.raw > 1, 1, y.raw)
+    
+    
+    sparseDates <- counts %>%
+      inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+      select(Species_Index,
+             Year_Index,
+             Point_Index,
+             Visit_Index,
+             Date_Time) %>%
+      arrange(Species_Index, Year_Index, Point_Index, Visit_Index) %>%
+      mutate(Date_Time = with_tz(Date_Time, tzone = "America/Los_Angeles"))
+    
+    
+    pc_DateTime <- sparseToDense(sparseDates, indices$full)
+    dimnames(pc_DateTime)[[1]] <- indices$species$Species
+    dimnames(pc_DateTime)[[2]] <- indices$year$Year
+    dimnames(pc_DateTime)[[3]] <- indices$point$Point
+    
+    if (scale_datetime) {
+      sparseTimes <- sparseDates %>%
+        mutate(Time = scale(times(format(
+          Date_Time, "%H:%M:%S"
+        )))) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, Time)
+      sparseDays <- sparseDates %>%
+        mutate(YDay = scale(yday(Date_Time))) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, YDay)
+    }
+    else {
+      sparseTimes <- sparseDates %>%
+        mutate(Time = format(Date_Time, "%H:%M:%S")) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, Time)
+      sparseDays <- sparseDates %>%
+        mutate(YDay = yday(Date_Time)) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, YDay)
+    }
+    pc_Time <- sparseToDense(sparseTimes, indices$full)
+    dimnames(pc_Time)[[1]] <- indices$species$Species
+    dimnames(pc_Time)[[2]] <- indices$year$Year
+    dimnames(pc_Time)[[3]] <- indices$point$Point
+    
+    pc_YDay <- sparseToDense(sparseDays, indices$full)
+    dimnames(pc_YDay)[[1]] <- indices$species$Species
+    dimnames(pc_YDay)[[2]] <- indices$year$Year
+    dimnames(pc_YDay)[[3]] <- indices$point$Point
+    
+    
+    pc_YDay[is.na(pc_YDay)] <- 0
+    pc_Time[is.na(pc_Time)] <- 0
+    
+    if (squeeze) {
+      y.raw = drop(y.raw)
+      pc_DateTime_s <- drop(pc_DateTime)
+      pc_YDay_s <- drop(pc_YDay)
+      pc_Time_s <- drop(pc_Time)
+    } else {
+      pc_DateTime_s <- pc_DateTime
+      pc_YDay_s <- pc_YDay
+      pc_Time_s <- pc_Time
+    }
+    
+    c(
+      countsData,
+      list(
+        y.raw = y.raw,
+        pc_DateTime = pc_DateTime_s,
+        pc_YDay = pc_YDay_s,
+        pc_Time = pc_Time_s
+      )
+    )
+  }
 
 #' Reads and structures machine learning model outputs
 #'
@@ -296,231 +400,331 @@ readPointCounts <- function(outerIndices, squeeze = T) {
 #'   count-specific names are not present.
 #'
 #' @export
-readML <- function(outerIndices, beginTime = NA, endTime = dhours(10),
-                   visitAggregation = "file", visitLimit = NA,
-                   daysLimit = NA,
-                   samplesperdayLimit = NA,
-                   thresholdOptions = list(value = -5, is.quantile = F),
-                   squeeze = T, logit_col) {
-  aru2point <- readAru2point()
-  mlTibble <- readDataMl(
-    species = outerIndices$species$Species,
-    years = outerIndices$year$Year,
-    beginTime = beginTime,
-    endTime = endTime, 
-    logit_col = logit_col
-  )
-
-  # Visits
-  if (visitAggregation == "file") {
-    addVisitKeys <- function(.) {
-      mutate(., Year = year(Date_Time), Visit = Date_Time)
-    }
-  } else if (visitAggregation == "day") {
-    addVisitKeys <- function(.) {
-      mutate(., Year = year(Date_Time), Visit = yday(Date_Time))
-    }
-  }
-  visits <- aru2point %>%
-    mutate(Date_Time = parse_date_time(
-      str_extract(filename, "\\d{8}_\\d{6}"), "%Y%m%d_%H%M%S"
-    )) %>%
-    filterTimeOfDay(beginTime = beginTime, endTime = endTime) %>%
-    select(Point = point, Date_Time) %>%
-    addVisitKeys() %>%
-    select(Year, Point, Visit, Date_Time)
-
-  # Scores
-  if (length(thresholdOptions$value) != 1) {
-    # TODO: Handle per-species array of thresholds.
-    stop("per-species thresholds are not implemented")
-  }
-  if (thresholdOptions$is.quantile) {
-    stop("quantile thresholds are not implemented")
-  }
-  threshold <- thresholdOptions$value
-  species <- outerIndices$species$Species
-  years <- outerIndices$year$Year
-  scores <- mlTibble %>%
-   # filter(Score > threshold) %>%
-    addVisitKeys() %>%
-    select(Species, Year, Point, Visit, Score, Date_Time)
-
-  structureForJagsARU(outerIndices, visits, scores,
-    visitLimit = visitLimit,
-    daysLimit = daysLimit,
-    samplesperdayLimit = samplesperdayLimit,
-    squeeze = squeeze, 
-    threshold = threshold
-  )
-}
-
-#' Builds a JAGS data list
-#'
-#' This adds a visits dimension to the indices, build a "y matrix" that
-#' tabulates score counts along the index dimensions and gives names that match
-#' `AHMbook` examples to the columns of the scores table.
-#'
-#' @param outerIndices List of value-to-index tables as returned by
-#'   buildOuterIndices. Used to keep index meanings consistent.
-#' @param visits Table with (Year, Point, Visit) columns that will be sorted and
-#'   to assign a Visit_Index scoped to each (Year, Point).
-#' @param visitLimit Optional maximum Visit_Index to consider. Visits assigned
-#'   higher indices will be silently ignored.
-#' @param scores Table of above-threshold scores with columns (Species, Year,
-#'   Point, Visit, Score). Counts of these become the "y matrix."
-#' @param squeeze Whether to drop the year or species axes when their size is 1.
-#'   This lets this same function work for any rank of counts matrix assumed by
-#'   the downstream JAGS model.
-#'
-#' @return JAGS data list as returned by readCombined except that the names are
-#'   unqualified.
-#'
-#' @export
-structureForJagsPC <- function(outerIndices, visits, visitLimit = NA, 
-                             scores,
-                             squeeze = T) {
-  indices <- buildFullIndices(outerIndices, visits, visitLimit = visitLimit)
-
-  # Scores
-  sparseScores <- scores %>%
-    select(Species, Year, Point, Visit, Score) %>%
-    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Visit, Score)
-
-  # Counts
-  groupByIndices <- function(.) {
-    group_by(., Species_Index, Year_Index, Point_Index, Visit_Index)
-  }
-  initialCounts <- indices$full %>% # visited points start from 0
-    groupByIndices() %>%
-    summarise(Count = 0, .groups = "drop")
-  scoreCounts <- sparseScores %>%
-    groupByIndices() %>%
-    summarise(Count = n(), .groups = "drop")
-  sparseCounts <- rbind(initialCounts, scoreCounts) %>%
-    groupByIndices() %>%
-    summarise(Count = sum(Count), .groups = "drop")
-
-  y.full <- sparseToDense(sparseCounts, indices$full)
-  dimnames(y.full)[[1]] <- indices$species$Species
-  dimnames(y.full)[[2]] <- indices$year$Year
-  dimnames(y.full)[[3]] <- indices$point$Point
-
-  if (squeeze) {
-    y <- drop(y.full)
-  } else {
-    y <- y.full
-  }
-
-  list(
-    # for reference
-    indices = indices,
-    sparseScores = sparseScores,
-    sparseCounts = sparseCounts,
-
-    # for JAGS
-    nspecies = dim(y.full)[1],
-    nyears = dim(y.full)[2],
-    nsites = dim(y.full)[3],
-    nsurveys = dim(y.full)[4],
-    y = y,
-    nsamples = nrow(sparseScores),
-    speciesid = sparseScores$Species_Index,
-    yearid = sparseScores$Year_Index,
-    siteid = sparseScores$Point_Index,
-    occid = sparseScores$Visit_Index,
-  #  scores_datetime = sparseScores$Date_Time,
-    score = sparseScores$Score
-  )
-}
-
-
-#' Builds a JAGS data list
-#'
-#' This adds a visits dimension to the indices, build a "y matrix" that
-#' tabulates score counts along the index dimensions and gives names that match
-#' `AHMbook` examples to the columns of the scores table.
-#'
-#' @param outerIndices List of value-to-index tables as returned by
-#'   buildOuterIndices. Used to keep index meanings consistent.
-#' @param visits Table with (Year, Point, Visit) columns that will be sorted and
-#'   to assign a Visit_Index scoped to each (Year, Point).
-#' @param visitLimit Optional maximum Visit_Index to consider. Visits assigned
-#'   higher indices will be silently ignored.
-#' @param scores Table of above-threshold scores with columns (Species, Year,
-#'   Point, Visit, Score). Counts of these become the "y matrix."
-#' @param squeeze Whether to drop the year or species axes when their size is 1.
-#'   This lets this same function work for any rank of counts matrix assumed by
-#'   the downstream JAGS model.
-#'
-#' @return JAGS data list as returned by readCombined except that the names are
-#'   unqualified.
-#'
-#' @export
-structureForJagsARU <- function(outerIndices, visits, visitLimit = NA, 
-                                daysLimit = NA,
-                                samplesperdayLimit = NA,
-                                scores,
-                                squeeze = T, threshold = -2) {
-  indices <- buildFullIndices(outerIndices, visits, visitLimit = visitLimit, 
-                              daysLimit = daysLimit, 
-                              samplesperdayLimit = samplesperdayLimit)
-  
-  # Scores
-  sparseScores <- scores %>%
-    select(Species, Year, Point, Visit, Score, Date_Time) %>%
-    inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
-    select(Species_Index, Year_Index, Point_Index, Visit_Index, Visit, Score, Date_Time) %>%
-    arrange(Species_Index, Year_Index, Point_Index, Visit_Index)
-  
-  # Counts
-  groupByIndices <- function(.) {
-    group_by(., Species_Index, Year_Index, Point_Index, Visit_Index)
-  }
-  initialCounts <- indices$full %>% # visited points start from 0
-    groupByIndices() %>%
-    summarise(Count = 0, .groups = "drop")
-  scoreCounts <- sparseScores %>%
-    groupByIndices() %>%
-    mutate(detection = ifelse(Score >= threshold, 1 , 0)) %>%
-    summarise(Count = sum(detection), .groups = "drop")
-  sparseCounts <- rbind(initialCounts, scoreCounts) %>%
-    groupByIndices() %>%
-    summarise(Count = sum(Count), .groups = "drop")
-  
-  y.full <- sparseToDense(sparseCounts, indices$full)
-  dimnames(y.full)[[1]] <- indices$species$Species
-  dimnames(y.full)[[2]] <- indices$year$Year
-  dimnames(y.full)[[3]] <- indices$point$Point
-  
-  if (squeeze) {
-    y <- drop(y.full)
-  } else {
-    y <- y.full
-  }
-  
-  list(
-    # for reference
-    indices = indices,
-    sparseScores = sparseScores,
-    sparseCounts = sparseCounts,
+readML <-
+  function(outerIndices,
+           beginTime = NA,
+           endTime = dhours(10),
+           visitAggregation = "file",
+           visitLimit = NA,
+           daysLimit = NA,
+           samplesperdayLimit = NA,
+           thresholdOptions = list(value = -5, is.quantile = F),
+           squeeze = T,
+           logit_col,
+           scale_datetime = F) {
+    aru2point <- readAru2point()
+    mlTibble <- readDataMl(
+      species = outerIndices$species$Species,
+      years = outerIndices$year$Year,
+      beginTime = beginTime,
+      endTime = endTime,
+      logit_col = logit_col
+    )
     
-    # for JAGS
-    nspecies = dim(y.full)[1],
-    nyears = dim(y.full)[2],
-    nsites = dim(y.full)[3],
-    nsurveys = dim(y.full)[4],
-    y = y,
-    nsamples = nrow(sparseScores),
-    speciesid = sparseScores$Species_Index,
-    yearid = sparseScores$Year_Index,
-    siteid = sparseScores$Point_Index,
-    occid = sparseScores$Visit_Index,
-    scores_datetime = sparseScores$Date_Time,
-    score = sparseScores$Score
-  )
-}
+    # Visits
+    if (visitAggregation == "file") {
+      addVisitKeys <- function(.) {
+        mutate(., Year = year(Date_Time), Visit = Date_Time)
+      }
+    } else if (visitAggregation == "day") {
+      addVisitKeys <- function(.) {
+        mutate(.,
+               Year = year(Date_Time),
+               Visit = yday(Date_Time))
+      }
+    }
+    visits <- aru2point %>%
+      mutate(Date_Time = parse_date_time(str_extract(filename, "\\d{8}_\\d{6}"), "%Y%m%d_%H%M%S")) %>%
+      filterTimeOfDay(beginTime = beginTime, endTime = endTime) %>%
+      select(Point = point, Date_Time) %>%
+      addVisitKeys() %>%
+      select(Year, Point, Visit, Date_Time)
+    
+    # Scores
+    if (length(thresholdOptions$value) != 1) {
+      # TODO: Handle per-species array of thresholds.
+      stop("per-species thresholds are not implemented")
+    }
+    if (thresholdOptions$is.quantile) {
+      stop("quantile thresholds are not implemented")
+    }
+    threshold <- thresholdOptions$value
+    species <- outerIndices$species$Species
+    years <- outerIndices$year$Year
+    scores <- mlTibble %>%
+      # filter(Score > threshold) %>%
+      addVisitKeys() %>%
+      select(Species, Year, Point, Visit, Score, Date_Time)
+    
+    structureForJagsARU(
+      outerIndices,
+      visits,
+      scores,
+      visitLimit = visitLimit,
+      daysLimit = daysLimit,
+      samplesperdayLimit = samplesperdayLimit,
+      squeeze = squeeze,
+      threshold = threshold,
+      scale_datetime = scale_datetime
+    )
+  }
+
+#' Builds a JAGS data list
+#'
+#' This adds a visits dimension to the indices, build a "y matrix" that
+#' tabulates score counts along the index dimensions and gives names that match
+#' `AHMbook` examples to the columns of the scores table.
+#'
+#' @param outerIndices List of value-to-index tables as returned by
+#'   buildOuterIndices. Used to keep index meanings consistent.
+#' @param visits Table with (Year, Point, Visit) columns that will be sorted and
+#'   to assign a Visit_Index scoped to each (Year, Point).
+#' @param visitLimit Optional maximum Visit_Index to consider. Visits assigned
+#'   higher indices will be silently ignored.
+#' @param scores Table of above-threshold scores with columns (Species, Year,
+#'   Point, Visit, Score). Counts of these become the "y matrix."
+#' @param squeeze Whether to drop the year or species axes when their size is 1.
+#'   This lets this same function work for any rank of counts matrix assumed by
+#'   the downstream JAGS model.
+#'
+#' @return JAGS data list as returned by readCombined except that the names are
+#'   unqualified.
+#'
+#' @export
+structureForJagsPC <-
+  function(outerIndices,
+           visits,
+           visitLimit = NA,
+           scores,
+           squeeze = T,
+           scale_datetime = F) {
+    indices <-
+      buildFullIndices(outerIndices, visits, visitLimit = visitLimit)
+    
+    # Scores
+    sparseScores <- scores %>%
+      select(Species, Year, Point, Visit, Score) %>%
+      inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+      select(Species_Index,
+             Year_Index,
+             Point_Index,
+             Visit_Index,
+             Visit,
+             Score)
+    
+    # Counts
+    groupByIndices <- function(.) {
+      group_by(., Species_Index, Year_Index, Point_Index, Visit_Index)
+    }
+    initialCounts <- indices$full %>% # visited points start from 0
+      groupByIndices() %>%
+      summarise(Count = 0, .groups = "drop")
+    scoreCounts <- sparseScores %>%
+      groupByIndices() %>%
+      summarise(Count = n(), .groups = "drop")
+    sparseCounts <- rbind(initialCounts, scoreCounts) %>%
+      groupByIndices() %>%
+      summarise(Count = sum(Count), .groups = "drop")
+    
+    
+    y.full <- sparseToDense(sparseCounts, indices$full)
+    dimnames(y.full)[[1]] <- indices$species$Species
+    dimnames(y.full)[[2]] <- indices$year$Year
+    dimnames(y.full)[[3]] <- indices$point$Point
+    
+    
+    
+    if (squeeze) {
+      y <- drop(y.full)
+    } else {
+      y <- y.full
+    }
+    
+    list(
+      # for reference
+      indices = indices,
+      sparseScores = sparseScores,
+      sparseCounts = sparseCounts,
+      
+      # for JAGS
+      nspecies = dim(y.full)[1],
+      nyears = dim(y.full)[2],
+      nsites = dim(y.full)[3],
+      nsurveys = dim(y.full)[4],
+      y = y,
+      nsamples = nrow(sparseScores),
+      speciesid = sparseScores$Species_Index,
+      yearid = sparseScores$Year_Index,
+      siteid = sparseScores$Point_Index,
+      occid = sparseScores$Visit_Index,
+      #  scores_datetime = sparseScores$Date_Time,
+      score = sparseScores$Score
+    )
+  }
+
+
+#' Builds a JAGS data list
+#'
+#' This adds a visits dimension to the indices, build a "y matrix" that
+#' tabulates score counts along the index dimensions and gives names that match
+#' `AHMbook` examples to the columns of the scores table.
+#'
+#' @param outerIndices List of value-to-index tables as returned by
+#'   buildOuterIndices. Used to keep index meanings consistent.
+#' @param visits Table with (Year, Point, Visit) columns that will be sorted and
+#'   to assign a Visit_Index scoped to each (Year, Point).
+#' @param visitLimit Optional maximum Visit_Index to consider. Visits assigned
+#'   higher indices will be silently ignored.
+#' @param scores Table of above-threshold scores with columns (Species, Year,
+#'   Point, Visit, Score). Counts of these become the "y matrix."
+#' @param squeeze Whether to drop the year or species axes when their size is 1.
+#'   This lets this same function work for any rank of counts matrix assumed by
+#'   the downstream JAGS model.
+#' @param scale_datetime Whether to scale the days/times for use in regression
+#'   models.
+#'
+#'
+#' @return JAGS data list as returned by readCombined except that the names are
+#'   unqualified.
+#'
+#' @export
+structureForJagsARU <-
+  function(outerIndices,
+           visits,
+           visitLimit = NA,
+           daysLimit = NA,
+           samplesperdayLimit = NA,
+           scores,
+           squeeze = T,
+           threshold = -2,
+           scale_datetime = F) {
+    indices <-
+      buildFullIndices(
+        outerIndices,
+        visits,
+        visitLimit = visitLimit,
+        daysLimit = daysLimit,
+        samplesperdayLimit = samplesperdayLimit
+      )
+    
+    # Scores
+    sparseScores <- scores %>%
+      select(Species, Year, Point, Visit, Score, Date_Time) %>%
+      inner_join(indices$full, by = c("Species", "Year", "Point", "Visit")) %>%
+      select(Species_Index,
+             Year_Index,
+             Point_Index,
+             Visit_Index,
+             Visit,
+             Score,
+             Date_Time) %>%
+      arrange(Species_Index, Year_Index, Point_Index, Visit_Index)
+    
+    # Counts
+    groupByIndices <- function(.) {
+      group_by(., Species_Index, Year_Index, Point_Index, Visit_Index)
+    }
+    initialCounts <- indices$full %>% # visited points start from 0
+      groupByIndices() %>%
+      summarise(Count = 0, .groups = "drop")
+    scoreCounts <- sparseScores %>%
+      groupByIndices() %>%
+      mutate(detection = ifelse(Score >= threshold, 1 , 0)) %>%
+      summarise(Count = sum(detection), .groups = "drop")
+    sparseCounts <- rbind(initialCounts, scoreCounts) %>%
+      groupByIndices() %>%
+      summarise(Count = sum(Count), .groups = "drop")
+    
+    
+    
+    sparseDates <- sparseScores %>%
+      select(Species_Index,
+             Year_Index,
+             Point_Index,
+             Visit_Index,
+             Date_Time) %>%
+      arrange(Species_Index, Year_Index, Point_Index, Visit_Index) %>%
+      mutate(Date_Time = force_tz(Date_Time, "America/Los_Angeles"))
+    
+    if (scale_datetime) {
+      sparseTimes <- sparseDates %>%
+        mutate(Time = scale(times(format(
+          Date_Time, "%H:%M:%S"
+        )))) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, Time)
+      sparseDays <- sparseDates %>%
+        mutate(YDay = scale(yday(Date_Time))) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, YDay)
+    } else {
+      sparseTimes <- sparseDates %>%
+        mutate(Time = format(Date_Time, "%H:%M:%S")) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, Time)
+      sparseDays <- sparseDates %>%
+        mutate(YDay = yday(Date_Time)) %>%
+        select(Species_Index, Year_Index, Point_Index, Visit_Index, YDay)
+    }
+    
+    
+    y.full <- sparseToDense(sparseCounts, indices$full)
+    dimnames(y.full)[[1]] <- indices$species$Species
+    dimnames(y.full)[[2]] <- indices$year$Year
+    dimnames(y.full)[[3]] <- indices$point$Point
+    
+    aru_DateTime <- sparseToDense(sparseDates, indices$full)
+    dimnames(aru_DateTime)[[1]] <- indices$species$Species
+    dimnames(aru_DateTime)[[2]] <- indices$year$Year
+    dimnames(aru_DateTime)[[3]] <- indices$point$Point
+    
+    aru_Time <- sparseToDense(sparseTimes, indices$full)
+    dimnames(aru_Time)[[1]] <- indices$species$Species
+    dimnames(aru_Time)[[2]] <- indices$year$Year
+    dimnames(aru_Time)[[3]] <- indices$point$Point
+    
+    
+    aru_YDay <- sparseToDense(sparseDays, indices$full)
+    dimnames(aru_YDay)[[1]] <- indices$species$Species
+    dimnames(aru_YDay)[[2]] <- indices$year$Year
+    dimnames(aru_YDay)[[3]] <- indices$point$Point
+    
+    aru_YDay[is.na(aru_YDay)] <- 0
+    aru_Time[is.na(aru_Time)] <- 0
+    
+    if (squeeze) {
+      y <- drop(y.full)
+      aru_DateTime_s <- drop(aru_DateTime)
+      aru_YDay_s <- drop(aru_YDay)
+      aru_Time_s <- drop(aru_Time)
+    } else {
+      y <- y.full
+      aru_DateTime_s <- aru_DateTime
+      aru_YDay_s <- aru_YDay
+      aru_Time_s <- aru_Time
+    }
+    
+    list(
+      # for reference
+      indices = indices,
+      sparseScores = sparseScores,
+      sparseCounts = sparseCounts,
+      
+      # for JAGS
+      nspecies = dim(y.full)[1],
+      nyears = dim(y.full)[2],
+      nsites = dim(y.full)[3],
+      nsurveys = dim(y.full)[4],
+      y = y,
+      aru_DateTime = aru_DateTime_s,
+      aru_YDay = aru_YDay_s,
+      aru_Time = aru_Time_s,
+      nsamples = nrow(sparseScores),
+      speciesid = sparseScores$Species_Index,
+      yearid = sparseScores$Year_Index,
+      siteid = sparseScores$Point_Index,
+      occid = sparseScores$Visit_Index,
+      scores_datetime = sparseScores$Date_Time,
+      score = sparseScores$Score
+    )
+  }
 
 
 
@@ -542,24 +746,23 @@ structureForJagsARU <- function(outerIndices, visits, visitLimit = NA,
 #' @export
 buildOuterIndices <- function(species, years) {
   latlong <- readLatlong()
-
+  
   species <- tibble(Species = species)
-  speciesIndices <- species %>% mutate(Species_Index = seq_along(Species))
-
+  speciesIndices <-
+    species %>% mutate(Species_Index = seq_along(Species))
+  
   years <- tibble(Year = years)
   yearIndices <- years %>% mutate(Year_Index = seq_along(Year))
-
+  
   points <- latlong %>%
     select(Point) %>%
     distinct() %>%
     arrange(Point)
   pointIndices <- points %>% mutate(Point_Index = seq_along(Point))
-
-  list(
-    species = speciesIndices,
-    year = yearIndices,
-    point = pointIndices
-  )
+  
+  list(species = speciesIndices,
+       year = yearIndices,
+       point = pointIndices)
 }
 
 #' Adds $visit and $full to a list of index tables
@@ -585,7 +788,9 @@ buildOuterIndices <- function(species, years) {
 #'   Visit_Index).
 #'
 #' @export
-buildFullIndices <- function(outerIndices, visits, visitLimit = NA, 
+buildFullIndices <- function(outerIndices,
+                             visits,
+                             visitLimit = NA,
                              daysLimit = NA,
                              samplesperdayLimit = NA) {
   if (!is.na(daysLimit)) {
@@ -602,9 +807,11 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA,
       arrange(Year, Point, Day_Index, VisitDay, Visit) %>% # order important for seq_along
       group_by(Year, Point, Day_Index) %>%
       mutate(Daily_Visit_Index = seq_along(Visit))
-    daily_visitIndices <- daily_visitIndices %>% filter(Day_Index <= daysLimit)
+    daily_visitIndices <-
+      daily_visitIndices %>% filter(Day_Index <= daysLimit)
     if (!is.na(samplesperdayLimit)) {
-      daily_visitIndices <- daily_visitIndices %>% filter(Daily_Visit_Index <= samplesperdayLimit)
+      daily_visitIndices <-
+        daily_visitIndices %>% filter(Daily_Visit_Index <= samplesperdayLimit)
     }
     visitIndices <- daily_visitIndices %>%
       group_by(Year, Point) %>%
@@ -623,23 +830,23 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA,
       visitIndices <- visitIndices %>% filter(Visit_Index <= visitLimit)
     }
   }
-
+  
   fullIndices <- visitIndices %>%
     inner_join(outerIndices$point, by = "Point") %>%
     full_join(outerIndices$species, by = character()) %>%
-    select(
-      Species_Index, Year_Index, Point_Index, Visit_Index,
-      Species, Year, Point, Visit
-    ) %>%
+    select(Species_Index,
+           Year_Index,
+           Point_Index,
+           Visit_Index,
+           Species,
+           Year,
+           Point,
+           Visit) %>%
     arrange(Species_Index, Year_Index, Point_Index, Visit_Index)
-
-  c(
-    outerIndices,
-    list(
-      visit = visitIndices,
-      full = fullIndices
-    )
-  )
+  
+  c(outerIndices,
+    list(visit = visitIndices,
+         full = fullIndices))
 }
 
 #' Reads machine learning model outputs
@@ -657,15 +864,23 @@ buildFullIndices <- function(outerIndices, visits, visitLimit = NA,
 #' @return a single tibble with columns [Species, Point, Date_Time, Score]
 #'
 #' @export
-readDataMl <- function(species, years, beginTime = NA, endTime = dhours(10), logit_col = "logit") {
-  read_csv(
-    dataMlPath
-  ) %>%
-    select(Species = species, Point = point, Date_Time, Score = !!sym(logit_col)) %>%
-    filter(Species %in% species) %>%
-    filter(year(Date_Time) %in% years) %>%
-    filterTimeOfDay(beginTime = beginTime, endTime = endTime)
-}
+readDataMl <-
+  function(species,
+           years,
+           beginTime = NA,
+           endTime = dhours(10),
+           logit_col = "logit") {
+    read_csv(dataMlPath) %>%
+      select(
+        Species = species,
+        Point = point,
+        Date_Time,
+        Score = !!sym(logit_col)
+      ) %>%
+      filter(Species %in% species) %>%
+      filter(year(Date_Time) %in% years) %>%
+      filterTimeOfDay(beginTime = beginTime, endTime = endTime)
+  }
 
 
 
@@ -702,13 +917,9 @@ readLatlong <- function() {
 #'
 #' @export
 readAru2point <- function() {
-  read_csv(
-    aru2pointPath,
-    col_types = cols(
-      filename = col_character(),
-      point = col_integer(),
-    )
-  ) %>%
+  read_csv(aru2pointPath,
+           col_types = cols(filename = col_character(),
+                            point = col_integer(),)) %>%
     filter(point > 0)
 }
 
@@ -723,12 +934,16 @@ readAru2point <- function() {
 #'
 #' @return the filtered version of the input. This is intended to be used with
 #'   the pipe operator.
-filterTimeOfDay <- function(t, beginTime = NA, endTime = NA) {
+filterTimeOfDay <- function(t,
+                            beginTime = NA,
+                            endTime = NA) {
   if (!is.na(beginTime)) {
-    t <- t %>% filter((Date_Time - floor_date(Date_Time, "day")) >= beginTime)
+    t <-
+      t %>% filter((Date_Time - floor_date(Date_Time, "day")) >= beginTime)
   }
   if (!is.na(endTime)) {
-    t <- t %>% filter((Date_Time - floor_date(Date_Time, "day")) < endTime)
+    t <-
+      t %>% filter((Date_Time - floor_date(Date_Time, "day")) < endTime)
   }
   t
 }
@@ -751,10 +966,10 @@ sparseToDense <- function(entryTable, indexTable) {
   valueCol <- ncol(entryTable)
   indexNames <- names(entryTable)[-valueCol]
   dims <- sapply(indexTable[indexNames], max)
-
+  
   indices <- entryTable[indexNames]
   values <- entryTable[, valueCol]
-
+  
   dense <- array(NA, dims)
   dense[as.matrix(indices)] <- unlist(values)
   dense
