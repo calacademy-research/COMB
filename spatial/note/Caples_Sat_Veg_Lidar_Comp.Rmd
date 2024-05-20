@@ -47,8 +47,8 @@ For basic satellite measurements derived from the [California Forest Observatory
 All data processed in two steps, if starting from scratch, run the following scripts:
 
 ```{r}
-#source("read_adjust_combine_rasters.R")
-#source("read_points_output_data.R")
+source("read_adjust_combine_rasters.R")
+source("read_points_output_data.R")
 ```
 #Map of points
 
