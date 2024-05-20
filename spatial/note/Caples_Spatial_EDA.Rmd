@@ -45,7 +45,7 @@ Get NBR
 -   Google Earth Engine (GEE)
 -   [x] Document this 'by hand' step or pull dynamically
 
-Get DEM \#see \^\^\^ GEE
+Get DEM #see \^\^\^ GEE
 
 -   [x] DEM TODO see ditto \^\^\^
 
@@ -77,7 +77,6 @@ Caples_Spatial](https://drive.google.com/drive/folders/1GPuuiy0Qc94ARS65N5Gm68V3
 -   Install packages
 -   [ ] (not yet documented)
 -   Load Libraries (output suppressed)
-
 
 ```{r Load Libraries & functions, error=FALSE, fig.keep='all', include=FALSE, paged.print=TRUE, results='hide'}
 #load libraries
@@ -125,38 +124,39 @@ this might be a bit buggy, try it out @MARY.
         -   Shape Files
 
     ```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
-#------------------------------------------------------------
-# Download/organize input files from google drive if not already downloaded
-#------------------------------------------------------------
-# this might be a bit buggy, try it out @MARY
-#define rastertype subdirectories
-rastertypes <- c("SALO","NBR","RAVG","LIDAR","DEM")
-#define base directory for input rasters
-rasterdir  <- here("spatial","input","rasters")
-#list of directories to use
-rasterdirs <- here(rasterdir,rastertypes[])
-# Creating the folder within inputs that contains the raw_files
-map(.x = rasterdirs, .f = function(.x) if (dir.exists(.x) == F) {
-  dir.create(.x)})
-# wasn't able to write ^ as anonymous function, too tired.
-# Getting list of files that need to be downloaded
-google_raw_file_names$drive_resource <- drive_ls("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda", recursive = TRUE)
-local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
-# Filtering google files that are not already downloaded
-needed_google_raw_file_names <- google_raw_file_names %>% filter(!(google_raw_file_names$name %in% local_file_names))
-# Downloading raw_data csv files from google drive if not already downloaded
-map2(
-  needed_google_raw_file_names$name, needed_google_raw_file_names$id,
-~ drive_sync(local_dir = here(rasterdir, .x), drive_folder = as_id(.y))
-)
-#if you hard-coded solution it would look like this
-#first go into each rasterdir
-#rasterdirs[1]
-#[1] "/Users/dkapan/GitHub/Caples_Spatial/spatial/input/rasters/SALO"
-#don't forget to match by hand to the appropriate google_drive input directory, e.g.
-#drive_sync(local_dir = here(rasterdirs[1]), drive_folder = as_dribble("https://drive.google.com/drive/folders/1SKzKZNMYpDmzcUCACOjtEJCLybHN6wgQ"))
-#but the overall code above seems to work, so no need! :)
-```
+    #------------------------------------------------------------
+    # Download/organize input files from google drive if not already downloaded
+    #------------------------------------------------------------
+    # this might be a bit buggy, try it out @MARY
+    #define rastertype subdirectories
+    rastertypes <- c("SALO","NBR","RAVG","LIDAR","DEM")
+    #define base directory for input rasters
+    rasterdir  <- here("spatial","input","rasters")
+    #list of directories to use
+    rasterdirs <- here(rasterdir,rastertypes[])
+    # Creating the folder within inputs that contains the raw_files
+    map(.x = rasterdirs, .f = function(.x) if (dir.exists(.x) == F) {
+      dir.create(.x)})
+    # wasn't able to write ^ as anonymous function, too tired.
+    # Getting list of files that need to be downloaded
+    google_raw_file_names$drive_resource <- drive_ls("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda", recursive = TRUE)
+    local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
+    # Filtering google files that are not already downloaded
+    needed_google_raw_file_names <- google_raw_file_names %>% filter(!(google_raw_file_names$name %in% local_file_names))
+    # Downloading raw_data csv files from google drive if not already downloaded
+    map2(
+      needed_google_raw_file_names$name, needed_google_raw_file_names$id,
+    ~ drive_sync(local_dir = here(rasterdir, .x), drive_folder = as_id(.y))
+    )
+    #if you hard-coded solution it would look like this
+    #first go into each rasterdir
+    #rasterdirs[1]
+    #[1] "/Users/dkapan/GitHub/Caples_Spatial/spatial/input/rasters/SALO"
+    #don't forget to match by hand to the appropriate google_drive input directory, e.g.
+    #drive_sync(local_dir = here(rasterdirs[1]), drive_folder = as_dribble("https://drive.google.com/drive/folders/1SKzKZNMYpDmzcUCACOjtEJCLybHN6wgQ"))
+    #but the overall code above seems to work, so no need! :)
+    ```
+
     -   First go into each rasterdir e.g. `rasterdirs[1]`
 
     `/Users/dkapan/GitHub/Caples_Spatial/spatial/input/rasters/SALO`
@@ -165,7 +165,6 @@ map2(
     directory, e.g.\
     `drive_sync(local_dir = here(rasterdirs[1]), drive_folder =  as_dribble("https://drive.google.com/drive/folders/1SKzKZNMYpDmzcUCACOjtEJCLybHN6wgQ")`
     but the overall code above seems to work, so no need! :)
-
 
 ```{r Import and fix raster files, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 rasterdir <- rasterdirs[1] #SALO
@@ -281,31 +280,39 @@ dem_imgStack$aspect <- terrain(dem_imgStack$elevation, opt="aspect", neighbors=8
 **Import shape files**
 
 -   Study area file
+
     -   study_area
+
 -   Fire boundary file
+
     -   fire_boundary
+
 -   Sampling points
+
     -   wild_points
-```{r, include=FALSE}
-#everything to be placed into WGS 84 / UTM zone 10N" = crs = 32610
-#get the data
-shapedir <- here("spatial","input","shapefiles")
-google_file_names <- "https://drive.google.com/drive/folders/15uXx-I1U9cDTzoI0ptNv_wpuDYju_IRv"
-drive_sync(local_dir = shapedir, drive_folder = google_file_names)
-#read in study area
-study_area <- sf::read_sf(here("spatial","input","shapefiles","study_boundary.shp"))
-#read in fire boundary
-fire_boundary <- sf::read_sf(here("spatial","input","shapefiles","ca3872412014620191010_20181118_20191118_burn_bndy.shp"))
-fire_boundary<-st_transform(fire_boundary, crs(study_area)) #transformed crs
-#read in wildlife points
-wild_points <- sf::read_sf(here("spatial","input","shapefiles","WildlifePoints.shp")) #crs not included
-names(wild_points)<-c("point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2",
-"Treatment", "geometry")
-#get the right coordinate reference system & transform
-st_crs(wild_points) = 26910 #were collected using NAD83 coordinate
-wild_points<-st_transform(wild_points, crs(study_area)) #transformed crs
-```
+
+    ```{r, include=FALSE}
+    #everything to be placed into WGS 84 / UTM zone 10N" = crs = 32610
+    #get the data
+    shapedir <- here("spatial","input","shapefiles")
+    google_file_names <- "https://drive.google.com/drive/folders/15uXx-I1U9cDTzoI0ptNv_wpuDYju_IRv"
+    drive_sync(local_dir = shapedir, drive_folder = google_file_names)
+    #read in study area
+    study_area <- sf::read_sf(here("spatial","input","shapefiles","study_boundary.shp"))
+    #read in fire boundary
+    fire_boundary <- sf::read_sf(here("spatial","input","shapefiles","ca3872412014620191010_20181118_20191118_burn_bndy.shp"))
+    fire_boundary<-st_transform(fire_boundary, crs(study_area)) #transformed crs
+    #read in wildlife points
+    wild_points <- sf::read_sf(here("spatial","input","shapefiles","WildlifePoints.shp")) #crs not included
+    names(wild_points)<-c("point_d", "Cpls_Wt", "VEG_CSE", "AVIAN_S", "WHR_TSD", "SZ_DNS2",
+    "Treatment", "geometry")
+    #get the right coordinate reference system & transform
+    st_crs(wild_points) = 26910 #were collected using NAD83 coordinate
+    wild_points<-st_transform(wild_points, crs(study_area)) #transformed crs
+    ```
+
 -   Plot and inspect rasters and shapefiles
+
 ```{r echo=FALSE, error=FALSE, fig.keep='all', message=FALSE, warning=FALSE, results='hide'}
 plot(canopy_imgStack$CaplesCanopyCover2019)
 plot(nbr_imgStack$Caples_dNBR_Nov18_Nov19) #FIXed dNBR file lists
@@ -389,8 +396,8 @@ plot(canopy_fuel_nbr_dem_RAVG_LIDAR$Canopy_Cover,canopy_fuel_nbr_dem_RAVG_LIDAR$
 ```
 
 -   *buffer* and *alignment* check quick & dirty but it works
--   [ ] future: Work with Gilbert & Adam to redo the raw data download to
-    put in same CRS *before* import
+-   [ ] future: Work with Gilbert & Adam to redo the raw data download
+    to put in same CRS *before* import
 
 ```{r, echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
 buffer<-400
