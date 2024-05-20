@@ -10,6 +10,7 @@ library(here)
 library(lubridate)
 library(data.table)
 library(fs)
+library(googledrive)
 
 # source the drive sync functions
 source(here("comb_functions.R"))
