@@ -35,16 +35,17 @@ map(.x = rasterdirs, .f = function(.x) {
     dir.create(.x)
   }
 })
-# Getting list of files that need to be downloaded
-google_raw_file_names <- drive_ls("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda", recursive = TRUE)
-local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
-# Filtering google files that are not already downloaded
-needed_google_raw_file_names <- google_raw_file_names %>% filter(!(google_raw_file_names$name %in% local_file_names))
-# Downloading raw_data csv files from google drive if not already downloaded
-map2(
-  needed_google_raw_file_names$name, needed_google_raw_file_names$id,
-  ~ drive_sync(local_dir = here(rasterdir, .x), drive_folder = as_id(.y))
-)
+# # Getting list of files that need to be downloaded
+# google_raw_file_names <- drive_ls("https://drive.google.com/drive/folders/1fN22kGBoWF03p1cNZ7h_MbJf0X-CSyda", recursive = TRUE)
+# local_file_names <- list.files(rasterdir, pattern = "*", recursive = TRUE)
+# # Filtering google files that are not already downloaded
+# needed_google_raw_file_names <- google_raw_file_names %>% filter(!(google_raw_file_names$name %in% local_file_names))
+# # Downloading raw_data csv files from google drive if not already downloaded
+# map2(
+#   needed_google_raw_file_names$name[1], needed_google_raw_file_names$id[1],
+#   ~ drive_sync(local_dir = here(rasterdir, .x), drive_folder = as_id(.y))
+# )
+# [ ]2024-01-11 NOT WORKING ... soemething off about the google drive files
 # if you hard-coded solution it would look like this
 # first go into each rasterdir
 # rasterdirs[1]
@@ -259,3 +260,4 @@ Run `rlang::last_trace()` to see the full context.
 > rlang::last_trace()
 Error in `$<-.data.frame`(`*tmp*`, "call_text", value = c("global drive_sync(here(\"spatial\", \"output\", \"rasters\"), drive_folder = drive_ls(\"https://drive.google.com/drive/folders/1sbgR_OMtK-Hq6P6lVBFIK8xbcjmJDQVV\")$id[1])",  : 
   replacement has 14 rows, data has 13'
+
