@@ -17,8 +17,10 @@ library(ggpubr)
 #Import
 wild_points <- sf::read_sf(here("spatial", "input", "shapefiles", "WildlifePoints.shp")) %>% # crs not included
   st_set_crs(26910) %>% #were collected using NAD83 coordinate (26910) coordinate reference system
+  # #save NAD83crs for later 
+  # st_crs(wild_points) -> NAD83crs
   st_transform(crs(study_area)) #, aoi = study_area$geometry) #defined in other script
-#[ ] NOTE PROBLEM NO TRANSFORMATION IS HAPPENING BETWEEN NAD83 AND WGS84 NEED TO FIGURE OUT WHAT'S UP
+#[X] NOTE PROBLEM NO TRANSFORMATION IS HAPPENING BETWEEN NAD83 AND WGS84 NEED TO FIGURE OUT WHAT'S UP (working now 2023-11-15)
 
 #FIX NAMES
 names(wild_points) <- c(
@@ -26,8 +28,6 @@ names(wild_points) <- c(
   "Treatment", "geometry"
 )
 
-#save NAD83crs for later 
-st_crs(wild_points) -> NAD83crs
 
 # are points in the fire boundary area?
 wild_points$inside_fire_boundary <- as.vector(st_intersects(fire_boundary, wild_points, sparse = FALSE))
@@ -78,7 +78,9 @@ FinalCaplesMonitoringPlots2022 <- sf::read_sf(here("spatial", "input", "shapefil
 # 
 # Summarize key variables (Sarah)
 # using output 'Caples_PlotData_20220225'
-# so must source("Caples_Tidy_20220221.R" to make it work)
+# so must 
+# source(here("vegetation","src","Caples_Tidy_20220221.R"))
+#to make it work)
 
 Caples_PlotData_20220225 <- st_as_sf(Caples_PlotData_20220225, coords = c("Easting", "Northing"), crs = NAD83crs)
 
@@ -99,17 +101,19 @@ Caples_PlotData_20220225 %>%
 FinalCaplesMonitoringPlots2022_df <- cbind(st_drop_geometry(FinalCaplesMonitoringPlots2022), st_coordinates(FinalCaplesMonitoringPlots2022))
 new_wild_points_df <- cbind(st_drop_geometry(vegetation_points), st_coordinates(vegetation_points))
 veg_plot_points_for_comparison_df <- cbind(st_drop_geometry(veg_plot_points_for_comparison), st_coordinates(veg_plot_points_for_comparison))
-#[ ]broken here 2022-10-14 but not important
+#[ ]broken here 2022-10-14 but not important // [ ] ACTUALLY is important 2023-11-15!!!
+#HERE
+# see mismatch between UTM_N/UTM_E, X.x/Y.x,X.y/Y.y. the latter point pairs are off, figure it out!
 #merge data based on shared key(s)
 FinalCaplesMonitoringPlots2022_df %>%
-  left_join(new_wild_points_df, c("CSE_ID" = "plotID_veg"), keep = TRUE) %>% 
-  mutate(CSE_RF_ID = ifelse(is.na(RedFir_ID), CSE_ID, RedFir_ID)) %>% 
+  left_join(new_wild_points_df, c("CSE_ID" = "PLOTID"), keep = TRUE) %>% View() #used to join by "plotID_veg"
+  mutate(CSE_RF_ID = ifelse(is.na(RedFir_ID.x), CSE_ID.x, RedFir_ID.x)) %>% 
   left_join(veg_plot_points_for_comparison_df, by = c("CSE_RF_ID" = "PlotID"),  keep = TRUE) %>% 
   dplyr::select(UTM_N_FCMP22 = UTM_N, UTM_E_FCMP22 = UTM_E, 
                 FCMP22_Y.y = Y.x, FCMP22_X.x = X.x, 
-                UTM_N_nwp_Northing = Northing, UTM_N_nwp_Easting = Easting,
+                # UTM_N_nwp_Northing = Northing, UTM_N_nwp_Easting = Easting,
                 nwp_Y.y = Y.y, nwp_X.y = X.y,
-                vppfc_Y = Y, vppfc_X = X, CSE_ID:RedFir_ID, Cpls_Wt:inside_fire_boundary, PV_ID:WYMO) %>% #View() #yikes, they are all over the place!
+                vppfc_Y = Y, vppfc_X = X, CSE_ID.x:RedFir_ID.x, Cpls_Wt:inside_fire_boundary, PV_ID:WYMO) %>% #View() #yikes, they are all over the place!
   st_as_sf(., coords = c("UTM_E_FCMP22", "UTM_N_FCMP22")) -> fcmp22data #make first two into the geometry
 
 st_crs(fcmp22data) <- 26910
