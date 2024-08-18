@@ -1,0 +1,48 @@
+
+        model {
+
+        # Priors
+beta0 ~ dnorm(0, 0.5)
+ beta1 ~ dnorm(0, 0.5)
+p11 ~ dbeta(2, 2)
+p_aru11 ~ dbeta(2, 2)
+p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11)
+
+                # Priors of the observation model for the scores
+                mu[1] ~ dnorm(-2, 0.2)
+                mu[2] ~ dnorm(-2, 0.2)
+                sigma[1] ~ dunif(0.1, 5)
+                tau[1] <- 1 / (sigma[1] * sigma[1])
+                sigma[2] ~ dunif(0.1, 5)
+                tau[2] <- 1 / (sigma[2] * sigma[2])
+            
+        
+            # Likelihood for occupancy
+            for (i in 1:nsites) {
+                logit(psi[i]) <- beta0 + beta1 * covar[i]
+                z[i] ~ dbern(psi[i])
+            
+        
+            # Point count
+            p[i] <- p11 * z[i]
+            for (j in 1:nsurveys_pc) {
+                y_pc[i, j] ~ dbern(p[i])
+            }
+            
+        
+                # ARU
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                }
+                for(j in 1:nsurveys_scores) {
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                }
+                }
+        
+        mean_psi <- mean(psi)
+        NOcc <- sum(z[])
+        PropOcc <- NOcc / nsites
+        }
+        
+        

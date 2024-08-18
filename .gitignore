@@ -64,3 +64,6 @@ output/
 .DS_Store
 spatial/.DS_Store
 rsconnect/
+
+# python
+*.pyc
