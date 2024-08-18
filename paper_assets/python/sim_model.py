@@ -34,7 +34,7 @@ class SimModelParams:
     include_covar_model: bool = True
     aru_scores_independent_model: bool = True
 
-    sim_data: Union[SimData, None] = None
+    sim_data: SimData = SimData(SimParams())
 
 
 class SimModel(pyjags.model.Model):
