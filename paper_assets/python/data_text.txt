@@ -1,0 +1,31 @@
+
+        data {
+
+        
+            for (i in 1:nsites) {
+                logit(psi[i]) <- beta0 + beta1*covar[i]
+                z[i] ~ dbern(psi[i])
+            
+        
+            p[i] <- p11 * z[i]
+            for (j in 1:nsurveys_pc) {
+                y_pc[i, j] ~ dbern(p[i])
+            }
+            
+        
+                # ARU
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                }
+                for(j in 1:nsurveys_scores) {
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                }
+                }
+        
+        }
+        model{
+            fake <- 0
+        }
+        
+        

@@ -1,40 +1,8 @@
 import numpy as np
 from dataclasses import dataclass
-from sim_data import SimParams, SimData
+from sim_data import SimParams
 import pyjags.model
 from typing import Union, List
-
-
-@dataclass
-class SimModelParams:
-    """
-    Dataclass to store simulation model parameters
-    """
-
-    psi_prior: str = "dbeta(2,2)"
-    beta0_prior: str = "dnorm(0, 0.5)"
-    beta1_prior: str = "dnorm(0, 0.5)"
-    p11_prior: str = "dbeta(2, 2)"
-    mu1_prior: str = "dnorm(-2, 0.2)"
-    mu2_prior: str = "dnorm(-2, 0.2)"
-    sigma1_prior: str = "dunif(0.1, 5)"
-    sigma2_prior: str = "dunif(0.1, 5)"
-    p_aru11_prior: str = "dbeta(2, 2)"
-    p_aru01_prior: str = "dbeta(1, 3)I(0, 1 - p_aru11)"
-    na: int = 1000  # number of iterations to adapt
-    ni: int = 8000  # number of iterations
-    nt: int = 1  # thinning rate
-    nb: int = 1000  # number of burn-in iterations
-    nc: int = 6  # number of chains
-    parallel: bool = True  # whether to run each chain in parallel
-
-    include_aru_model: bool = True
-    include_pc_model: bool = True
-    include_scores_model: bool = True
-    include_covar_model: bool = True
-    aru_scores_independent_model: bool = True
-
-    sim_data: SimData = SimData(SimParams())
 
 
 class SimModel(pyjags.model.Model):
@@ -42,24 +10,26 @@ class SimModel(pyjags.model.Model):
     SimModel class to make a model for simulation based on parameters
     """
 
-    model_text: str = ""
-
-    def __init__(self, params: SimModelParams):
+    def __init__(self, params: SimParams):
         self.params = params
-        self.model_text = self.gen_jags_model_text()
-        with open("model_text.txt", "w") as f:
-            f.write(self.model_text)
 
-        self.sim_data = params.sim_data.__dict__
+        # first generate the simulation data
+        # generate jags data model text
+        # this "model" will only generate data to be used in the simulation
+        self.data_text = self.gen_jags_data_text()
+        sim_data = self.gen_simulated_data()
+
+        # generate the jags model text for the actual model
+        self.model_text = self.gen_jags_model_text()
 
         # Find the variables in the model that are in the simulation data
         # Depending on the model, not all of the simulation data will be used
         # For example, if the ARU model is not included, the ARU data will not be used
-        sim_vars = self.find_variables(list(self.sim_data.keys()))
-
-        self.sim_data = {var: self.sim_data[var] for var in sim_vars}
-
-        print(self.sim_data)
+        all_vars = {"nsites", "nsurveys_aru", "nsurveys_pc", "nsurveys_scores", "covar", "siteid"}
+        sim_vars = set(self.find_variables(list(self.params.keys()), self.model_text))
+        sim_vars = sim_vars.intersection(all_vars)
+        for var in sim_vars:
+            sim_data[var] = self.params.__dict__[var]
 
         self.inits = self.create_inits()
 
@@ -67,7 +37,7 @@ class SimModel(pyjags.model.Model):
 
         super().__init__(
             code=self.model_text,
-            data=self.sim_data,
+            data=sim_data,
             chains=params.nc,
             adapt=params.na,
             init=self.inits,
@@ -199,7 +169,7 @@ class SimModel(pyjags.model.Model):
         }
         """
 
-        return f"""
+        model_text = f"""
         {string_init}
         {priors_string}
         {occ_lik}
@@ -208,18 +178,24 @@ class SimModel(pyjags.model.Model):
         {close_string}
         """
 
-    def find_variables(self, search_vars: List) -> List[str]:
+        with open("model_text.txt", "w") as f:
+            f.write(model_text)
+
+        return model_text
+
+    def find_variables(self, search_vars: List, model_text: str) -> List[str]:
         """
         Find the variables in the model that are in `search_vars`
 
         Args:
             search_vars (List): The variables to search for in the model text
+            model_text (str): The model text to search
 
         Returns:
             List[str]: The variables in the model from `search_vars`
         """
 
-        return [var for var in search_vars if var in self.model_text]
+        return [var for var in search_vars if var in model_text]
 
     def create_inits(self) -> dict:
         """
@@ -232,7 +208,7 @@ class SimModel(pyjags.model.Model):
             "mu": mu,
             "sigma": np.random.uniform(0.5, 2.5, 2),
             # "psi": np.repeat(0.5, self.sim_data["nsites"]),
-            "z": np.repeat(1, self.sim_data["nsites"]),
+            "z": np.repeat(1, self.params.nsites),
             "beta0": 0,
             "beta1": 0,
             "p_aru11": 0.2,
@@ -240,7 +216,7 @@ class SimModel(pyjags.model.Model):
             "p11": 0.2,
         }
 
-        init_keys_in_model = self.find_variables(list(inits_full.keys()))
+        init_keys_in_model = self.find_variables(list(inits_full.keys()), self.model_text)
         inits_in_model = {var: inits_full[var] for var in init_keys_in_model}
 
         return inits_in_model
@@ -265,3 +241,108 @@ class SimModel(pyjags.model.Model):
             monitored_list += ["mu", "sigma"]
 
         return monitored_list
+
+    def gen_jags_data_text(self) -> str:
+        """
+        Uses JAGS to generate a "model" string
+        that only generates data
+
+        We use this to generate data from the model
+        for the purposes of simulation
+        """
+        string_init = "data {\n"
+
+        if self.params.include_covar_model:
+            occ_lik = """
+            for (i in 1:nsites) {
+                logit(psi[i]) <- beta0 + beta1*covar[i]
+                z[i] ~ dbern(psi[i])
+            """
+        else:
+            occ_lik = """
+            for (i in 1:nsites) {
+                z[i] ~ dbern(psi)
+            """
+
+        if self.params.include_pc_model:
+            pc_lik = """
+            p[i] <- p11 * z[i]
+            for (j in 1:nsurveys_pc) {
+                y_pc[i, j] ~ dbern(p[i])
+            }
+            """
+        else:
+            pc_lik = ""
+
+        if self.params.include_aru_model and self.params.include_scores_model:
+            if self.params.aru_scores_independent_model:
+                aru_lik = """
+                # ARU
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                }
+                for(j in 1:nsurveys_scores) {
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                }
+                }"""
+            else:
+                aru_lik = """
+                # ARU
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
+                }
+                }"""
+        elif self.params.include_aru_model:
+            aru_lik = """
+                # ARU - binomial
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                    }
+                }
+                """
+        elif self.params.include_scores_model:
+            aru_lik = """
+                for(j in 1:nsurveys_scores) {
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                }
+                }
+                """
+        else:
+            aru_lik = "\n}\n"
+
+        close_string = """
+        }
+        model{
+            fake <- 0
+        }
+        """
+
+        data_model_text = f"""
+        {string_init}
+        {occ_lik}
+        {pc_lik}
+        {aru_lik}
+        {close_string}
+        """
+        with open("data_text.txt", "w") as f:
+            f.write(data_model_text)
+
+        return data_model_text
+
+    def gen_simulated_data(self):
+        """
+        Generate simulated data using the JAGS data model
+        """
+        # find the params that are actually used in the model
+
+        data_vars = self.find_variables(list(self.params.__dict__.keys()), self.data_text)
+        data = {var: self.params.__dict__[var] for var in data_vars}
+        data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
+        samples = data_model.sample(iterations=1)
+        monitored = {"y_aru", "y_pc", "scores"}
+        sim_data = {var: samples[var][:, :, 0, 0] for var in samples.keys() if var in monitored}
+        return sim_data

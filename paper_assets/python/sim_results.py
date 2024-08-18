@@ -1,13 +1,13 @@
 import arviz as az
 import pandas as pd
 import numpy as np
-from sim_model import SimModel
+from sim_data import SimParams
 from typing import List, Union
 
 
 class SimResults:
-    def __init__(self, sim_model: Union[SimModel, None] = None):
-        self.sim_model = sim_model
+    def __init__(self, sim_params: SimParams):
+        self.sim_params = sim_params
         # samples_dict is a list of dictionaries,
         # where each dictionary contains the samples from a single simulation
         self.samples_list: List[dict] = []
