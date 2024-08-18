@@ -52,18 +52,22 @@ class SimModel(pyjags.model.Model):
 
         self.sim_data = params.sim_data.__dict__
 
-        vars = self.find_variables(list(self.sim_data.keys()))
+        # Find the variables in the model that are in the simulation data
+        # Depending on the model, not all of the simulation data will be used
+        # For example, if the ARU model is not included, the ARU data will not be used
+        sim_vars = self.find_variables(list(self.sim_data.keys()))
 
-        sim_data = {var: self.sim_data[var] for var in vars}
+        self.sim_data = {var: self.sim_data[var] for var in sim_vars}
 
-        print(sim_data)
+        print(self.sim_data)
 
         self.inits = self.create_inits()
-        print(self.inits)
+
+        self.monitored_vars = self.get_monitored_vars()
 
         super().__init__(
             code=self.model_text,
-            data=sim_data,
+            data=self.sim_data,
             chains=params.nc,
             adapt=params.na,
             init=self.inits,
@@ -77,6 +81,7 @@ class SimModel(pyjags.model.Model):
         return super().sample(
             iterations=self.params.ni,
             thin=self.params.nt,
+            vars=self.monitored_vars,
         )
 
     def gen_jags_model_text(self):
@@ -239,3 +244,24 @@ class SimModel(pyjags.model.Model):
         inits_in_model = {var: inits_full[var] for var in init_keys_in_model}
 
         return inits_in_model
+
+    def get_monitored_vars(self):
+        """
+        Get the monitored variables based on the model type
+        """
+        monitored_list = ["PropOcc"]
+        if self.params.include_covar_model:
+            monitored_list += ["beta0", "beta1", "mean_psi"]
+        else:
+            monitored_list += ["psi"]
+
+        if self.params.include_pc_model:
+            monitored_list += ["p11"]
+
+        if self.params.include_aru_model:
+            monitored_list += ["p_aru11", "p_aru01"]
+
+        if self.params.include_scores_model:
+            monitored_list += ["mu", "sigma"]
+
+        return monitored_list

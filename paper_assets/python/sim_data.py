@@ -26,13 +26,7 @@ class SimParams:
     nsamples: int = -1
     covar: np.ndarray = np.ndarray([])
 
-    def generate_sim_params(self) -> "SimParams":
-        """
-        Generate simulation parameters using the given parameters
-
-        Must call this method after initializing the SimParams object
-        for valid simulation parameters
-        """
+    def __post_init__(self):
         self.tau = tuple([1 / (s * s) for s in self.sigma])
         self.siteid = tuple(list(range(1, self.nsites + 1)))
         self.nsamples = len(self.siteid)
@@ -40,8 +34,6 @@ class SimParams:
             self.covar = np.random.normal(0, 1, self.nsites)
         else:
             self.covar = np.random.binomial(1, self.covar_prob, self.nsites)
-
-        return self
 
 
 class SimData:
