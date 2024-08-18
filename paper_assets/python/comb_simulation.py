@@ -17,19 +17,17 @@ params = SimParams(
     beta0=0,
     beta1=1,
     threshold=0,
-    include_aru_model=False,
+    include_covar_model=False,
 )
 
 
 def run_sim():
-
     model = SimModel(params)
-
     samples = model.sample()
     return samples
 
 
-sim_results = SimResults(sim_params=params)
+sim_results = SimResults(params)
 
 for _ in range(N_SIMS):
     samples = run_sim()

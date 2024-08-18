@@ -7,6 +7,13 @@ import scipy.stats as stats
 
 @dataclass
 class SimParams:
+    """
+    SimParams class to hold simulation parameters
+
+    These are the parameters that will be used to simulate data and run the model.
+
+    """
+
     p11: float = 0.5
     p_aru11: float = 0.5
     p_aru01: float = 0.05
@@ -48,7 +55,7 @@ class SimParams:
     include_scores_model: bool = True
     include_covar_model: bool = True
     aru_scores_independent_model: bool = True
-    
+
     def keys(self):
         return self.__dict__.keys()
 
@@ -61,6 +68,9 @@ class SimParams:
             self.covar = np.random.normal(0, 1, self.nsites)
         else:
             self.covar = np.random.binomial(1, self.covar_prob, self.nsites)
+
+        if not self.include_covar_model:
+            self.psi = expit(self.beta0)
 
 
 # class SimData:

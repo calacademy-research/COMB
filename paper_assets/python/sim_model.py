@@ -8,6 +8,9 @@ from typing import Union, List
 class SimModel(pyjags.model.Model):
     """
     SimModel class to make a model for simulation based on parameters
+
+    This class takes the simulation parameters and generates data using JAGS
+    and then runs the model using the generated data.
     """
 
     def __init__(self, params: SimParams):
@@ -24,8 +27,8 @@ class SimModel(pyjags.model.Model):
 
         # Find the variables in the model that are in the simulation data
         # Depending on the model, not all of the simulation data will be used
-        # For example, if the ARU model is not included, the ARU data will not be used
         all_vars = {"nsites", "nsurveys_aru", "nsurveys_pc", "nsurveys_scores", "covar", "siteid"}
+
         sim_vars = set(self.find_variables(list(self.params.keys()), self.model_text))
         sim_vars = sim_vars.intersection(all_vars)
         for var in sim_vars:
@@ -34,6 +37,8 @@ class SimModel(pyjags.model.Model):
         self.inits = self.create_inits()
 
         self.monitored_vars = self.get_monitored_vars()
+        
+        print(sim_data)
 
         super().__init__(
             code=self.model_text,
@@ -207,7 +212,7 @@ class SimModel(pyjags.model.Model):
         inits_full = {
             "mu": mu,
             "sigma": np.random.uniform(0.5, 2.5, 2),
-            # "psi": np.repeat(0.5, self.sim_data["nsites"]),
+            "psi": 0.5,
             "z": np.repeat(1, self.params.nsites),
             "beta0": 0,
             "beta1": 0,
@@ -215,6 +220,12 @@ class SimModel(pyjags.model.Model):
             "p_aru01": 0.1,
             "p11": 0.2,
         }
+
+        if self.params.include_covar_model:
+            del inits_full["psi"]
+        if not self.params.include_covar_model:
+            del inits_full["beta0"]
+            del inits_full["beta1"]
 
         init_keys_in_model = self.find_variables(list(inits_full.keys()), self.model_text)
         inits_in_model = {var: inits_full[var] for var in init_keys_in_model}
@@ -338,11 +349,13 @@ class SimModel(pyjags.model.Model):
         Generate simulated data using the JAGS data model
         """
         # find the params that are actually used in the model
-
         data_vars = self.find_variables(list(self.params.__dict__.keys()), self.data_text)
         data = {var: self.params.__dict__[var] for var in data_vars}
+        print(data)
+
         data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
-        samples = data_model.sample(iterations=1)
         monitored = {"y_aru", "y_pc", "scores"}
-        sim_data = {var: samples[var][:, :, 0, 0] for var in samples.keys() if var in monitored}
+        samples = data_model.sample(iterations=1, vars=monitored)
+
+        sim_data = {var: samples[var][:, :, 0, 0] for var in samples.keys()}
         return sim_data

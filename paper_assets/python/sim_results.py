@@ -6,7 +6,18 @@ from typing import List, Union
 
 
 class SimResults:
+    """
+    SimResults class organizes the results from multiple simulations
+    """
+
     def __init__(self, sim_params: SimParams):
+        """
+        Initializes a SimResults object given the simulation parameters.
+
+        Args:
+            sim_params (SimParams): The simulation parameters.
+        """
+
         self.sim_params = sim_params
         # samples_dict is a list of dictionaries,
         # where each dictionary contains the samples from a single simulation
@@ -31,7 +42,7 @@ class SimResults:
 
         for samples in self.samples_list:
             self._summarize_single_simulation(samples, summary_dict)
-            
+
         return summary_dict
 
     def _summarize_single_simulation(
@@ -39,6 +50,13 @@ class SimResults:
         samples: dict,
         samples_dict: dict,
     ) -> None:
+        """
+        Summarize the samples from a single simulation
+
+        :param samples: dictionary of samples from a single simulation
+        :param samples_dict: dictionary of DataFrames, where keys are parameter names and
+        each DataFrame contains the summary statistics for a single parameter
+        """
         pyjags_data = az.from_pyjags(posterior=samples)
         summary = az.summary(pyjags_data)
         for param_name, single_param_summary in summary.iterrows():
