@@ -37,8 +37,6 @@ class SimModel(pyjags.model.Model):
         self.inits = self.create_inits()
 
         self.monitored_vars = self.get_monitored_vars()
-        
-        print(sim_data)
 
         super().__init__(
             code=self.model_text,
@@ -46,6 +44,7 @@ class SimModel(pyjags.model.Model):
             chains=params.nc,
             adapt=params.na,
             init=self.inits,
+            threads=params.nc,
         )
 
     def sample(self):
@@ -351,7 +350,6 @@ class SimModel(pyjags.model.Model):
         # find the params that are actually used in the model
         data_vars = self.find_variables(list(self.params.__dict__.keys()), self.data_text)
         data = {var: self.params.__dict__[var] for var in data_vars}
-        print(data)
 
         data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
         monitored = {"y_aru", "y_pc", "scores"}

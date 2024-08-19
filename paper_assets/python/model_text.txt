@@ -2,7 +2,8 @@
         model {
 
         # Priors
-psi ~ dbeta(2,2)
+beta0 ~ dnorm(0, 0.5)
+ beta1 ~ dnorm(0, 0.5)
 p11 ~ dbeta(2, 2)
 p_aru11 ~ dbeta(2, 2)
 p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11)
@@ -18,7 +19,8 @@ p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11)
         
             # Likelihood for occupancy
             for (i in 1:nsites) {
-                z[i] ~ dbern(psi)
+                logit(psi[i]) <- beta0 + beta1 * covar[i]
+                z[i] ~ dbern(psi[i])
             
         
             # Point count

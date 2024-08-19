@@ -3,7 +3,8 @@
 
         
             for (i in 1:nsites) {
-                z[i] ~ dbern(psi)
+                logit(psi[i]) <- beta0 + beta1*covar[i]
+                z[i] ~ dbern(psi[i])
             
         
             p[i] <- p11 * z[i]
