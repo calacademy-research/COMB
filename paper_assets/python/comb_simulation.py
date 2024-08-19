@@ -7,15 +7,14 @@ from sim_data import SimParams
 from sim_model import SimModel
 import arviz as az
 
-N_SIMS = 1
+N_SIMS = 10
 
 params = SimParams(
-    nsites=25,
-    nsurveys_aru=3,
+    nsites=80,
+    nsurveys_aru=24,
     nsurveys_pc=3,
     covar_continuous=True,
-    beta0=0,
-    beta1=1,
+    psi=0.1,
     threshold=0,
     include_covar_model=False,
 )
@@ -33,5 +32,4 @@ for _ in range(N_SIMS):
     samples = run_sim()
     sim_results.append_samples(samples)
 
-summary = sim_results.get_summary()
-print(summary)
+sim_results.save_summary("sim_summary")

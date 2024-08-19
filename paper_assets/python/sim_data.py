@@ -14,11 +14,12 @@ class SimParams:
 
     """
 
+    psi: float = 0.5  # only used if include_covar_model is False
     p11: float = 0.5
     p_aru11: float = 0.5
     p_aru01: float = 0.05
-    beta0: float = 0
-    beta1: float = 0
+    beta0: float = 0  # only used if include_covar_model is True
+    beta1: float = 0  # only used if include_covar_model is True
     mu: Tuple[float, float] = (-2, 2)
     sigma: Tuple[float, float] = (0.5, 2)
     nsites: int = 100
@@ -64,13 +65,6 @@ class SimParams:
         self.tau = tuple([1 / (s * s) for s in self.sigma])
         self.siteid = tuple(list(range(1, self.nsites + 1)))
         self.nsamples = len(self.siteid)
-        if self.covar_continuous:
-            self.covar = np.random.normal(0, 1, self.nsites)
-        else:
-            self.covar = np.random.binomial(1, self.covar_prob, self.nsites)
-
-        if not self.include_covar_model:
-            self.psi = expit(self.beta0)
 
 
 # class SimData:

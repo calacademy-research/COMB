@@ -67,3 +67,4 @@ rsconnect/
 
 # python
 *.pyc
+sim_summary/

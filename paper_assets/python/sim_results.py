@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from sim_data import SimParams
 from typing import List, Union
+from pathlib import Path
+import json
 
 
 class SimResults:
@@ -66,3 +68,24 @@ class SimResults:
             samples_dict[param_name] = pd.concat(
                 [samples_dict[param_name], single_param_summary_df], ignore_index=True
             )
+
+    def save_summary(self, directory: Union[Path, str]):
+        """
+        Save the summary statistics to a directory
+
+        :param directory: The directory to save the summary statistics
+        """
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        metadata = self.sim_params.__dict__
+        for key, value in metadata.items():
+            if isinstance(value, np.ndarray):
+                metadata[key] = value.tolist()
+
+        with open(directory / "metadata.json", "w") as f:
+            f.write(json.dumps(metadata, indent=4))
+
+        summary_dict = self.get_summary()
+
+        for param_name, summary_df in summary_dict.items():
+            summary_df.to_csv(directory / f"{param_name}_summary.csv")

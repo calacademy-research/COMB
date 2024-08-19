@@ -16,9 +16,14 @@ class SimModel(pyjags.model.Model):
     def __init__(self, params: SimParams):
         self.params = params
 
+        # generate the covariates
+        # they are technically not parameters, but we need them to generate the data
+        self.covars = self._gen_covars()
+
         # first generate the simulation data
         # generate jags data model text
         # this "model" will only generate data to be used in the simulation
+
         self.data_text = self.gen_jags_data_text()
         sim_data = self.gen_simulated_data()
 
@@ -29,10 +34,13 @@ class SimModel(pyjags.model.Model):
         # Depending on the model, not all of the simulation data will be used
         all_vars = {"nsites", "nsurveys_aru", "nsurveys_pc", "nsurveys_scores", "covar", "siteid"}
 
-        sim_vars = set(self.find_variables(list(self.params.keys()), self.model_text))
+        sim_params = self.params.__dict__.copy()
+        sim_params["covar"] = self.covars
+
+        sim_vars = set(self.find_variables(list(sim_params.keys()), self.model_text))
         sim_vars = sim_vars.intersection(all_vars)
         for var in sim_vars:
-            sim_data[var] = self.params.__dict__[var]
+            sim_data[var] = sim_params[var]
 
         self.inits = self.create_inits()
 
@@ -350,6 +358,8 @@ class SimModel(pyjags.model.Model):
         # find the params that are actually used in the model
         data_vars = self.find_variables(list(self.params.__dict__.keys()), self.data_text)
         data = {var: self.params.__dict__[var] for var in data_vars}
+        if self.params.include_covar_model:
+            data["covar"] = self.covars
 
         data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
         monitored = {"y_aru", "y_pc", "scores"}
@@ -357,3 +367,14 @@ class SimModel(pyjags.model.Model):
 
         sim_data = {var: samples[var][:, :, 0, 0] for var in samples.keys()}
         return sim_data
+
+    def _gen_covars(self) -> np.ndarray:
+        """
+        Generate covariates
+        """
+        if self.params.covar_continuous:
+            covars = np.random.normal(0, 1, self.params.nsites)
+        else:
+            covars = np.random.binomial(1, self.params.covar_prob, self.params.nsites)
+
+        return covars
