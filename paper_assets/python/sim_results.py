@@ -1,3 +1,4 @@
+import os
 import arviz as az
 import pandas as pd
 import numpy as np
@@ -77,11 +78,17 @@ class SimResults:
                 [samples_dict[param_name], single_param_summary_df], ignore_index=True
             )
 
-    def save_summary(self, directory: Union[Path, str]):
+    def save(self, directory: Union[Path, str]) -> None:
         """
-        Save the summary statistics to a directory
+        Save the results to a directory
 
-        TODO: add ability to save all chains (compressed), not just the summary
+        The summary of the results are stored in csv files with their name corresponding to
+        the parameter.
+
+        The params are stored in `metadata.json`.
+
+        The raw samples are stored in `raw_samples/sim_n.npz` where each simulation
+        gets its own file.
 
         Args:
             directory (str | Path): The directory to save the summary statistics
@@ -101,6 +108,12 @@ class SimResults:
         for param_name, summary_df in summary_dict.items():
             summary_df.to_csv(directory / f"{param_name}_summary.csv")
 
+        for i, raw_sample in enumerate(self.samples_list):
+            np.savez_compressed(
+                file=directory / "raw_samples" / f"sim_{i}.npz",
+                *raw_sample,
+            )
+
     @staticmethod
     def load(directory: Union[str, Path]) -> "SimResults":
         """
@@ -111,9 +124,19 @@ class SimResults:
         Args:
             directory (str | Path)
         """
-        # TODO: make this method
-        pass
-        return SimResults(SimParams())
+        directory = Path(directory)
+        with open(directory / "metadata.json") as f:
+            sim_params = json.load(f)
+
+        raw_samples_files = os.listdir(directory / "raw_samples")
+        samples_list = []
+        for raw_samples_file in raw_samples_files:
+            sample = np.load(raw_samples_file)
+            samples_list.append(sample)
+
+        sim_results = SimResults(sim_params=sim_params)
+        sim_results.samples_list = samples_list
+        return sim_results
 
     def plot_summary_hists(self, params: Union[List[str], None] = None):
         """
@@ -138,7 +161,7 @@ class SimResults:
             plt.hist(summary_values)
             plt.title(param_name)
             figs.append(fig)
-        
+
         return figs
 
     def _get_sim_param_value(self, sim_param_name: str) -> Union[float, int]:
