@@ -360,6 +360,7 @@ class SimModel(pyjags.model.Model):
         data = {var: self.params.__dict__[var] for var in data_vars}
         if self.params.include_covar_model:
             data["covar"] = self.covars
+            del data["psi"]
 
         data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
         monitored = {"y_aru", "y_pc", "scores"}
