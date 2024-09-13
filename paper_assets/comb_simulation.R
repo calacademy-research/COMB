@@ -425,34 +425,45 @@ fit_model_to_sim_data <- function(jagsInputData = NULL,
   
   inits_full <- function() {
     list(
-      mu = sort(rnorm(2)),
-      sigma = runif(2, 0.5, 2.5),
+      mu = c(-2,0),
+      sigma = c(2, 2),
       psi = 0.5,
       z = rep(1, nsites),
       beta0 = 0,
-      beta1 = 0,
-      p_aru11 = 0.2,
-      p_aru01 = 0.1,
-      p11 = 0.2
+      beta1 = 0
+      # p_aru11 = 0.7,
+      # p_aru01 = 0.01,
+      # p11 = 0.7
     )
   }
   inits_monitored <- function() {
     full_init_list = list(
-      mu = sort(rnorm(2)),
-      sigma = runif(2, 0.5, 2.5),
+      mu = c(-2,0),
+      sigma = c(2, 2),
       psi = 0.5,
       z = rep(1, nsites),
       beta0 = 0,
-      beta1 = 0,
-      p_aru11 = 0.2,
-      p_aru01 = 0.1,
-      p11 = 0.2
+      beta1 = 0
+      # p_aru11 = 0.5,
+      # p_aru01 = 0.01,
+      # p11 = 0.5
     )
     
     return(full_init_list[names(full_init_list) %in% monitored_list])
   }
   
   inits = ifelse(is.null(monitored_list), inits_full, inits_monitored)
+  
+  print(jagsInputData)
+  print(inits)
+  print(monitored_list)
+  print(modelFile)
+  
+  save(jagsInputData, file='jagsInputData.RData')
+  save(inits, file='inits.RData')
+  save(monitored_list, file='monitored_list.RData')
+  save(modelFile, file='modelFile.RData')
+  
   
   simjagsResult <- jagsUI::jags(
     jagsInputData,
@@ -496,12 +507,12 @@ run_n_simulation_and_fit <- function(condition_name = "",
                                      include_covar = TRUE,
                                      aru_scores_independent = TRUE,
                                      nsites = 100,
-                                     p11 = 0.1,
-                                     p_aru11 = 0.1,
+                                     p11 = 0.7,
+                                     p_aru11 = 0.7,
                                      p_aru01 = 0.025,
                                      beta0 = 0,
-                                     beta1 = 1,
-                                     mu = c(-1, 1),
+                                     beta1 = 0,
+                                     mu = c(-3, 1),
                                      sigma = c(1, 1),
                                      nsurveys.aru = 24,
                                      nsurveys.pc = 3,
@@ -754,13 +765,8 @@ get_all_metric_df <-
 
 # Quick check to see if code is working properly
 results_test <- run_n_simulation_and_fit(
-  n_sims = 1,
-  nsurveys.aru = 3,
-  na = 10,
-  ni = 50,
-  nt = 1,
-  nb = 10,
-  nc = 1,
-  condition_name = "Base model - test"
+  n_sims = 3,
+  nsurveys.aru = 24,
+  condition_name = "Base model - test - checking"
 )
 

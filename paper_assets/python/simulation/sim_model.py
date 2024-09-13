@@ -1,5 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
+from sim_results import SimResults
 from sim_data import SimParams
 import pyjags.model
 from typing import Union, List
@@ -379,3 +380,20 @@ class SimModel(pyjags.model.Model):
             covars = np.random.binomial(1, self.params.covar_prob, self.params.nsites)
 
         return covars
+    
+    @staticmethod
+    def load_from_sim_results(sim_results: SimResults) -> "SimModel":
+        """
+        Load a SimModel from a SimResults object
+
+        This is useful for loading a parameters from a saved simulation
+        to run additional simulations with the same parameters
+
+        Args:
+            sim_results (SimResults): The SimResults object
+        
+        Returns:
+            SimModel: The SimModel object
+        """
+        sim_params = sim_results.sim_params
+        return SimModel(sim_params)

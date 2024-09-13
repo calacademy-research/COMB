@@ -33,7 +33,7 @@ class SimResults:
 
     def append_samples(self, samples: dict):
         """
-        Append samples from a single simulation to the samples_dict
+        Append samples from a single simulation to the samples_list
 
         Args:
             samples (dict): dictionary of samples from a single simulation
@@ -116,7 +116,7 @@ class SimResults:
         with open(directory / "metadata.json", "w") as f:
             f.write(json.dumps(metadata, indent=4))
 
-        summary_dict = self.get_summary()
+        summary_dict = self.get_summary(reindex=True)
 
         for param_name, summary_df in summary_dict.items():
             summary_df.to_csv(directory / f"{param_name}_summary.csv")
@@ -168,7 +168,7 @@ class SimResults:
         ]
         summary_dict = {}
         for summary_file in summary_files:
-            param_name = summary_file.stem.split("_")[0]
+            param_name = summary_file.stem.replace("_summary", "")
             summary_dict[param_name] = pd.read_csv(summary_file)
         sim_results.summary = summary_dict
 
@@ -195,6 +195,8 @@ class SimResults:
             params = [param for param in summary.keys() if param not in derived]
         else:
             params = [param for param in params if param in summary and param not in derived]
+        
+        print(summary.keys())
 
         num_params = len(params)
         num_cols = 3  # You can adjust the number of columns as needed
@@ -212,7 +214,7 @@ class SimResults:
             summary_values = summary_df[func]
             ax = axes[i]
             ax.axvline(x=sim_param_value, color="r", linestyle="--")
-            ax.hist(summary_values)
+            ax.hist(summary_values, bins=20)
             ax.set_title(param_name)
 
         plt.tight_layout()

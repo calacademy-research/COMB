@@ -67,4 +67,6 @@ rsconnect/
 
 # python
 *.pyc
+__pycache__/
 sim_summary/
+**/simulation/outputs/
