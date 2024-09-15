@@ -40,7 +40,7 @@ class AruData:
         Initializes an AruData object given the ARU data.
 
         Args:
-            aru_data (pd.DataFrame): The ARU data.
+            aru_data (pl.DataFrame): The ARU data.
             aru_data_params (ARUDataParams): The ARU data parameters.
         """
 
@@ -80,23 +80,32 @@ class AruData:
         Returns:
             Dict[str, Union[np.ndarray, int]]: The ARU data as a dictionary.
         """
-        n_species = aru_data["species_index"].max()
-        if isinstance(n_species, int):
-            n_species = n_species + 1
+        if self.aru_data_params.species_index is not None:
+            n_species = max(self.aru_data_params.species_index.values()) + 1
         else:
-            raise ValueError("No species found in ARU data.")
+            n_species = aru_data["species_index"].max()
+            if isinstance(n_species, int):
+                n_species = n_species + 1
+            else:
+                raise ValueError("No species found in ARU data.")
 
-        n_years = aru_data["year_index"].max()
-        if isinstance(n_years, int):
-            n_years = n_years + 1
+        if self.aru_data_params.year_index is not None:
+            n_years = max(self.aru_data_params.year_index.values()) + 1
         else:
-            raise ValueError("No years found in ARU data or n_years is not an int")
+            n_years = aru_data["year_index"].max()
+            if isinstance(n_years, int):
+                n_years = n_years + 1
+            else:
+                raise ValueError("No years found in ARU data or n_years is not an int")
 
-        n_sites = aru_data["point_index"].max()
-        if isinstance(n_sites, int):
-            n_sites = n_sites + 1
+        if self.aru_data_params.point_index is not None:
+            n_sites = max(self.aru_data_params.point_index.values()) + 1
         else:
-            raise ValueError("No sites found in ARU data or n_sites is not an int")
+            n_sites = aru_data["point_index"].max()
+            if isinstance(n_sites, int):
+                n_sites = n_sites + 1
+            else:
+                raise ValueError("No sites found in ARU data or n_sites is not an int")
 
         n_surveys_aru = aru_data["visit_index"].max()
         if isinstance(n_surveys_aru, int):
@@ -209,7 +218,6 @@ class AruData:
         aru_data = aru_data.filter(
             (pl.col(point_col).is_not_null()) & (pl.col(datetime_col).is_not_null())
         )
-
         if self.aru_data_params.years:
             aru_data = aru_data.filter(
                 pl.col("datetime").dt.year().is_in(self.aru_data_params.years)
@@ -316,7 +324,7 @@ class PcData:
         Initializes a PcData object given the Point Count data.
 
         Args:
-            pc_data (pd.DataFrame): The Point Count data.
+            pc_data (pl.DataFrame): The Point Count data.
             pc_data_params (PCDataParams): The Point Count data parameters.
         """
 
@@ -390,23 +398,32 @@ class PcData:
         Returns:
             Dict[str, Union[np.ndarray, int]]: The Point Count data as a dictionary.
         """
-        n_species = pc_data["species_index"].max()
-        if isinstance(n_species, int):
-            n_species = n_species + 1
+        if self.pc_data_params.species_index is not None:
+            n_species = max(self.pc_data_params.species_index.values()) + 1
         else:
-            raise ValueError("No species found in PC data.")
+            n_species = pc_data["species_index"].max()
+            if isinstance(n_species, int):
+                n_species = n_species + 1
+            else:
+                raise ValueError("No species found in PC data.")
 
-        n_years = pc_data["year_index"].max()
-        if isinstance(n_years, int):
-            n_years = n_years + 1
+        if self.pc_data_params.year_index is not None:
+            n_years = max(self.pc_data_params.year_index.values()) + 1
         else:
-            raise ValueError("No years found in PC data or n_years is not an int")
+            n_years = pc_data["year_index"].max()
+            if isinstance(n_years, int):
+                n_years = n_years + 1
+            else:
+                raise ValueError("No years found in PC data or n_years is not an int")
 
-        n_sites = pc_data["point_index"].max()
-        if isinstance(n_sites, int):
-            n_sites = n_sites + 1
+        if self.pc_data_params.point_index is not None:
+            n_sites = max(self.pc_data_params.point_index.values()) + 1
         else:
-            raise ValueError("No sites found in PC data or n_sites is not an int")
+            n_sites = pc_data["point_index"].max()
+            if isinstance(n_sites, int):
+                n_sites = n_sites + 1
+            else:
+                raise ValueError("No sites found in PC data or n_sites is not an int")
 
         n_surveys_pc = pc_data[self.pc_data_params.visit_index_col].max()
         if isinstance(n_surveys_pc, int):
@@ -446,8 +463,12 @@ class PcData:
                 datetime.hour * 60 + datetime.minute
             )
 
+        # y_ind is the binary count data
+        y_ind = np.where(y_pc > 0, 1, 0)
+
         return {
             "y_pc": y_pc,
+            "y_ind": y_ind,
             "n_species": n_species,
             "n_years": n_years,
             "n_sites": n_sites,
@@ -476,7 +497,7 @@ class PcData:
         )
 
         if self.pc_data_params.years:
-            pc_data = pc_data.filter(pl.col("datetime").dt.year().is_in(self.pc_data_params.years))
+            pc_data = pc_data.filter(pl.col(datetime_col).dt.year().is_in(self.pc_data_params.years))
 
         if self.pc_data_params.species:
             pc_data = pc_data.filter(pl.col(species_col).is_in(self.pc_data_params.species))
