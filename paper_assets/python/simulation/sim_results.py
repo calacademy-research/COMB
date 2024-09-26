@@ -2,6 +2,7 @@ import math
 import os
 import arviz as az
 import pandas as pd
+import polars as pl
 import numpy as np
 from sim_data import SimParams
 from typing import List, Union
@@ -195,7 +196,7 @@ class SimResults:
             params = [param for param in summary.keys() if param not in derived]
         else:
             params = [param for param in params if param in summary and param not in derived]
-        
+
         print(summary.keys())
 
         num_params = len(params)
@@ -247,3 +248,39 @@ class SimResults:
         except ValueError:
             raise ValueError(f"name {name} and index {index} not found")
         return value
+
+
+class ManySimResults:
+    def __init__(self, sims_dir: Union[str, Path]):
+        """
+        Initialize a ManySimResults object
+
+        Args:
+            sims_dir (str | Path): The directory containing the simulation results
+        """
+        self.sims_dir = Path(sims_dir)
+        self.sim_results: dict[str, SimResults] = {}
+        self.load_sim_results()
+        self.sim_results_index = self.create_sim_results_index()
+
+    def load_sim_results(self):
+        """
+        Load all of the simulation results from the directory
+        """
+        sim_dirs = [x for x in self.sims_dir.iterdir() if x.is_dir()]
+        for sim_dir in sim_dirs:
+            self.sim_results[sim_dir.name] = SimResults.load(sim_dir)
+
+    def create_sim_results_index(self):
+        """
+        Create an index for the simulation results
+
+        Returns:
+            pl.DataFrame: A DataFrame containing the metadata for each simulation
+        """
+        metadata = []
+        for dir_name, sim_result in self.sim_results.items():
+            params = sim_result.sim_params.__dict__
+            params["dir_name"] = dir_name
+            metadata.append(params)
+        return pl.DataFrame(metadata, strict=False)

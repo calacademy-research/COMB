@@ -6,8 +6,10 @@ from sim_model import SimModel
 from sim_results import SimResults
 import itertools
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 N_SIMS = 1
+N_PROCESSES = 12
 
 
 class SimCombinations:
@@ -68,10 +70,17 @@ class SimCombinations:
 
     def run_all_combinations(self):
         """
-        Run all of the valid parameter combinations
+        Run all of the valid parameter combinations using ProcessPoolExecutor
         """
-        for params in tqdm(self.valid_params):
-            self.run_single_combination(params)
+        with ProcessPoolExecutor(max_workers=N_PROCESSES) as executor:
+            futures = [
+                executor.submit(self.run_single_combination, params) for params in self.valid_params
+            ]
+            for future in tqdm(as_completed(futures), total=len(futures)):
+                try:
+                    future.result()  # This will raise an exception if the task failed
+                except Exception as e:
+                    print(f"Simulation failed with exception: {e}")
 
     def run_single_combination(self, params: SimParams):
         """
@@ -94,7 +103,7 @@ class SimCombinations:
             except Exception as e:
                 print(f"Error in running simulation: {e}")
                 print(f"Parameters: {params}")
-                exit(1)
+                return
             sim_results.append_samples(samples)
 
         filepath = self.output_dir / f"sim_summary_{sim_params_hash}"
