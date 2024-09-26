@@ -24,6 +24,7 @@ class SimParams:
     sigma: Tuple[float, float] = (0.5, 2)
     nsites: int = 100
     nsurveys_aru: int = 24
+    nsurveys_scores: int = 24  # these two must be the same if aru_scores_independent_model is False
     nsurveys_pc: int = 3
     covar_continuous: bool = False
     covar_prob: float = 0.5
@@ -51,6 +52,11 @@ class SimParams:
     nc: int = 6  # number of chains
     parallel: bool = True  # whether to run each chain in parallel
 
+    include_aru_data: bool = True
+    include_pc_data: bool = True
+    include_scores_data: bool = True
+    include_covar_data: bool = True
+
     include_aru_model: bool = True
     include_pc_model: bool = True
     include_scores_model: bool = True
@@ -61,7 +67,11 @@ class SimParams:
         return self.__dict__.keys()
 
     def __post_init__(self):
-        self.nsurveys_scores = self.nsurveys_aru
+        # We can only have a diff number of scores and aru samples if the aru model is independent
+        if not self.aru_scores_independent_model:
+            assert (
+                self.nsurveys_aru == self.nsurveys_scores
+            ), "nsurveys_aru and nsurveys_scores must be the same if aru_scores_independent_model is False"
         self.tau = tuple([1 / (s * s) for s in self.sigma])
         self.siteid = tuple(list(range(1, self.nsites + 1)))
         self.nsamples = len(self.siteid)

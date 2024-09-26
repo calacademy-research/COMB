@@ -26,22 +26,37 @@ class SimModel(pyjags.model.Model):
         # this "model" will only generate data to be used in the simulation
 
         self.data_text = self.gen_jags_data_text()
-        sim_data = self.gen_simulated_data()
+        raw_sim_data = self.gen_simulated_data()
 
         # generate the jags model text for the actual model
         self.model_text = self.gen_jags_model_text()
 
         # Find the variables in the model that are in the simulation data
         # Depending on the model, not all of the simulation data will be used
-        all_vars = {"nsites", "nsurveys_aru", "nsurveys_pc", "nsurveys_scores", "covar", "siteid"}
+        all_vars = {
+            "nsites",
+            "nsurveys_aru",
+            "nsurveys_pc",
+            "nsurveys_scores",
+            "covar",
+            "siteid",
+            "threshold",
+        }
 
         sim_params = self.params.__dict__.copy()
         sim_params["covar"] = self.covars
 
         sim_vars = set(self.find_variables(list(sim_params.keys()), self.model_text))
         sim_vars = sim_vars.intersection(all_vars)
+
+        data_vars = self.find_variables(list(raw_sim_data.keys()), self.model_text)
+
+        sim_data = {}
+
         for var in sim_vars:
             sim_data[var] = sim_params[var]
+        for var in data_vars:
+            sim_data[var] = raw_sim_data[var]
 
         self.inits = self.create_inits()
 
@@ -271,7 +286,7 @@ class SimModel(pyjags.model.Model):
         """
         string_init = "data {\n"
 
-        if self.params.include_covar_model:
+        if self.params.include_covar_data:
             occ_lik = """
             for (i in 1:nsites) {
                 logit(psi[i]) <- beta0 + beta1*covar[i]
@@ -283,7 +298,7 @@ class SimModel(pyjags.model.Model):
                 z[i] ~ dbern(psi)
             """
 
-        if self.params.include_pc_model:
+        if self.params.include_pc_data:
             pc_lik = """
             p[i] <- p11 * z[i]
             for (j in 1:nsurveys_pc) {
@@ -293,7 +308,7 @@ class SimModel(pyjags.model.Model):
         else:
             pc_lik = ""
 
-        if self.params.include_aru_model and self.params.include_scores_model:
+        if self.params.include_aru_data and self.params.include_scores_data:
             if self.params.aru_scores_independent_model:
                 aru_lik = """
                 # ARU
@@ -314,7 +329,7 @@ class SimModel(pyjags.model.Model):
                     scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
                 }
                 }"""
-        elif self.params.include_aru_model:
+        elif self.params.include_aru_data:
             aru_lik = """
                 # ARU - binomial
                 p_aru[i] <- z[i]*p_aru11 + p_aru01
@@ -323,7 +338,7 @@ class SimModel(pyjags.model.Model):
                     }
                 }
                 """
-        elif self.params.include_scores_model:
+        elif self.params.include_scores_data:
             aru_lik = """
                 for(j in 1:nsurveys_scores) {
                     scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
@@ -356,10 +371,10 @@ class SimModel(pyjags.model.Model):
         """
         Generate simulated data using the JAGS data model
         """
-        # find the params that are actually used in the model
+        # find the params that are actually used in the data model
         data_vars = self.find_variables(list(self.params.__dict__.keys()), self.data_text)
         data = {var: self.params.__dict__[var] for var in data_vars}
-        if self.params.include_covar_model:
+        if self.params.include_covar_data:
             data["covar"] = self.covars
             del data["psi"]
 
@@ -380,7 +395,7 @@ class SimModel(pyjags.model.Model):
             covars = np.random.binomial(1, self.params.covar_prob, self.params.nsites)
 
         return covars
-    
+
     @staticmethod
     def load_from_sim_results(sim_results: SimResults) -> "SimModel":
         """
@@ -391,7 +406,7 @@ class SimModel(pyjags.model.Model):
 
         Args:
             sim_results (SimResults): The SimResults object
-        
+
         Returns:
             SimModel: The SimModel object
         """
