@@ -1,7 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
-from sim_results import SimResults
-from sim_data import SimParams
+from .sim_results import SimResults
+from .sim_data import SimParams
 import pyjags.model
 from typing import Union, List
 

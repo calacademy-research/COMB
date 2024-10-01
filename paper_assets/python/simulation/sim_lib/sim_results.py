@@ -4,12 +4,13 @@ import arviz as az
 import pandas as pd
 import polars as pl
 import numpy as np
-from sim_data import SimParams
+from .sim_data import SimParams
 from typing import List, Union
 from pathlib import Path
 import matplotlib.pyplot as plt
 import json
 import inspect
+from tqdm import tqdm
 
 
 class SimResults:
@@ -268,7 +269,7 @@ class ManySimResults:
         Load all of the simulation results from the directory
         """
         sim_dirs = [x for x in self.sims_dir.iterdir() if x.is_dir()]
-        for sim_dir in sim_dirs:
+        for sim_dir in tqdm(sim_dirs):
             self.sim_results[sim_dir.name] = SimResults.load(sim_dir)
 
     def create_sim_results_index(self):
@@ -282,5 +283,27 @@ class ManySimResults:
         for dir_name, sim_result in self.sim_results.items():
             params = sim_result.sim_params.__dict__
             params["dir_name"] = dir_name
+            params["n_sims"] = len(sim_result.samples_list)
             metadata.append(params)
         return pl.DataFrame(metadata, strict=False)
+
+    def load_from_sim_results_index(self, index: pl.DataFrame):
+        """
+        Load simulation results from the index.
+
+        Ideally, this index is a subset of the `sim_results_index` attribute
+        that contains simulations that are of interest.
+
+        Args:
+            index (pl.DataFrame): A DataFrame containing the metadata for each simulation
+
+        Returns:
+            List[SimResults]: A list of SimResults objects
+        """
+        sim_results: List[SimResults] = []
+
+        for sim in index.iter_rows(named=True):
+            dir_name = sim["dir_name"]
+            sim_results.append(self.sim_results[dir_name])
+
+        return sim_results

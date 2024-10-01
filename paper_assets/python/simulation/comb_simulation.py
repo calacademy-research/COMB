@@ -1,7 +1,7 @@
 import pyjags.model
-from sim_results import SimResults
-from sim_data import SimParams
-from sim_model import SimModel
+from sim_lib.sim_results import SimResults
+from sim_lib.sim_data import SimParams
+from sim_lib.sim_model import SimModel
 from tqdm import tqdm
 
 N_SIMS = 100

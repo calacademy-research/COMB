@@ -1,9 +1,9 @@
 import numpy as np
 from typing import List, Tuple, Union
 from pathlib import Path
-from sim_data import SimParams
-from sim_model import SimModel
-from sim_results import SimResults
+from sim_lib.sim_data import SimParams
+from sim_lib.sim_model import SimModel
+from sim_lib.sim_results import SimResults
 import itertools
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
