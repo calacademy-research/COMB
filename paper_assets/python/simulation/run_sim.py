@@ -8,8 +8,8 @@ import itertools
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-N_SIMS = 1
-N_PROCESSES = 12
+N_SIMS = 99
+N_PROCESSES = 16
 
 
 class SimCombinations:
@@ -68,13 +68,17 @@ class SimCombinations:
 
         return params, True
 
-    def run_all_combinations(self):
+    def run_all_combinations(self, dry_run: bool = False):
         """
         Run all of the valid parameter combinations using ProcessPoolExecutor
+
+        Args:
+            dry_run (bool): If True, will not run the simulations, but will print when they would have been run
         """
         with ProcessPoolExecutor(max_workers=N_PROCESSES) as executor:
             futures = [
-                executor.submit(self.run_single_combination, params) for params in self.valid_params
+                executor.submit(self.run_single_combination, params, dry_run)
+                for params in self.valid_params
             ]
             for future in tqdm(as_completed(futures), total=len(futures)):
                 try:
@@ -82,19 +86,28 @@ class SimCombinations:
                 except Exception as e:
                     print(f"Simulation failed with exception: {e}")
 
-    def run_single_combination(self, params: SimParams):
+    def run_single_combination(self, params: SimParams, dry_run: bool = False):
         """
         Run a single simulation given the parameters
+
+        Args:
+            params (SimParams): The parameters to run the simulation with
+            dry_run (bool): If True, will not run the simulation, but will print when it would have been run
         """
         existing_dirs = [x for x in self.output_dir.iterdir() if x.is_dir()]
-        sim_params_hash = hash(str(params))
-        if sim_params_hash in [int(x.name.split("_")[-1]) for x in existing_dirs]:
+        existing_hashes = {int(x.name.split("_")[-1]) for x in existing_dirs}
+        sim_params_hash = hash(params)
+        if sim_params_hash in existing_hashes:
             if self.skip_existing:
                 print(f"Skipping existing simulation with parameters: {params}")
                 return
             sim_results = SimResults.load(self.output_dir / f"sim_summary_{sim_params_hash}")
         else:
             sim_results = SimResults(params)
+
+        if dry_run:
+            print(f"Would have run simulation with parameters: {params}")
+            return
 
         for _ in range(N_SIMS):
             try:
@@ -116,17 +129,17 @@ if __name__ == "__main__":
         "p_aru11": [0.9, 0.5, 0.1],
         "p_aru01": [0.05, 0],
         "mu": [(-2, -1.75), (-2, 0)],
-        "sigma": [(1, 1), (0.25, 1)],
+        "sigma": [(0.25, 1)],
         "threshold": [-1, 0, 1],
         "nsites": [80, 200],
         "include_covar_model": [True],
         "covar_continuous": [True],
-        "beta0": [-1, 1],
+        "beta0": [-1],
         "beta1": [-1, 1],
         "nsurveys_aru": [24],
         "nsurveys_scores": [24, 8],
         "nsurveys_pc": [3],
         "aru_scores_independent_model": [True, False],
     }
-    combs = SimCombinations(param_combinations, output_dir="outputs/testing", skip_existing=True)
+    combs = SimCombinations(param_combinations, output_dir="outputs/testing2", skip_existing=False)
     combs.run_all_combinations()

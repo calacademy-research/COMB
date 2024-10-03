@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 from scipy.special import expit, logit
 import scipy.stats as stats
+import json
 
 
 @dataclass
@@ -75,6 +76,12 @@ class SimParams:
         self.tau = tuple([1 / (s * s) for s in self.sigma])
         self.siteid = tuple(list(range(1, self.nsites + 1)))
         self.nsamples = len(self.siteid)
+
+    def __hash__(self):
+        """
+        Hashes the parameters using a frozen set of the parameters
+        """
+        return hash(json.dumps(self.__dict__, sort_keys=True, default=str))
 
 
 # class SimData:

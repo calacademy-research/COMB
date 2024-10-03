@@ -198,8 +198,6 @@ class SimResults:
         else:
             params = [param for param in params if param in summary and param not in derived]
 
-        print(summary.keys())
-
         num_params = len(params)
         num_cols = 3  # You can adjust the number of columns as needed
         num_rows = math.ceil(num_params / num_cols)
