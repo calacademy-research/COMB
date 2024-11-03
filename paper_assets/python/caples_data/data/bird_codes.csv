@@ -1,0 +1,107 @@
+name,code,four_code
+american dipper,amedip,AMDI
+american kestrel,amekes,AMKE
+american pipit,amepip,AMPI
+american robin,amerob,AMRO
+anna's hummingbird,annhum,ANHU
+band-tailed pigeon,batpig1,BTPI
+belted kingfisher,belkin1,BEKI
+black phoebe,blkpho,BLPH
+black-backed woodpecker,bkbwoo,BBWO
+black-headed grosbeak,bkhgro,BHGR
+black-throated gray warbler,btywar,BTYW
+brewer's blackbird,brebla,BRBL
+brewer's sparrow,brespa,BRSP
+brown creeper,brncre,BRCR
+bufflehead,buffle,BUFF
+bushtit,bushti,BUSH
+california scrub-jay,cowscj1,CASJ
+calliope hummingbird,calhum,CAHU
+canada goose,cangoo,CANG
+cassin's finch,casfin,CAFI
+cassin's vireo,casvir,CAVI
+chipping sparrow,chispa,CHSP
+clark's nutcracker,clanut,CLNU
+cliff swallow,cliswa,CLSW
+common merganser,commer,COME
+common nighthawk,comnig,CONI
+common poorwill,compoo,COPO
+common raven,comrav,CORA
+cooper's hawk,coohaw,COHA
+dark-eyed junco,daejun,DEJU
+dusky flycatcher,dusfly,DUFL
+evening grosbeak,evegro,EVGR
+flammulated owl,flaowl,FLOW
+fox sparrow,foxspa,FOSP
+gadwall,gadwal,GADW
+golden-crowned kinglet,gockin,GCKI
+gray-crowned rosy-finch,gcrfin,GCRF
+great horned owl,grhowl,GHOW
+green-tailed towhee,gnttow,GTTO
+hairy woodpecker,haiwoo,HAWO
+hammond's flycatcher,hamfly,HAFL
+hermit thrush,herthr,HETH
+hermit warbler,herwar,HEWA
+house finch,houfin,HOFI
+house wren,houwre,HOWR
+lazuli bunting,lazbun,LAZB
+lesser goldfinch,lesgol,LEGO
+lincoln's sparrow,linspa,LISP
+macgillivray's warbler,macwar,MGWA
+mallard,mallar,MALL
+mountain bluebird,moublu,MOBL
+mountain chickadee,mouchi,MOCH
+mountain quail,mouqua,MOUQ
+nashville warbler,naswar,NAWA
+northern flicker,norfli,NOFL
+northern goshawk,norgos,NOGO
+northern pygmy-owl,nopowl,NOPO
+northern saw-whet owl,nswowl,NSWO
+olive-sided flycatcher,olsfly,OSFL
+pacific wren,pacwre1,PAWR
+pacific-slope flycatcher,pasfly,PSFL
+peregrine falcon,perfal,PEFA
+pileated woodpecker,pilwoo,PIWO
+pine grosbeak,pingro,PIGR
+pine siskin,pinsis,PISI
+purple finch,purfin,PUFI
+pygmy nuthatch,pygnut,PYNU
+red crossbill,redcro,RECR
+red-breasted nuthatch,rebnut,RBNU
+red-breasted sapsucker,rebsap,RBSA
+red-tailed hawk,rethaw,RTHA
+rock wren,rocwre,ROWR
+rufous hummingbird,rufhum,RUHU
+sharp-shinned hawk,shshaw,SSHA
+song sparrow,sonspa,SOSP
+sooty grouse,soogro1,SOGR
+spotted owl,spoowl,SPOW
+spotted sandpiper,sposan,SPSA
+spotted towhee,spotow,SPTO
+steller's jay,stejay,STJA
+swainson's thrush,swathr,SWTH
+townsend's solitaire,towsol,TOSO
+tree swallow,treswa,TRES
+turkey vulture,turvul,TUVU
+unknown,unknown,UNKN
+vaux's swift,vauswi,VASW
+violet-green swallow,vigswa,VGSW
+warbling vireo,warvir,WAVI
+western bluebird,wesblu,WEBL
+western tanager,westan,WETA
+western wood-pewee,wewpew,WEWP
+white-breasted nuthatch,whbnut,WBNU
+white-crowned sparrow,whcspa,WCSP
+white-headed woodpecker,whhwoo,WHWO
+white-tailed ptarmigan,whtpta1,WTPT
+white-throated swift,whtswi,WTSW
+williamson's sapsucker,wilsap,WISA
+wilson's warbler,wlswar,WIWA
+yellow-rumped warbler,yerwar,YRWA
+audubon's warbler,yerwar,AUWA
+oregon junco,daejun,ORJU
+downy woodpecker,dowwoo,DOWO
+northern pygmy-owl,nopowl,NOPY
+red-winged blackbird,rewbla,RWBL
+golden-crowned kinglet / brown creeper,gocbrc,GCCR
+williamson's / red-breasted sapsucker,sapspp,SPHY

@@ -50,6 +50,8 @@ class AruData:
 
         self.aru_data_dict = self.convert_df_to_dict()
 
+    
+
     def convert_df_to_dict(self):
         """
         Converts the df of ARU data into a dictionary.
@@ -497,7 +499,9 @@ class PcData:
         )
 
         if self.pc_data_params.years:
-            pc_data = pc_data.filter(pl.col(datetime_col).dt.year().is_in(self.pc_data_params.years))
+            pc_data = pc_data.filter(
+                pl.col(datetime_col).dt.year().is_in(self.pc_data_params.years)
+            )
 
         if self.pc_data_params.species:
             pc_data = pc_data.filter(pl.col(species_col).is_in(self.pc_data_params.species))

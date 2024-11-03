@@ -21,6 +21,7 @@ class CombinedParams:
     aru_time_range: Tuple[time, time] = (time(6), time(9, 59))
     aru_threshold: float = 0.5
     aru_skip_first_day: bool = True
+    aru_remove_call_type: bool = True
 
     pc_species_col: str = "species"
     pc_count_col: str = "count"
@@ -37,6 +38,11 @@ class CombinedData:
         self.aru_data = aru_data
         self.pc_data = pc_data
 
+        self.pc_data = self.convert_PC_to_6_codes()
+
+        if self.params.aru_remove_call_type:
+            self.aru_data = self.remove_call_type()
+
         self.point_index, self.species_index, self.year_index = self._build_all_indices()
         self.aru_params = self._build_aru_params()
         self.pc_params = self._build_pc_params()
@@ -47,6 +53,60 @@ class CombinedData:
         self._verify_data()
 
         self.combined_data = self.combine_data()
+
+    def remove_call_type(self):
+        """
+        Removes the call type on the species label column.
+
+        In practice, just takes the first part before the underscore.
+
+        We might have `westan_call` and `westan_song` as two different labels,
+        but we want to treat them as the same species.
+
+        We take the max of the logit values for labels that have the same
+        species label after removing the call type.
+        """
+
+        aru_species_col = self.params.aru_species_col
+        aru_datetime_col = self.params.aru_datetime_col
+        aru_point_col = self.params.aru_point_col
+        aru_logit_col = self.params.aru_logit_col
+
+        species_no_call_type = (
+            self.aru_data.with_columns(
+                pl.col(aru_species_col).str.split("_").list.get(0).alias(aru_species_col)
+            )
+            .group_by(
+                [aru_species_col, aru_datetime_col, aru_point_col],
+            )
+            .agg(pl.col(aru_logit_col).max().alias(aru_logit_col))
+        )
+        return species_no_call_type
+
+    def convert_PC_to_6_codes(self):
+        """
+        Given the PC data, convert the species columns to the 6 letter codes
+        (from the 4 letter codes).
+
+        This is necessary because the ARU data uses the 6 letter codes.
+        """
+
+        # Default mapping for species that are not found in the bird_codes.csv file
+        default_mapping = "NOCODEFOUND"
+
+        pc_data = self.pc_data
+        pc_species_col = self.params.pc_species_col
+
+        codes = pl.read_csv("data/bird_codes.csv")
+        code_mapping = dict(zip(codes["four_code"], codes["code"]))
+
+        pc_mapped = pc_data.with_columns(
+            pl.col(pc_species_col).alias("four_code"),
+            pl.col(pc_species_col)
+            .replace_strict(code_mapping, default=default_mapping)
+            .alias(pc_species_col),
+        )
+        return pc_mapped
 
     def combine_data(self):
         """
