@@ -43,6 +43,15 @@ class CombinedData:
         if self.params.aru_remove_call_type:
             self.aru_data = self.remove_call_type()
 
+        # Filter the data by species if we provide a list of species (otherwise use them all)
+        if self.params.species:
+            self.aru_data = self.aru_data.filter(
+                pl.col(self.params.aru_species_col).is_in(self.params.species)
+            )
+            self.pc_data = self.pc_data.filter(
+                pl.col(self.params.pc_species_col).is_in(self.params.species)
+            )
+
         self.point_index, self.species_index, self.year_index = self._build_all_indices()
         self.aru_params = self._build_aru_params()
         self.pc_params = self._build_pc_params()
