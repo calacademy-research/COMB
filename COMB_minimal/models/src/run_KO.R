@@ -1,4 +1,4 @@
-# Code to iterate 5 different "knockout" model structures over a range of species
+# Code to iterate 7 different "knockout" model structures over a range of species
 
 library(googledrive)
 library(here)
@@ -21,7 +21,22 @@ nc <- 6
 
 
 # read in/prepare field data ----------------------------------------------
-
+# quirk of m shoddy programming: have to read in at least one species' data so that we can index the site covars by the avian points.
+# this 'data' object will be rewritten below
+data <- readCombined(
+  species = "HAWO",
+  years = c(year),
+  beginTime = dhours(5),
+  endTime = dhours(9),
+  visitLimit = aruVisitLimit,
+  visitAggregation = "file",
+  samplesperdayLimit = 24,
+  thresholdOptions = list(value = threshold,
+                          is.quantile = F),
+  squeeze = T,
+  logit_col = "max_logit", # This is specifying we want the max_logit column from aggregated data
+  scale_datetime = T
+)
 # SITE covars
 site_covars <- read_csv("./models/input/wide4havars.csv") %>%
   mutate(Point = avian_point) %>%
@@ -133,7 +148,7 @@ monitored_HAS <- c(
   "sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+  "NOcc", "PropOcc",
   "T_pc_obs",
   "T_pc_sim",
   "T_aru_obs",
@@ -156,7 +171,7 @@ monitored_H <- c(
 #  "sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+"NOcc", "PropOcc",
     "T_pc_obs",
     "T_pc_sim",
   #  "T_aru_obs",
@@ -179,7 +194,7 @@ monitored_AS <- c(
   "sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+  "NOcc", "PropOcc",
   #  "T_pc_obs",
   #  "T_pc_sim",
     "T_aru_obs",
@@ -202,7 +217,7 @@ monitored_HA <- c(
  # "sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+ "NOcc", "PropOcc",
     "T_pc_obs",
     "T_pc_sim",
     "T_aru_obs",
@@ -225,7 +240,7 @@ monitored_HS <- c(
   "sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+ "NOcc", "PropOcc",
     "T_pc_obs",
     "T_pc_sim",
   #  "T_aru_obs",
@@ -248,7 +263,7 @@ monitored_A <- c(
   #"sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+  "NOcc", "PropOcc",
   #"T_pc_obs",
   #"T_pc_sim",
   #  "T_aru_obs",
@@ -271,7 +286,7 @@ monitored_S <- c(
   "sigma",
   "psi",
   "psi.pred.burn",
-  "NOcc",
+  "NOcc", "PropOcc",
   #"T_pc_obs",
   #"T_pc_sim",
   #  "T_aru_obs",
@@ -295,8 +310,8 @@ kos
 
 # currently the species dataset loop doesn't work
 # need to manually specify species
-sp <- "WISA"
-data <- data_WISA
+sp <- "WHWO"
+data <- data_WHWO
 
 # for (d in 1:length(datasets)) {
 #   data <- datasets[d]
@@ -346,13 +361,15 @@ jagsResult <- jags(
   n.burnin = nb,
   parallel = TRUE,
 )
-assign(paste("jagsResult", sp, year, str_extract(model, "(?<=/)[^/]+(?=\\.)"), sep="_"), jagsResult)
+assign(paste("jagsResult", sp, year, str_extract(model, "(?<=/)[^/]+(?=\\.)"), Sys.Date(), sep="_"), jagsResult)
 } # end of KO loop
 #} # end of species dataset loop
 rm(jagsResult)
-  jags_objects <- ls(pattern = "^jagsResult")
+  jags_objects <- ls(pattern = "^jagsResult_WISA")
   
   # Loop through the list and save each object as an RData file
   for (obj in jags_objects) {
     save(list = obj, file = paste0(obj, ".RData"))
   }
+
+  

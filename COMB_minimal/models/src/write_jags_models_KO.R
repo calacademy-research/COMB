@@ -92,7 +92,7 @@ model {
 
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn over the range of burn
@@ -169,7 +169,7 @@ model {
 
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn with canopy cover held at mean
@@ -252,7 +252,7 @@ model {
   
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-  
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn
@@ -343,7 +343,7 @@ model {
 
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn with canopy cover held at mean
@@ -441,7 +441,7 @@ model {
 
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn with canopy cover held at mean
@@ -516,7 +516,7 @@ model {
 
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn over the range of burn
@@ -613,7 +613,7 @@ model {
 
   mean_psi <- mean(psi)
   NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
-
+  PropOcc <- NOcc/nsites
   # simulate psi over a range of data
   for(k in 1:100) {
     logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn over the range of burn
@@ -621,3 +621,4 @@ model {
 
 }
     ", file = "COMB_minimal/models/jags_files/model_A.txt")
+
