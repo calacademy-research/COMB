@@ -19,12 +19,16 @@ nt <- 1
 nb <- 1000
 nc <- 6
 
+aruVisitLimit = 24
+threshold = 0
+species_set = c("HAWO")
+year = 2020
 
 # read in/prepare field data ----------------------------------------------
 # quirk of m shoddy programming: have to read in at least one species' data so that we can index the site covars by the avian points.
 # this 'data' object will be rewritten below
 data <- readCombined(
-  species = "HAWO",
+  species = species_set,
   years = c(year),
   beginTime = dhours(5),
   endTime = dhours(9),
