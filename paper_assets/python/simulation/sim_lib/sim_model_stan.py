@@ -1,11 +1,10 @@
 import numpy as np
-from dataclasses import dataclass
 import pyjags.model
 import stan.model
 from sim_results import SimResults
 from sim_data import SimParams
 import stan
-from typing import Union, List
+from typing import List
 
 
 class StanSimModel:
@@ -84,11 +83,17 @@ class StanSimModel:
 
         string_init = "model {\n"
         priors_string = "# Priors\n"
-        if not (params.include_aru_model or params.include_pc_model or params.include_scores_model):
+        if not (
+            params.include_aru_model
+            or params.include_pc_model
+            or params.include_scores_model
+        ):
             raise ValueError("At least one of the models must be included")
 
         if params.include_covar_model:
-            reg_priors = f"beta0 ~ {params.beta0_prior}\n beta1 ~ {params.beta1_prior}\n"
+            reg_priors = (
+                f"beta0 ~ {params.beta0_prior}\n beta1 ~ {params.beta1_prior}\n"
+            )
             priors_string += reg_priors
 
             occ_lik = """
@@ -244,7 +249,9 @@ class StanSimModel:
             del inits_full["beta0"]
             del inits_full["beta1"]
 
-        init_keys_in_model = self.find_variables(list(inits_full.keys()), self.model_text)
+        init_keys_in_model = self.find_variables(
+            list(inits_full.keys()), self.model_text
+        )
         inits_in_model = {var: inits_full[var] for var in init_keys_in_model}
 
         return inits_in_model
@@ -366,7 +373,9 @@ class StanSimModel:
         Generate simulated data using the JAGS data model
         """
         # find the params that are actually used in the data model
-        data_vars = self.find_variables(list(self.params.__dict__.keys()), self.data_text)
+        data_vars = self.find_variables(
+            list(self.params.__dict__.keys()), self.data_text
+        )
         data = {var: self.params.__dict__[var] for var in data_vars}
         if self.params.include_covar_data:
             data["covar"] = self.covars

@@ -166,7 +166,9 @@ class SimResults:
         # get the summary
         summary_files = os.listdir(directory)
         summary_files = [
-            directory / summary_file for summary_file in summary_files if "summary" in summary_file
+            directory / summary_file
+            for summary_file in summary_files
+            if "summary" in summary_file
         ]
         summary_dict = {}
         for summary_file in summary_files:
@@ -176,7 +178,9 @@ class SimResults:
 
         return sim_results
 
-    def plot_summary_hists(self, params: Union[List[str], None] = None, func="median") -> None:
+    def plot_summary_hists(
+        self, params: Union[List[str], None] = None, func="median"
+    ) -> None:
         """
         Makes a histogram for each parameter of the summary statistic specified by `func`
 
@@ -196,7 +200,9 @@ class SimResults:
         if params is None:
             params = [param for param in summary.keys() if param not in derived]
         else:
-            params = [param for param in params if param in summary and param not in derived]
+            params = [
+                param for param in params if param in summary and param not in derived
+            ]
 
         num_params = len(params)
         num_cols = 3  # You can adjust the number of columns as needed
@@ -236,7 +242,11 @@ class SimResults:
         """
         sim_params = self.sim_params.__dict__
         print(sim_params, sim_param_name)
-        if "[" not in sim_param_name and "]" not in sim_param_name and sim_param_name[-1] != "]":
+        if (
+            "[" not in sim_param_name
+            and "]" not in sim_param_name
+            and sim_param_name[-1] != "]"
+        ):
             if sim_param_name not in sim_params:
                 raise ValueError(f"param {sim_param_name} not found in sim_params")
             return sim_params[sim_param_name]

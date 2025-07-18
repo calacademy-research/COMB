@@ -1,4 +1,3 @@
-import pyjags.model
 from sim_lib.sim_results import SimResults
 from sim_lib.sim_data import SimParams
 from sim_lib.sim_model import SimModel

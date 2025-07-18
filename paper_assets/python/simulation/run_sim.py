@@ -1,4 +1,3 @@
-import numpy as np
 from typing import List, Tuple, Union
 from pathlib import Path
 from sim_lib.sim_data import SimParams
@@ -14,7 +13,10 @@ N_PROCESSES = 16
 
 class SimCombinations:
     def __init__(
-        self, param_combinations: dict, output_dir: str = "sim_results", skip_existing: bool = False
+        self,
+        param_combinations: dict,
+        output_dir: str = "sim_results",
+        skip_existing: bool = False,
     ):
         """
         Initialize the SimCombinations object
@@ -47,7 +49,9 @@ class SimCombinations:
                 combinations.append(sim_params)
         return combinations
 
-    def _check_single_combination(self, combination: dict) -> Tuple[Union[SimParams, None], bool]:
+    def _check_single_combination(
+        self, combination: dict
+    ) -> Tuple[Union[SimParams, None], bool]:
         """
         Check if a single combination of parameters is valid
 
@@ -101,7 +105,9 @@ class SimCombinations:
             if self.skip_existing:
                 print(f"Skipping existing simulation with parameters: {params}")
                 return
-            sim_results = SimResults.load(self.output_dir / f"sim_summary_{sim_params_hash}")
+            sim_results = SimResults.load(
+                self.output_dir / f"sim_summary_{sim_params_hash}"
+            )
         else:
             sim_results = SimResults(params)
 
@@ -141,5 +147,7 @@ if __name__ == "__main__":
         "nsurveys_pc": [3],
         "aru_scores_independent_model": [True, False],
     }
-    combs = SimCombinations(param_combinations, output_dir="outputs/testing2", skip_existing=False)
+    combs = SimCombinations(
+        param_combinations, output_dir="outputs/testing2", skip_existing=False
+    )
     combs.run_all_combinations()

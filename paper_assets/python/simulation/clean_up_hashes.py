@@ -1,8 +1,5 @@
-import numpy as np
-from typing import List, Tuple, Union
 from pathlib import Path
-from sim_lib.sim_data import SimParams
-from sim_lib.sim_results import SimResults, ManySimResults
+from sim_lib.sim_results import SimResults
 import os
 from tqdm import tqdm
 
