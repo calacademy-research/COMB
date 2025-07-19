@@ -7,7 +7,7 @@ NUM_PROCESSES ?= 10
 run:
 	uv run run_sim.py \
 		--config $(CONFIG) \
-		--num_sim $(NUM_SIMS) \
+		--num_sims $(NUM_SIMS) \
 		--num_processes $(NUM_PROCESSES)
 
 

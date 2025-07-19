@@ -13,4 +13,4 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-pyjags = { git = "https://github.com/mschulist/pyjags.git", rev = "35eefd223e9cbdcd235c05abb6260cc7477e6ccc" }
+pyjags = { git = "https://github.com/mschulist/pyjags.git", rev = "dd7afd12081a14fe0d99fb07fb5d51dd81ec5002" }

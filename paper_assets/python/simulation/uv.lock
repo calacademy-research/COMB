@@ -627,7 +627,7 @@ wheels = [
 [[package]]
 name = "pyjags"
 version = "0.1.0"
-source = { git = "https://github.com/mschulist/pyjags.git?rev=35eefd223e9cbdcd235c05abb6260cc7477e6ccc#35eefd223e9cbdcd235c05abb6260cc7477e6ccc" }
+source = { git = "https://github.com/mschulist/pyjags.git?rev=dd7afd12081a14fe0d99fb07fb5d51dd81ec5002#dd7afd12081a14fe0d99fb07fb5d51dd81ec5002" }
 dependencies = [
     { name = "arviz" },
     { name = "deepdish" },
@@ -785,7 +785,7 @@ dependencies = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.3.1" },
     { name = "polars", specifier = ">=1.31.0" },
-    { name = "pyjags", git = "https://github.com/mschulist/pyjags.git?rev=35eefd223e9cbdcd235c05abb6260cc7477e6ccc" },
+    { name = "pyjags", git = "https://github.com/mschulist/pyjags.git?rev=dd7afd12081a14fe0d99fb07fb5d51dd81ec5002" },
     { name = "ruff", specifier = ">=0.12.4" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
