@@ -145,12 +145,6 @@ def parse_args():
         help="Name of the configuration to use from sim_configs.py",
     )
     parser.add_argument(
-        "--output_dir",
-        type=str,
-        required=True,
-        help="directory to put the outputs into",
-    )
-    parser.add_argument(
         "--num_sims",
         type=int,
         default=DEFAULT_SIMS,
@@ -171,12 +165,12 @@ if __name__ == "__main__":
     if cfg is None:
         raise ValueError(f"config name {args.config} does not exist in sim_configs!")
 
-    output_dir = args.output_dir
-    os.makedirs(output_dir, exist_ok=True)
+    # name of output dir is the config name
+    os.makedirs(f"data/{args.config}", exist_ok=True)
 
     combs = SimCombinations(
         cfg,
-        output_dir=args.output_dir,
+        output_dir=f"data/{args.config}",
         skip_existing=False,
         n_sims=args.num_sims,
         n_processes=args.num_processes,

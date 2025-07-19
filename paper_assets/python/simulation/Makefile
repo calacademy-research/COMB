@@ -1,6 +1,5 @@
 # Default variables
 CONFIG ?= default
-OUTPUT_DIR ?= sim_results
 NUM_SIMS ?= 10
 NUM_PROCESSES ?= 10
 
@@ -8,7 +7,6 @@ NUM_PROCESSES ?= 10
 run:
 	uv run run_sim.py \
 		--config $(CONFIG) \
-		--output_dir $(OUTPUT_DIR) \
 		--num_sim $(NUM_SIMS) \
 		--num_processes $(NUM_PROCESSES)
 
