@@ -3,6 +3,12 @@ from .sim_results import SimResults
 from .sim_data import SimParams
 import pyjags.model
 from typing import List
+import os
+
+# temp directories for model and data text, useful for debugging
+TMP_MODEL = "tmp/model_text.txt"
+TMP_DATA = "tmp/data_text.txt"
+os.makedirs("tmp", exist_ok=True)
 
 
 class SimModel(pyjags.model.Model):
@@ -70,15 +76,23 @@ class SimModel(pyjags.model.Model):
             threads=params.nc,
         )
 
-    def sample(self):
+    def sample(self, iterations=None, vars=None, thin=None, monitor_type="trace"):
         """
         Sample from the model
         """
+        # Use instance parameters if not provided
+        if iterations is None:
+            iterations = self.params.ni
+        if thin is None:
+            thin = self.params.nt
+        if vars is None:
+            vars = self.monitored_vars
 
         return super().sample(
-            iterations=self.params.ni,
-            thin=self.params.nt,
-            vars=self.monitored_vars,
+            iterations=iterations,
+            vars=vars,
+            thin=thin,
+            monitor_type=monitor_type,
         )
 
     def gen_jags_model_text(self):
@@ -211,7 +225,7 @@ class SimModel(pyjags.model.Model):
         {close_string}
         """
 
-        with open("model_text.txt", "w") as f:
+        with open(TMP_MODEL, "w") as f:
             f.write(model_text)
 
         return model_text
@@ -369,7 +383,7 @@ class SimModel(pyjags.model.Model):
         {aru_lik}
         {close_string}
         """
-        with open("data_text.txt", "w") as f:
+        with open(TMP_DATA, "w") as f:
             f.write(data_model_text)
 
         return data_model_text

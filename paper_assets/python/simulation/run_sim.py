@@ -6,9 +6,12 @@ from sim_lib.sim_results import SimResults
 import itertools
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import argparse
+from sim_lib.sim_configs import configs
+import os
 
-N_SIMS = 99
-N_PROCESSES = 16
+DEFAULT_SIMS = 100
+DEFAULT_PROCESSES = 16
 
 
 class SimCombinations:
@@ -17,6 +20,8 @@ class SimCombinations:
         param_combinations: dict,
         output_dir: str = "sim_results",
         skip_existing: bool = False,
+        n_sims: int = DEFAULT_SIMS,
+        n_processes: int = DEFAULT_PROCESSES,
     ):
         """
         Initialize the SimCombinations object
@@ -24,6 +29,8 @@ class SimCombinations:
         self.skip_existing = skip_existing
         self.output_dir = Path(output_dir)
         self.param_combinations = param_combinations
+        self.n_sims = n_sims
+        self.n_processes = n_processes
         self.combinations = list(self.product_dict(**param_combinations))
         self.valid_params = self.check_and_create_valid_params(self.combinations)
         print(f"Number of valid parameter combinations: {len(self.valid_params)}")
@@ -79,7 +86,7 @@ class SimCombinations:
         Args:
             dry_run (bool): If True, will not run the simulations, but will print when they would have been run
         """
-        with ProcessPoolExecutor(max_workers=N_PROCESSES) as executor:
+        with ProcessPoolExecutor(max_workers=self.n_processes) as executor:
             futures = [
                 executor.submit(self.run_single_combination, params, dry_run)
                 for params in self.valid_params
@@ -115,7 +122,7 @@ class SimCombinations:
             print(f"Would have run simulation with parameters: {params}")
             return
 
-        for _ in range(N_SIMS):
+        for _ in range(self.n_sims):
             try:
                 model = SimModel(params)
                 samples = model.sample()
@@ -129,25 +136,49 @@ class SimCombinations:
         sim_results.save(filepath)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run simulation with specified config")
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Name of the configuration to use from sim_configs.py",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        required=True,
+        help="directory to put the outputs into",
+    )
+    parser.add_argument(
+        "--num_sims",
+        type=int,
+        default=DEFAULT_SIMS,
+        help=f"Number of simulations to run (default: {DEFAULT_SIMS})",
+    )
+    parser.add_argument(
+        "--num_processes",
+        type=int,
+        default=DEFAULT_PROCESSES,
+        help=f"Number of processes to use (default: {DEFAULT_PROCESSES})",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    param_combinations = {
-        "p11": [0.9, 0.5, 0.1],
-        "p_aru11": [0.9, 0.5, 0.1],
-        "p_aru01": [0.05, 0],
-        "mu": [(-2, -1.75), (-2, 0)],
-        "sigma": [(0.25, 1)],
-        "threshold": [-1, 0, 1],
-        "nsites": [80, 200],
-        "include_covar_model": [True],
-        "covar_continuous": [True],
-        "beta0": [-1],
-        "beta1": [-1, 1],
-        "nsurveys_aru": [24],
-        "nsurveys_scores": [24, 8],
-        "nsurveys_pc": [3],
-        "aru_scores_independent_model": [True, False],
-    }
+    args = parse_args()
+    cfg = configs.get(args.config)
+    if cfg is None:
+        raise ValueError(f"config name {args.config} does not exist in sim_configs!")
+
+    output_dir = args.output_dir
+    os.makedirs(output_dir, exist_ok=True)
+
     combs = SimCombinations(
-        param_combinations, output_dir="outputs/testing2", skip_existing=False
+        cfg,
+        output_dir=args.output_dir,
+        skip_existing=False,
+        n_sims=args.num_sims,
+        n_processes=args.num_processes,
     )
     combs.run_all_combinations()

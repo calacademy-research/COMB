@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple
 import numpy as np
 import json
@@ -34,8 +34,7 @@ class SimParams:
     tau: Tuple[float, ...] = (4, 0.25)
     siteid: Tuple[int, ...] = (1, 2, 3)
     nsamples: int = -1
-    covar: np.ndarray = np.ndarray([])
-
+    covar: np.ndarray = field(default_factory=lambda: np.array([]))
     psi_prior: str = "dbeta(2,2)"
     beta0_prior: str = "dnorm(0, 0.5)"
     beta1_prior: str = "dnorm(0, 0.5)"

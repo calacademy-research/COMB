@@ -6,6 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.3.1",
+    "polars>=1.31.0",
+    "pyjags",
     "ruff>=0.12.4",
     "tqdm>=4.67.1",
 ]
+
+[tool.uv.sources]
+pyjags = { git = "https://github.com/mschulist/pyjags.git", rev = "35eefd223e9cbdcd235c05abb6260cc7477e6ccc" }
