@@ -6,36 +6,12 @@ import json
 
 
 @dataclass
-class SimParams:
+class ModelParams:
     """
-    SimParams class to hold simulation parameters
-
-    These are the parameters that will be used to simulate data and run the model.
-
+    ModelParams class hold the parameters that control the model, such as
+    whether to include the covar model, scores model, etc...
     """
 
-    psi: float = 0.5  # only used if include_covar_model is False
-    p11: float = 0.5
-    p_aru11: float = 0.5
-    p_aru01: float = 0.05
-    beta0: float = 0  # only used if include_covar_model is True
-    beta1: float = 0  # only used if include_covar_model is True
-    mu: Tuple[float, float] = (-2, 2)
-    sigma: Tuple[float, float] = (0.5, 2)
-    nsites: int = 100
-    nsurveys_aru: int = 24
-    nsurveys_scores: int = (
-        24  # these two must be the same if aru_scores_independent_model is False
-    )
-    nsurveys_pc: int = 3
-    covar_continuous: bool = False
-    covar_prob: float = 0.5
-    threshold: float = 0.5
-
-    tau: Tuple[float, ...] = (4, 0.25)
-    siteid: Tuple[int, ...] = (1, 2, 3)
-    nsamples: int = -1
-    covar: np.ndarray = field(default_factory=lambda: np.array([]))
     psi_prior: str = "dbeta(2,2)"
     beta0_prior: str = "dnorm(0, 0.5)"
     beta1_prior: str = "dnorm(0, 0.5)"
@@ -53,29 +29,72 @@ class SimParams:
     nc: int = 6  # number of chains
     parallel: bool = True  # whether to run each chain in parallel
 
+    include_aru_model: bool = True
+    include_pc_model: bool = True
+    include_scores_model: bool = True
+    include_covar_model: bool = True
+    aru_scores_independent_model: bool = True  # do not change
+
+
+@dataclass
+class DataParams:
+    """
+    DataParams class holds the parameters that control the generated data,
+    such as psi, n_surveys, etc...
+    """
+
+    psi: float = 0.5  # only used if include_covar_model is False
+    p11: float = 0.5
+    p_aru11: float = 0.5
+    p_aru01: float = 0.05
+    beta0: float = 0  # only used if include_covar_model is True
+    beta1: float = 0  # only used if include_covar_model is True
+    mu: Tuple[float, float] = (-2, 2)
+    sigma: Tuple[float, float] = (0.5, 2)
+    nsites: int = 100
+    # these two below must be the same if aru_scores_independent_model is False
+    nsurveys_aru: int = 24
+    nsurveys_scores: int = 24
+    nsurveys_pc: int = 3
+    covar_continuous: bool = True
+    covar_prob: float = 0.5
+    threshold: float = 0.5
+
+    tau: Tuple[float, ...] = (4, 0.25)
+    siteid: Tuple[int, ...] = (1, 2, 3)
+    nsamples: int = -1
+    covar: np.ndarray = field(default_factory=lambda: np.array([]))
+
     include_aru_data: bool = True
     include_pc_data: bool = True
     include_scores_data: bool = True
     include_covar_data: bool = True
 
-    include_aru_model: bool = True
-    include_pc_model: bool = True
-    include_scores_model: bool = True
-    include_covar_model: bool = True
-    aru_scores_independent_model: bool = True
-
-    def keys(self):
-        return self.__dict__.keys()
-
     def __post_init__(self):
         # We can only have a diff number of scores and aru samples if the aru model is independent
-        if not self.aru_scores_independent_model:
-            assert self.nsurveys_aru == self.nsurveys_scores, (
-                "nsurveys_aru and nsurveys_scores must be the same if aru_scores_independent_model is False"
-            )
+        # if not self.aru_scores_independent_model:
+        #     assert self.nsurveys_aru == self.nsurveys_scores, (
+        #         "nsurveys_aru and nsurveys_scores must be the same if aru_scores_independent_model is False"
+        #     )
         self.tau = tuple([1 / (s * s) for s in self.sigma])
         self.siteid = tuple(list(range(1, self.nsites + 1)))
         self.nsamples = len(self.siteid)
+
+
+@dataclass
+class SimParams:
+    """
+    SimParams class to hold simulation parameters
+
+    These are the parameters that will be used to simulate data and run the model.
+
+    """
+
+    model_params: ModelParams
+    data_params: DataParams
+
+    def keys(self):
+        return self.__dict__.keys()
 
     def __hash__(self):
         """

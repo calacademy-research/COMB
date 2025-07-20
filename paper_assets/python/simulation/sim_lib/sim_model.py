@@ -1,8 +1,7 @@
 import numpy as np
-from .sim_results import SimResults
-from .sim_data import SimParams
+from .sim_data import DataParams, ModelParams
 import pyjags.model
-from typing import List
+from typing import List, Any
 import os
 
 # temp directories for model and data text, useful for debugging
@@ -11,15 +10,12 @@ TMP_DATA = "tmp/data_text.txt"
 os.makedirs("tmp", exist_ok=True)
 
 
-class SimModel(pyjags.model.Model):
+class SimData(pyjags.model.Model):
     """
-    SimModel class to make a model for simulation based on parameters
-
-    This class takes the simulation parameters and generates data using JAGS
-    and then runs the model using the generated data.
+    SimData class generates data for a simulation
     """
 
-    def __init__(self, params: SimParams):
+    def __init__(self, params: DataParams):
         self.params = params
 
         # generate the covariates
@@ -31,7 +27,142 @@ class SimModel(pyjags.model.Model):
         # this "model" will only generate data to be used in the simulation
 
         self.data_text = self.gen_jags_data_text()
-        raw_sim_data = self.gen_simulated_data()
+        self.raw_sim_data = self.gen_simulated_data()
+
+    def get_data(self):
+        """
+        Returns the generated data
+        """
+        return self.raw_sim_data, self.covars
+
+    def gen_jags_data_text(self) -> str:
+        """
+        Uses JAGS to generate a "model" string
+        that only generates data
+
+        We use this to generate data from the model
+        for the purposes of simulation
+        """
+        string_init = "data {\n"
+
+        if self.params.include_covar_data:
+            occ_lik = """
+            for (i in 1:nsites) {
+                logit(psi[i]) <- beta0 + beta1*covar[i]
+                z[i] ~ dbern(psi[i])
+            """
+        else:
+            occ_lik = """
+            for (i in 1:nsites) {
+                z[i] ~ dbern(psi)
+            """
+
+        if self.params.include_pc_data:
+            pc_lik = """
+            p[i] <- p11 * z[i]
+            for (j in 1:nsurveys_pc) {
+                y_pc[i, j] ~ dbern(p[i])
+            }
+            """
+        else:
+            pc_lik = ""
+
+        if self.params.include_aru_data and self.params.include_scores_data:
+            # independent model for aru likelihood
+            aru_lik = """
+                # ARU
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                }
+                for(j in 1:nsurveys_scores) {
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                }
+                }"""
+
+        elif self.params.include_aru_data:
+            aru_lik = """
+                # ARU - binomial
+                p_aru[i] <- z[i]*p_aru11 + p_aru01
+                for(j in 1:nsurveys_aru) {
+                    y_aru[i,j] ~ dbern(p_aru[i])
+                    }
+                }
+                """
+        elif self.params.include_scores_data:
+            aru_lik = """
+                for(j in 1:nsurveys_scores) {
+                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                }
+                }
+                """
+        else:
+            aru_lik = "\n}\n"
+
+        close_string = """
+        }
+        model{
+            fake <- 0
+        }
+        """
+
+        data_model_text = f"""
+        {string_init}
+        {occ_lik}
+        {pc_lik}
+        {aru_lik}
+        {close_string}
+        """
+        with open(TMP_DATA, "w") as f:
+            f.write(data_model_text)
+
+        return data_model_text
+
+    def gen_simulated_data(self):
+        """
+        Generate simulated data using the JAGS data model
+        """
+        # find the params that are actually used in the data model
+        data_vars = SimModel.find_variables(
+            list(self.params.__dict__.keys()), self.data_text
+        )
+        data = {var: self.params.__dict__[var] for var in data_vars}
+        if self.params.include_covar_data:
+            data["covar"] = self.covars
+            del data["psi"]
+
+        data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
+        monitored = {"y_aru", "y_pc", "scores"}
+        samples = data_model.sample(iterations=1, vars=monitored)
+
+        sim_data = {var: samples[var][:, :, 0, 0] for var in samples.keys()}
+        return sim_data
+
+    def _gen_covars(self) -> np.ndarray:
+        """
+        Generate covariates
+        """
+        if self.params.covar_continuous:
+            covars = np.random.normal(0, 1, self.params.nsites)
+        else:
+            covars = np.random.binomial(1, self.params.covar_prob, self.params.nsites)
+
+        return covars
+
+
+class SimModel(pyjags.model.Model):
+    """
+    SimModel class to make a model for simulation based on parameters
+
+    This class takes the simulation parameters and generates data using JAGS
+    and then runs the model using the generated data.
+    """
+
+    def __init__(
+        self, params: ModelParams, generated_data: dict, generated_covars: Any
+    ):
+        self.params = params
+        self.generated_data = generated_data
 
         # generate the jags model text for the actual model
         self.model_text = self.gen_jags_model_text()
@@ -49,21 +180,24 @@ class SimModel(pyjags.model.Model):
         }
 
         sim_params = self.params.__dict__.copy()
-        sim_params["covar"] = self.covars
+        sim_params["covar"] = generated_covars
 
-        sim_vars = set(self.find_variables(list(sim_params.keys()), self.model_text))
-        sim_vars = sim_vars.intersection(all_vars)
+        model_vars = set(self.find_variables(list(sim_params.keys()), self.model_text))
+        model_vars = model_vars.intersection(all_vars)
 
-        data_vars = self.find_variables(list(raw_sim_data.keys()), self.model_text)
+        data_vars = self.find_variables(list(generated_data.keys()), self.model_text)
 
         sim_data = {}
 
-        for var in sim_vars:
+        for var in model_vars:
             sim_data[var] = sim_params[var]
         for var in data_vars:
-            sim_data[var] = raw_sim_data[var]
+            sim_data[var] = generated_data[var]
+            
+        print(sim_data.keys())
+        exit()
 
-        self.inits = self.create_inits()
+        self.inits = self.create_inits(len(generated_covars))
 
         self.monitored_vars = self.get_monitored_vars()
 
@@ -230,7 +364,8 @@ class SimModel(pyjags.model.Model):
 
         return model_text
 
-    def find_variables(self, search_vars: List, model_text: str) -> List[str]:
+    @staticmethod
+    def find_variables(search_vars: List, model_text: str) -> List[str]:
         """
         Find the variables in the model that are in `search_vars`
 
@@ -244,9 +379,12 @@ class SimModel(pyjags.model.Model):
 
         return [var for var in search_vars if var in model_text]
 
-    def create_inits(self) -> dict:
+    def create_inits(self, nsites: int) -> dict:
         """
         Create initial values for the model
+
+        Args:
+            nsites (int): The number of sites in data
         """
         mu = np.random.normal(0, 1, 2)
         mu.sort()
@@ -255,7 +393,7 @@ class SimModel(pyjags.model.Model):
             "mu": mu,
             "sigma": np.random.uniform(0.5, 2.5, 2),
             "psi": 0.5,
-            "z": np.repeat(1, self.params.nsites),
+            "z": np.repeat(1, nsites),
             "beta0": 0,
             "beta1": 0,
             "p_aru11": 0.2,
@@ -296,142 +434,3 @@ class SimModel(pyjags.model.Model):
             monitored_list += ["mu", "sigma"]
 
         return monitored_list
-
-    def gen_jags_data_text(self) -> str:
-        """
-        Uses JAGS to generate a "model" string
-        that only generates data
-
-        We use this to generate data from the model
-        for the purposes of simulation
-        """
-        string_init = "data {\n"
-
-        if self.params.include_covar_data:
-            occ_lik = """
-            for (i in 1:nsites) {
-                logit(psi[i]) <- beta0 + beta1*covar[i]
-                z[i] ~ dbern(psi[i])
-            """
-        else:
-            occ_lik = """
-            for (i in 1:nsites) {
-                z[i] ~ dbern(psi)
-            """
-
-        if self.params.include_pc_data:
-            pc_lik = """
-            p[i] <- p11 * z[i]
-            for (j in 1:nsurveys_pc) {
-                y_pc[i, j] ~ dbern(p[i])
-            }
-            """
-        else:
-            pc_lik = ""
-
-        if self.params.include_aru_data and self.params.include_scores_data:
-            if self.params.aru_scores_independent_model:
-                aru_lik = """
-                # ARU
-                p_aru[i] <- z[i]*p_aru11 + p_aru01
-                for(j in 1:nsurveys_aru) {
-                    y_aru[i,j] ~ dbern(p_aru[i])
-                }
-                for(j in 1:nsurveys_scores) {
-                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
-                }
-                }"""
-            else:
-                aru_lik = """
-                # ARU
-                p_aru[i] <- z[i]*p_aru11 + p_aru01
-                for(j in 1:nsurveys_aru) {
-                    y_aru[i,j] ~ dbern(p_aru[i])
-                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
-                }
-                }"""
-        elif self.params.include_aru_data:
-            aru_lik = """
-                # ARU - binomial
-                p_aru[i] <- z[i]*p_aru11 + p_aru01
-                for(j in 1:nsurveys_aru) {
-                    y_aru[i,j] ~ dbern(p_aru[i])
-                    }
-                }
-                """
-        elif self.params.include_scores_data:
-            aru_lik = """
-                for(j in 1:nsurveys_scores) {
-                    scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
-                }
-                }
-                """
-        else:
-            aru_lik = "\n}\n"
-
-        close_string = """
-        }
-        model{
-            fake <- 0
-        }
-        """
-
-        data_model_text = f"""
-        {string_init}
-        {occ_lik}
-        {pc_lik}
-        {aru_lik}
-        {close_string}
-        """
-        with open(TMP_DATA, "w") as f:
-            f.write(data_model_text)
-
-        return data_model_text
-
-    def gen_simulated_data(self):
-        """
-        Generate simulated data using the JAGS data model
-        """
-        # find the params that are actually used in the data model
-        data_vars = self.find_variables(
-            list(self.params.__dict__.keys()), self.data_text
-        )
-        data = {var: self.params.__dict__[var] for var in data_vars}
-        if self.params.include_covar_data:
-            data["covar"] = self.covars
-            del data["psi"]
-
-        data_model = pyjags.Model(code=self.data_text, data=data, chains=1)
-        monitored = {"y_aru", "y_pc", "scores"}
-        samples = data_model.sample(iterations=1, vars=monitored)
-
-        sim_data = {var: samples[var][:, :, 0, 0] for var in samples.keys()}
-        return sim_data
-
-    def _gen_covars(self) -> np.ndarray:
-        """
-        Generate covariates
-        """
-        if self.params.covar_continuous:
-            covars = np.random.normal(0, 1, self.params.nsites)
-        else:
-            covars = np.random.binomial(1, self.params.covar_prob, self.params.nsites)
-
-        return covars
-
-    @staticmethod
-    def load_from_sim_results(sim_results: SimResults) -> "SimModel":
-        """
-        Load a SimModel from a SimResults object
-
-        This is useful for loading a parameters from a saved simulation
-        to run additional simulations with the same parameters
-
-        Args:
-            sim_results (SimResults): The SimResults object
-
-        Returns:
-            SimModel: The SimModel object
-        """
-        sim_params = sim_results.sim_params
-        return SimModel(sim_params)
