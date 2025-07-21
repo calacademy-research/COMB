@@ -1,5 +1,5 @@
 import numpy as np
-from .sim_data import DataParams, ModelParams
+from .sim_data import DataParams, SimParams
 import pyjags.model
 from typing import List, Any
 import os
@@ -158,10 +158,9 @@ class SimModel(pyjags.model.Model):
     and then runs the model using the generated data.
     """
 
-    def __init__(
-        self, params: ModelParams, generated_data: dict, generated_covars: Any
-    ):
-        self.params = params
+    def __init__(self, params: SimParams, generated_data: dict, generated_covars: Any):
+        self.model_params = params.model_params
+        self.data_params = params.data_params
         self.generated_data = generated_data
 
         # generate the jags model text for the actual model
@@ -179,7 +178,15 @@ class SimModel(pyjags.model.Model):
             "threshold",
         }
 
-        sim_params = self.params.__dict__.copy()
+        sim_params = self.model_params.__dict__.copy()
+
+        # add the data params to inits, we don't use them to generate data here though
+        # because we reuse the data across models
+        for k, v in self.data_params.__dict__.items():
+            sim_params[k] = v
+
+        # we add covar after adding the data params because we want the actual generated
+        # covar data, not the generic one in the params
         sim_params["covar"] = generated_covars
 
         model_vars = set(self.find_variables(list(sim_params.keys()), self.model_text))
@@ -187,15 +194,13 @@ class SimModel(pyjags.model.Model):
 
         data_vars = self.find_variables(list(generated_data.keys()), self.model_text)
 
+        # sim_data holds the data that will be fed to JAGS
         sim_data = {}
 
         for var in model_vars:
             sim_data[var] = sim_params[var]
         for var in data_vars:
             sim_data[var] = generated_data[var]
-            
-        print(sim_data.keys())
-        exit()
 
         self.inits = self.create_inits(len(generated_covars))
 
@@ -204,10 +209,10 @@ class SimModel(pyjags.model.Model):
         super().__init__(
             code=self.model_text,
             data=sim_data,
-            chains=params.nc,
-            adapt=params.na,
+            chains=self.model_params.nc,
+            adapt=params.model_params.na,
             init=self.inits,
-            threads=params.nc,
+            threads=params.model_params.nc,
         )
 
     def sample(self, iterations=None, vars=None, thin=None, monitor_type="trace"):
@@ -216,9 +221,9 @@ class SimModel(pyjags.model.Model):
         """
         # Use instance parameters if not provided
         if iterations is None:
-            iterations = self.params.ni
+            iterations = self.model_params.ni
         if thin is None:
-            thin = self.params.nt
+            thin = self.model_params.nt
         if vars is None:
             vars = self.monitored_vars
 
@@ -233,7 +238,7 @@ class SimModel(pyjags.model.Model):
         """
         Generate JAGS model text based on the simulation model parameters
         """
-        params = self.params
+        params = self.model_params
 
         string_init = "model {\n"
         priors_string = "# Priors\n"
@@ -401,9 +406,9 @@ class SimModel(pyjags.model.Model):
             "p11": 0.2,
         }
 
-        if self.params.include_covar_model:
+        if self.model_params.include_covar_model:
             del inits_full["psi"]
-        if not self.params.include_covar_model:
+        if not self.model_params.include_covar_model:
             del inits_full["beta0"]
             del inits_full["beta1"]
 
@@ -419,18 +424,18 @@ class SimModel(pyjags.model.Model):
         Get the monitored variables based on the model type
         """
         monitored_list = ["PropOcc"]
-        if self.params.include_covar_model:
+        if self.model_params.include_covar_model:
             monitored_list += ["beta0", "beta1", "mean_psi"]
         else:
             monitored_list += ["psi"]
 
-        if self.params.include_pc_model:
+        if self.model_params.include_pc_model:
             monitored_list += ["p11"]
 
-        if self.params.include_aru_model:
+        if self.model_params.include_aru_model:
             monitored_list += ["p_aru11", "p_aru01"]
 
-        if self.params.include_scores_model:
+        if self.model_params.include_scores_model:
             monitored_list += ["mu", "sigma"]
 
         return monitored_list

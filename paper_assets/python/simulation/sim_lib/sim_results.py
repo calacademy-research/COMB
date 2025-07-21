@@ -4,7 +4,7 @@ import arviz as az
 import pandas as pd
 import polars as pl
 import numpy as np
-from .sim_data import SimParams
+from .sim_data import SimParams, DataParams, ModelParams
 from typing import List, Union
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -142,10 +142,17 @@ class SimResults:
 
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
-        metadata = self.sim_params.__dict__
-        for key, value in metadata.items():
+
+        # make params into dict, and turn np arrays into lists for easier serialization
+        metadata = {}
+        metadata["model_params"] = self.sim_params.model_params.__dict__
+        metadata["data_params"] = self.sim_params.data_params.__dict__
+        for key, value in metadata["model_params"].items():
             if isinstance(value, np.ndarray):
-                metadata[key] = value.tolist()
+                metadata["model_params"][key] = value.tolist()
+        for key, value in metadata["data_params"].items():
+            if isinstance(value, np.ndarray):
+                metadata["data_params"][key] = value.tolist()
 
         with open(directory / "metadata.json", "w") as f:
             f.write(json.dumps(metadata, indent=4))
@@ -181,11 +188,17 @@ class SimResults:
         with open(directory / "metadata.json") as f:
             sim_params = json.load(f)
 
-        # Get the allowed keys from the __init__ method of SimParams
-        allowed_keys = inspect.signature(SimParams.__init__).parameters.keys()
+        # Get the allowed keys from the __init__ method of ModelParams and DataParams
+        data_allowed_keys = inspect.signature(DataParams.__init__).parameters.keys()
+        model_allowed_keys = inspect.signature(ModelParams.__init__).parameters.keys()
         # Filter sim_params to only include allowed keys
         # some parameters are derived, and we can't pass those to the SimParams class
-        filtered_sim_params = {k: v for k, v in sim_params.items() if k in allowed_keys}
+        data_filtered_params = {
+            k: v for k, v in sim_params.items() if k in data_allowed_keys
+        }
+        model_filtered_params = {
+            k: v for k, v in sim_params.items() if k in model_allowed_keys
+        }
 
         samples_list = []
         if load_raw_samples:
@@ -196,7 +209,11 @@ class SimResults:
                 sample = np.load(raw_samples_file_path)
                 samples_list.append(sample)
 
-        sim_results = SimResults(SimParams(**filtered_sim_params))
+        sim_results = SimResults(
+            SimParams(
+                ModelParams(**model_filtered_params), DataParams(**data_filtered_params)
+            )
+        )
         sim_results.samples_list = samples_list
 
         # get the summary

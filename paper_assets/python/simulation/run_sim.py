@@ -46,7 +46,7 @@ class SimCombinations:
         )
 
         # get the model params
-        model_combinations = list(self.product_dict(*model_params_dict))
+        model_combinations = list(self.product_dict(**model_params_dict))
         self.valid_model_params = self.check_and_creat_valid_model_params(
             model_combinations
         )
@@ -159,8 +159,6 @@ class SimCombinations:
 
             results_map[sim_params_hash] = sim_results
 
-        # TODO: for each sim, run across all models with same data
-
         for _ in range(self.n_sims):
             # first we generate data
             try:
@@ -173,13 +171,12 @@ class SimCombinations:
 
             # we fit the same data to each model
             for h, res in results_map.items():
-                model_params = res.sim_params.model_params
                 try:
-                    model = SimModel(model_params, raw_sim_data, covars)
+                    model = SimModel(res.sim_params, raw_sim_data, covars)
                     samples = model.sample()
                 except Exception as e:
                     print(f"Error in running simulation: {e}")
-                    print(f"Model parameters: {model_params}")
+                    print(f"Parameters: {res.sim_params}")
                     return
 
                 results_map[h].append_samples(samples)

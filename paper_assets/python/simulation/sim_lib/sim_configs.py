@@ -23,6 +23,12 @@ old_configs = {
 configs = {
     # default config with no changes
     "default": {},
+    # testing with only a few combs
+    "testing_few_combs": {
+        "model_params": {
+            "include_aru_model": [True, False],
+        }
+    },
     # new with different model on same data
     "july_2025": {
         "data_params": {
