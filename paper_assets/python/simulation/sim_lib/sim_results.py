@@ -12,6 +12,7 @@ import json
 import inspect
 from tqdm import tqdm
 from matplotlib.lines import Line2D
+import warnings
 
 
 class SimResults:
@@ -110,8 +111,11 @@ class SimResults:
         stat_functions = {
             "median": np.median,
         }
-        pyjags_data = az.from_pyjags(posterior=samples)
-        summary = az.summary(pyjags_data, stat_funcs=stat_functions)
+        # these produce warnings that annoying
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            pyjags_data = az.from_pyjags(posterior=samples)
+            summary = az.summary(pyjags_data, stat_funcs=stat_functions)
         for param_name, single_param_summary in summary.iterrows():
             if param_name not in samples_dict:
                 samples_dict[param_name] = pd.DataFrame()
@@ -194,10 +198,12 @@ class SimResults:
         # Filter sim_params to only include allowed keys
         # some parameters are derived, and we can't pass those to the SimParams class
         data_filtered_params = {
-            k: v for k, v in sim_params.items() if k in data_allowed_keys
+            k: v for k, v in sim_params["data_params"].items() if k in data_allowed_keys
         }
         model_filtered_params = {
-            k: v for k, v in sim_params.items() if k in model_allowed_keys
+            k: v
+            for k, v in sim_params["model_params"].items()
+            if k in model_allowed_keys
         }
 
         samples_list = []

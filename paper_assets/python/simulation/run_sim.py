@@ -37,7 +37,7 @@ class SimCombinations:
         self.n_processes = n_processes
 
         # get the data params
-        data_combinations = list(self.product_dict(*data_params_dict))
+        data_combinations = list(self.product_dict(**data_params_dict))
         self.valid_data_params = self.check_and_create_valid_data_params(
             data_combinations
         )
@@ -47,11 +47,11 @@ class SimCombinations:
 
         # get the model params
         model_combinations = list(self.product_dict(**model_params_dict))
-        self.valid_model_params = self.check_and_creat_valid_model_params(
+        self.valid_model_params = self.check_and_create_valid_model_params(
             model_combinations
         )
         print(
-            f"Number of valid model parameter combinations: {len(self.valid_data_params)}"
+            f"Number of valid model parameter combinations: {len(self.valid_model_params)}"
         )
 
     def product_dict(self, **kwargs):
@@ -64,10 +64,16 @@ class SimCombinations:
         for instance in itertools.product(*kwargs.values()):
             yield dict(zip(keys, instance))
 
-    def check_and_creat_valid_model_params(self, model_param_combinations: List[dict]):
+    def check_and_create_valid_model_params(self, model_param_combinations: List[dict]):
         combinations: List[ModelParams] = []
         for comb in tqdm(model_param_combinations):
             model_params = ModelParams(**comb)
+            if not (
+                model_params.include_aru_model
+                or model_params.include_pc_model
+                or model_params.include_scores_model
+            ):
+                continue
             combinations.append(model_params)
 
         return combinations

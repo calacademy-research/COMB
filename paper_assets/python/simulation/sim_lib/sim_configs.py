@@ -40,7 +40,7 @@ configs = {
             "threshold": [-1, 0, 1],
             "nsites": [80, 200],
             "beta0": [-1],
-            "beta1": [-1, 1],
+            "beta1": [0, 1],
             "nsurveys_aru": [24],
             "nsurveys_scores": [24],
             "nsurveys_pc": [3],
@@ -49,7 +49,7 @@ configs = {
             "include_aru_model": [True, False],
             "include_pc_model": [True, False],
             "include_scores_model": [True, False],
-            "include_covar_model": True,
+            "include_covar_model": [True],
         },
     },
 }

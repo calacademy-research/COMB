@@ -100,8 +100,9 @@ class SimParams:
         """
         Hashes the parameters using a frozen set of the parameters
         """
-        h = hashlib.md5(
-            (json.dumps(self.__dict__, sort_keys=True, default=str)).encode()
-        ).digest()
+        data_dict = self.data_params.__dict__
+        model_dict = self.model_params.__dict__
+        d = {"data": data_dict, "model": model_dict}
+        h = hashlib.md5((json.dumps(d, sort_keys=True, default=str)).encode()).digest()
 
         return int.from_bytes(h[:8], "big")
