@@ -1,0 +1,107 @@
+
+model {
+
+  # Priors
+#  p11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1) 
+#  p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
+  p_aru01 ~ dbeta(1, 3) # p11 = Pr(y = 1 | z = 0)
+  
+  alpha_pc0 ~ dunif(-5, 5)
+  alpha_pc1 ~ dunif(-5, 5)
+#  alpha2 ~ dunif(-5, 5)
+  alpha_pc3 ~ dunif(-5, 5)
+ # alpha_pc4 ~ dunif(-5, 5)
+  alpha_pc5 ~ dunif(-5, 5)
+  
+  alpha_aru0 ~ dunif(-5, 5)
+#  alpha1 ~ dunif(-5, 5)
+#  alpha2 ~ dunif(-5, 5)
+  alpha_aru3 ~ dunif(-5, 5)
+  alpha_aru5 ~ dunif(-5, 5)
+
+  beta0 ~ dunif(-5, 5)
+  beta1 ~ dunif(-5, 5)
+  beta2 ~ dunif(-5, 5)
+
+  # Parameters of the observation model for the scores
+  mu[1] ~ dnorm(-2, .1)
+  mu[2] ~ dnorm(-2, .1)
+  sigma[1] ~ dunif(0.1, 5)
+  tau[1] <- 1 / (sigma[1] * sigma[1])
+  sigma[2] ~ dunif(0.1, 5)
+  tau[2] <- 1 / (sigma[2] * sigma[2])
+
+  # Likelihood part 1 & 2: PC and ARU detections
+  for (t in 1:nyears){ # Now do years
+    for (i in 1:nsites) { # Loop over sites
+
+      logit(psi[t,i]) <- beta0 + beta1*burn[i] + beta2*(t-1)
+      z[t,i] ~ dbern(psi[t,i])# Latent occupancy states
+      
+      #GOF - Regression: Simulations
+     # psiSim[i] <- exp(beta0 + beta1*burn[i] )/(1+exp(beta0 + beta1*burn[i] ))
+     # zSim[i] ~ dbern(psiSim[i])
+  
+  
+      # Point count detection process
+     # p[t,i] = p11[t,i*z[t,i]
+      for(j in 1:n_v[t,i]) {
+        logit(p_pc11[t,i,j]) <- alpha_pc0 + alpha_pc1*pc_hour[t,i,j] + alpha_pc3*pc_YDay[t,i,j] + alpha_pc5*(t-1)
+        y.ind[t,i,j] ~ dbern(p_pc11[t,i,j]*z[t,i]) # Note that the detection equation vary by year
+
+        # logit(p11[t,i,j]) <- alpha0 + alpha1*Time[t,i,j] + alpha2*Time[t,i,j]*Time[t,i,j] + alpha3*Date[t,i,j] + alpha4*Date[t,i,j]*Date[t,i,j] + alpha5*(t-1)
+      }
+
+    # GOF Point Count - Tukey-Freeman Discrepancy
+    #  T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
+    #  y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
+    #  T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
+  
+ # ARU - binomial
+      #p_overall_aru[t,i] <- z[t,i]*p_aru11 + p_aru01 # Detection probability with false positives, no dependence on year
+      for(j in 1:n_s[t,i]) {
+        logit(p_aru11[t,i,j]) <- alpha_aru0 + alpha_aru3*aru_YDay[t,i,j] + alpha_aru5*(t-1)
+        p_overall_aru[t,i,j] = p_aru11[t,i,j]*z[t,i] + p_aru01
+        y.aru[t,i,j] ~ dbern(p_overall_aru[t,i,j])  # Could also make this year dependent - bring in covariates on aru_yday. 
+      }
+      
+      # GOF ARU Count - Tukey-Freeman Discrepancy
+     # T_aru_obs0[i] <- (sqrt(y_aru_sum[i]) - sqrt(p_aru[i]*n_s[i]))^2  # FT discrepancy for observed data
+     # y_aru_Sim[i] ~ dbin(p_aru[i], n_s[i])
+     # T_aru_sim0[i] <- (sqrt(y_aru_Sim[i]) - sqrt(p_aru[i]*n_s[i]))^2  # ...and for simulated data
+    }
+  }
+
+  # Likelihood part 2: feature score data
+  for(k in 1:nsamples) {
+    score[k] ~ dnorm(mu[z[yearid[k],siteid[k]] + 1], tau[z[yearid[k],siteid[k]] + 1])
+  }
+    
+  # GOF assessment
+#  T_pc_obs <- sum(T_pc_obs0)
+#  T_pc_sim <- sum(T_pc_sim0)
+#  T_aru_obs <- sum(T_aru_obs0)
+#  T_aru_sim <- sum(T_aru_sim0)
+
+  #GOF assessment for scores
+#  Dobs <- -2 * sum(LLobs_score)
+#  Dsim <- -2 * sum(LLsim_score)
+
+  #GOF - Regression: Difference in mean vegetation
+#  cz1 <- sum(z)
+#  cz0 <- sum(1 - z)
+#  TvegObs <- sum(burn*z) / ifelse(cz1>0,cz1, 1)  - sum(burn*(1-z)) / ifelse(cz0>0,cz0, 1)
+#  czSim1 <- sum(zSim)
+#  czSim0 <- sum(1 - zSim)
+#  TvegSim <- sum(burn*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(burn*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
+
+  mean_psi <- mean(psi)
+#  NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
+#  PropOcc <- NOcc/nsites
+  # simulate psi over a range of data
+#  for(k in 1:100) {
+#    logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn over the range of burn
+#  }
+
+}
+    
