@@ -9,9 +9,49 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import argparse
 from sim_lib.sim_configs import configs
 import os
+import logging
+import multiprocessing
+from logging.handlers import QueueHandler, QueueListener
+import atexit
 
 DEFAULT_SIMS = 100
 DEFAULT_PROCESSES = 16
+
+
+def setup_logging(log_file: str):
+    """
+    Set up centralized logging for multiprocessing
+    """
+    # Create a queue for logging
+    log_queue = multiprocessing.Queue()
+
+    # Set up the listener process
+    listener = QueueListener(
+        log_queue,
+        logging.FileHandler(log_file),
+    )
+    listener.start()
+
+    # Configure the root logger to use the queue
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(QueueHandler(log_queue))
+
+    # Set up formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - PID:%(process)d - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Apply formatter to handlers
+    for handler in listener.handlers:
+        if isinstance(handler, logging.FileHandler):
+            handler.setFormatter(formatter)
+
+    # Stop listener when program exits
+    atexit.register(listener.stop)
+
+    return log_queue, listener
 
 
 class SimCombinations:
@@ -41,7 +81,7 @@ class SimCombinations:
         self.valid_data_params = self.check_and_create_valid_data_params(
             data_combinations
         )
-        print(
+        logging.info(
             f"Number of valid data parameter combinations: {len(self.valid_data_params)}"
         )
 
@@ -50,7 +90,7 @@ class SimCombinations:
         self.valid_model_params = self.check_and_create_valid_model_params(
             model_combinations
         )
-        print(
+        logging.info(
             f"Number of valid model parameter combinations: {len(self.valid_model_params)}"
         )
 
@@ -122,21 +162,37 @@ class SimCombinations:
         Args:
             dry_run (bool): If True, will not run the simulations, but will print when they would have been run
         """
+        logging.info(
+            f"Starting simulation with {len(self.valid_data_params)} data combinations"
+        )
+        logging.info(
+            f"Using {self.n_processes} processes, {self.n_sims} simulations each"
+        )
+
         with ProcessPoolExecutor(max_workers=self.n_processes) as executor:
             futures = [
                 executor.submit(self.run_single_combination, params, dry_run)
                 for params in self.valid_data_params
             ]
+            completed = 0
             for future in tqdm(as_completed(futures), total=len(futures)):
                 try:
                     future.result()  # This will raise an exception if the task failed
+                    completed += 1
+                    logging.info(
+                        f"Completed {completed}/{len(futures)} parameter combinations"
+                    )
                 except Exception as e:
-                    print(f"Simulation failed with exception: {e}")
+                    logging.error(f"Simulation failed with exception: {e}")
+
+        logging.info("All simulations completed")
 
     def run_single_combination(self, data_params: DataParams, dry_run: bool = False):
         """
         Run a single simulation given the parameters
         """
+        logging.info(f"Starting combination: {data_params}")
+
         # We need to run the data params across all models.
         # First we need to load all existing sim results into a map
         # where the key is the hash
@@ -151,28 +207,37 @@ class SimCombinations:
             sim_params_hash = hash(params)
             if sim_params_hash in existing_hashes:
                 if self.skip_existing:
-                    print(f"Skipping existing simulation with parameters: {params}")
+                    logging.info(
+                        f"Skipping existing simulation with hash: {sim_params_hash}"
+                    )
                     return
                 sim_results = SimResults.load(
                     self.output_dir / f"sim_summary_{sim_params_hash}"
                 )
+                logging.info(f"Loaded existing results for hash: {sim_params_hash}")
             else:
                 sim_results = SimResults(params)
+                logging.info(f"Created new results for hash: {sim_params_hash}")
 
             if dry_run:
-                print(f"Would have run simulation with parameters: {params}")
+                logging.info(
+                    f"DRY RUN: Would run simulation with hash: {sim_params_hash}"
+                )
                 return
 
             results_map[sim_params_hash] = sim_results
 
-        for _ in range(self.n_sims):
+        for sim_num in range(self.n_sims):
             # first we generate data
             try:
                 data_model = SimData(data_params)
                 raw_sim_data, covars = data_model.get_data()
+                logging.debug(
+                    f"Generated data for simulation {sim_num + 1}/{self.n_sims}"
+                )
             except Exception as e:
-                print(f"Error in generating data: {e}")
-                print(f"Parameters: {data_params}")
+                logging.error(f"Error in generating data for sim {sim_num + 1}: {e}")
+                logging.error(f"Parameters: {data_params}")
                 return
 
             # we fit the same data to each model
@@ -180,17 +245,22 @@ class SimCombinations:
                 try:
                     model = SimModel(res.sim_params, raw_sim_data, covars)
                     samples = model.sample()
+                    results_map[h].append_samples(samples)
+                    logging.debug(f"Completed model {h} for simulation {sim_num + 1}")
                 except Exception as e:
-                    print(f"Error in running simulation: {e}")
-                    print(f"Parameters: {res.sim_params}")
+                    logging.error(
+                        f"Error in running simulation {sim_num + 1} for model {h}: {e}"
+                    )
+                    logging.error(f"Parameters: {res.sim_params}")
                     return
-
-                results_map[h].append_samples(samples)
 
         # after we go through all models and all sims, write to disk
         for h, res in results_map.items():
             filepath = self.output_dir / f"sim_summary_{h}"
             res.save(filepath)
+            logging.info(f"Saved results for model hash: {h}")
+
+        logging.info(f"Completed all simulations for data combination: {data_params}")
 
 
 def parse_args():
@@ -218,12 +288,22 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+
+    # Set up logging
+    log_file = f"data/{args.config}_simulation.log"
+    log_queue, listener = setup_logging(log_file)
+
+    logging.info(f"Starting simulation run with config: {args.config}")
+    logging.info(f"Log file: {log_file}")
+
     cfg = configs.get(args.config)
     if cfg is None:
+        logging.error(f"config name {args.config} does not exist in sim_configs!")
         raise ValueError(f"config name {args.config} does not exist in sim_configs!")
 
     # name of output dir is the config name
     os.makedirs(f"data/{args.config}", exist_ok=True)
+    logging.info(f"Created output directory: data/{args.config}")
 
     combs = SimCombinations(
         cfg,
@@ -233,3 +313,5 @@ if __name__ == "__main__":
         n_processes=args.num_processes,
     )
     combs.run_all_combinations()
+
+    logging.info("Simulation run completed")
