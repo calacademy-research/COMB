@@ -124,7 +124,7 @@ class SimResults:
                 [samples_dict[param_name], single_param_summary_df], ignore_index=True
             )
 
-    def save(self, directory: Union[Path, str]) -> None:
+    def save(self, directory: Union[Path, str], write_samples: bool = False) -> None:
         """
         Save the results to a directory
 
@@ -138,6 +138,8 @@ class SimResults:
 
         Args:
             directory (str | Path): The directory to save the summary statistics
+            write_samples (bool): Whether to save the raw samples to disk. Default is False.
+                        If True, raw samples will be saved as compressed numpy files.
         """
         if len(self.samples_list) == 0:
             raise ValueError(
@@ -166,14 +168,15 @@ class SimResults:
         for param_name, summary_df in summary_dict.items():
             summary_df.to_csv(directory / f"{param_name}_summary.csv")
 
-        raw_samples_dir = directory / "raw_samples"
-        raw_samples_dir.mkdir(parents=True, exist_ok=True)
+        if write_samples:
+            raw_samples_dir = directory / "raw_samples"
+            raw_samples_dir.mkdir(parents=True, exist_ok=True)
 
-        for i, raw_sample in enumerate(self.samples_list):
-            np.savez_compressed(
-                file=raw_samples_dir / f"sim_{i}.npz",
-                **raw_sample,
-            )
+            for i, raw_sample in enumerate(self.samples_list):
+                np.savez_compressed(
+                    file=raw_samples_dir / f"sim_{i}.npz",
+                    **raw_sample,
+                )
 
     @staticmethod
     def load(
