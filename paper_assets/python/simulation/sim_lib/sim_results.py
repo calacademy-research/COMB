@@ -326,7 +326,7 @@ class SimResults:
         Returns:
             (float | int): the value of the SimParam
         """
-        sim_params = self.sim_params.__dict__
+        sim_params = self.sim_params.data_params.__dict__
         if (
             "[" not in sim_param_name
             and "]" not in sim_param_name
@@ -376,11 +376,15 @@ class ManySimResults:
         """
         metadata = []
         for dir_name, sim_result in self.sim_results.items():
-            params = sim_result.sim_params.__dict__
+            data_params = sim_result.sim_params.data_params
+            model_params = sim_result.sim_params.model_params
+
+            params = {**data_params.__dict__, **model_params.__dict__}
             params["dir_name"] = dir_name
             first_key = list(sim_result.summary.keys())[0]
             params["n_sims"] = len(sim_result.summary[first_key])
             params["within_ci"] = sim_result.within_ci
+            params["data_params_hash"] = hash(data_params)
             metadata.append(params)
         return pl.DataFrame(metadata, strict=False)
 

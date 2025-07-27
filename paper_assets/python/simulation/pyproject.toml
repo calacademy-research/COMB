@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "ipykernel>=6.30.0",
     "numpy>=2.3.1",
     "polars>=1.31.0",
     "pyjags",

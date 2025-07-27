@@ -35,6 +35,12 @@ class ModelParams:
     include_covar_model: bool = True
     aru_scores_independent_model: bool = True  # do not change
 
+    def __hash__(self):
+        h = hashlib.md5(
+            (json.dumps(self.__dict__, sort_keys=True, default=str)).encode()
+        ).digest()
+        return int.from_bytes(h[:8], "big")
+
 
 @dataclass
 class DataParams:
@@ -79,6 +85,12 @@ class DataParams:
         self.tau = tuple([1 / (s * s) for s in self.sigma])
         self.siteid = tuple(list(range(1, self.nsites + 1)))
         self.nsamples = len(self.siteid)
+
+    def __hash__(self):
+        h = hashlib.md5(
+            (json.dumps(self.__dict__, sort_keys=True, default=str)).encode()
+        ).digest()
+        return int.from_bytes(h[:8], "big")
 
 
 @dataclass
