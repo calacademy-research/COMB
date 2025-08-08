@@ -11,8 +11,8 @@ source(here("models/src/model_read_lib_agg.R")) # Functions were modified to rea
 set.seed(123)
 
 get_hour_mat <- function(time_mat){
-  hour_matrix <- apply(time_mat, MARGIN = 1:3, FUN = function(x) hour(hms(x)))
-  minute_matrix <- apply(time_mat, MARGIN = 1:3, FUN = function(x) minute(hms(x)))
+  hour_matrix <- apply(time_mat, MARGIN = 1:3, FUN = function(x) hour(hms(ifelse(x == "O", NA, x))))
+  minute_matrix <- apply(time_mat, MARGIN = 1:3, FUN = function(x) minute(hms(ifelse(x == "O", NA, x))))
   hour_mat <- hour_matrix + minute_matrix/60
   return(hour_mat)
 }
