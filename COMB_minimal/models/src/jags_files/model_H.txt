@@ -1,0 +1,74 @@
+
+model {
+
+  # Priors
+  p11 ~ dbeta(2, 2)  # comment out when modeling pc detection w/ covariates
+#  alpha0 ~ dunif(-5, 5)
+#  alpha1 ~ dunif(-5, 5)
+#  alpha2 ~ dunif(-5, 5)
+
+  beta0 ~ dunif(-5, 5) # Occupancy intercept on prob. scale
+  beta1 ~ dunif(-5, 5)
+#  beta2 ~ dunif(-5, 5)
+
+  # Likelihood part 1 & 2: PC and ARU detections
+  
+  for (i in 1:nsites) { # Loop over sites
+    logit(psi[i]) <- beta0 + beta1*burn[i]
+    z[i] ~ dbern(psi[i]) # Latent occupancy states
+    
+    #GOF - Regression: Simulations
+    psiSim[i] <- exp(beta0 + beta1*burn[i] )/(1+exp(beta0 + beta1*burn[i] ))
+    zSim[i] ~ dbern(psiSim[i])
+
+        # Point count detection process
+    p[i] <- z[i]*p11 # Detection probability
+    for(j in 1:nsurveys.pc) {
+      y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
+    }
+   
+  #  for(j in 1:nsurveys.pc) {
+  #    y.ind[i,j] ~ dbern(p11[i,j]*z[i]) # Observed occ. data (if available)
+  #    logit(p11[i,j]) <- alpha0 + alpha1*Time[i,j] + alpha2*Date[i,j]
+    
+    # GOF Point Count - Tukey-Freeman Discrepancy (for when p11 is parameterized)
+  #  expected_pc[i,j] = p11[i,j]*z[i] # in j loop when y.ind is parameterized
+  #  y_pc_Sim[i,j] ~ dbern(p11[i,j] * z[i])
+    
+ # }
+        # GOF Point Count - Tukey-Freeman Discrepancy
+      T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2  # FT discrepancy for observed data
+      y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
+      T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2  # ...and for simulated data
+      
+  #  expected_sum_pc[i] = sum(expected_pc[i, ])
+  #  T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(expected_sum_pc[i]))^2 
+  #  y_pc_Sim_sum[i] = sum(y_pc_Sim[i,])
+  #  T_pc_sim0[i] <- (sqrt(y_pc_Sim_sum[i]) - sqrt(expected_sum_pc[i]))^2  # ...and for simulated data
+    
+
+  } # end of site loop i
+
+
+  # GOF assessment
+  T_pc_obs <- sum(T_pc_obs0)
+  T_pc_sim <- sum(T_pc_sim0)
+
+  #GOF - Regression: Difference in mean vegetation
+  cz1 <- sum(z)
+  cz0 <- sum(1 - z)
+  TvegObs <- sum(burn*z) / ifelse(cz1>0,cz1, 1)  - sum(burn*(1-z)) / ifelse(cz0>0,cz0, 1)
+  czSim1 <- sum(zSim)
+  czSim0 <- sum(1 - zSim)
+  TvegSim <- sum(burn*zSim) / ifelse(czSim1>0,czSim1, 1) - sum(burn*(1-zSim))/ifelse(czSim0>0,czSim0, 1)
+
+  mean_psi <- mean(psi)
+  NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
+  PropOcc <- NOcc/nsites
+  # simulate psi over a range of data
+  for(k in 1:100) {
+    logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn with canopy cover held at mean
+  }
+
+} # end of model loop
+    
