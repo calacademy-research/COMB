@@ -433,12 +433,17 @@ readML <-
                Visit = yday(Date_Time))
       }
     }
+    ml_point_datetimes <- mlTibble %>% group_by(Point, Date_Time)
+    
     visits <- aru2point %>%
-      mutate(Date_Time = parse_date_time(str_extract(filename, "\\d{8}_\\d{6}"), "%Y%m%d_%H%M%S")) %>%
+      mutate(Date_Time = lubridate::parse_date_time(str_extract(filename, "\\d{8}_\\d{6}"), "%Y%m%d_%H%M%S", tz = "America/Los_Angeles")) %>%
       filterTimeOfDay(beginTime = beginTime, endTime = endTime) %>%
       select(Point = point, Date_Time) %>%
+      inner_join(ml_point_datetimes, by = c("Point", "Date_Time")) %>%
       addVisitKeys() %>%
-      select(Year, Point, Visit, Date_Time)
+      select(Year, Point, Visit, Date_Time) %>%
+      distinct()
+    
     
     # Scores
     if (length(thresholdOptions$value) != 1) {
@@ -457,9 +462,9 @@ readML <-
       select(Species, Year, Point, Visit, Score, Date_Time)
     
     structureForJagsARU(
-      outerIndices,
-      visits,
-      scores,
+      outerIndices = outerIndices,
+      visits = visits,
+      scores = scores,
       visitLimit = visitLimit,
       daysLimit = daysLimit,
       samplesperdayLimit = samplesperdayLimit,
@@ -499,7 +504,9 @@ structureForJagsPC <-
            squeeze = T,
            scale_datetime = F) {
     indices <-
-      buildFullIndices(outerIndices, visits, visitLimit = visitLimit)
+      buildFullIndices(outerIndices = outerIndices, 
+                       visits = visits, 
+                       visitLimit = visitLimit)
     
     # Scores
     sparseScores <- scores %>%
@@ -600,8 +607,8 @@ structureForJagsARU <-
            scale_datetime = F) {
     indices <-
       buildFullIndices(
-        outerIndices,
-        visits,
+        outerIndices = outerIndices,
+        visits = visits,
         visitLimit = visitLimit,
         daysLimit = daysLimit,
         samplesperdayLimit = samplesperdayLimit
@@ -877,6 +884,7 @@ readDataMl <-
         Date_Time,
         Score = !!sym(logit_col)
       ) %>%
+      mutate(Date_Time = force_tz(Date_Time, tzone = "America/Los_Angeles")) %>%
       filter(Species %in% species) %>%
       filter(year(Date_Time) %in% years) %>%
       filterTimeOfDay(beginTime = beginTime, endTime = endTime)
@@ -926,8 +934,7 @@ readAru2point <- function() {
 #' Filters to a time-of-day interval
 #'
 #' @param t tibble with a Date_Time column that informs the filtering.
-#' @param beginTime Optional `lubridate::duration` to filter out rows with
-#'   Date_Time less than this duration from their most recent midnight.
+#' @param beginTime Optional hour of day to filter (inclusive)
 #' @param endTime Optional `lubridate::duration` to filter out rows with
 #'   Date_Time greater than or equal to this duration from their most recent
 #'   midnight.
@@ -936,16 +943,21 @@ readAru2point <- function() {
 #'   the pipe operator.
 filterTimeOfDay <- function(t,
                             beginTime = NA,
-                            endTime = NA) {
+                            endTime = NA,
+                            filter_offprotocol = TRUE
+                            ) {
   if (!is.na(beginTime)) {
     t <-
-      t %>% filter((Date_Time - floor_date(Date_Time, "day")) >= beginTime)
+      t %>% filter(lubridate::hour(Date_Time) >= beginTime)
   }
   if (!is.na(endTime)) {
     t <-
-      t %>% filter((Date_Time - floor_date(Date_Time, "day")) < endTime)
+      t %>% filter(lubridate::hour(Date_Time) < endTime)
   }
-  t
+  if (filter_offprotocol) {
+    t <- t %>% filter(lubridate::minute(Date_Time) == 0 | lubridate::minute(Date_Time) == 30)
+  }
+  return(t)
 }
 
 #' Creates and populates a multidimensional array from (indices, values)
