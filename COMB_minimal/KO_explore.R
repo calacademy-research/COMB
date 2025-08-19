@@ -8,7 +8,7 @@ library(tidyverse)
 
 latlong <- read.csv("models/input/latlong.csv", header = F, col.names = c("siteid", "lat", "long"))
 
-my_files <- list.files(path = "./COMB_minimal/results/jagsResults/jagsResult_burn_covar/", pattern = "*.RData", full.names = T)
+my_files <- list.files(path = "COMB_minimal/results/jagsResults/jagsResult_burn_covar", pattern = "*2025-08-12.RData", full.names = T)
 all_data <- lapply(my_files, load, .GlobalEnv)
 
 # BIG LOOPS --------------------------------------------------------------------
@@ -22,7 +22,8 @@ species_groups <- split(ls(pattern = "jagsResult"), sapply(ls(pattern = "jagsRes
 
 species_datasets <- split(ls(pattern = "data_"), sapply(ls(pattern="data_"), extract_species))
 
-
+names(species_datasets)
+#species <- "AMRO" # if just doing one species
 # Loop for generating naive occupancy tables ------------------------------
 
 naive_occs <- list() # empty list for species' naive occs
@@ -48,7 +49,7 @@ naive_occs[[species]] <- site_pos
 all_naive_occs <- do.call(rbind, naive_occs)
 
 tab <- left_join(latlong, all_naive_occs)
-write.csv(tab, file = "COMB_minimal/results/NAWA_naiveOcc_2020_20250718.csv")
+write.csv(tab, file = paste("COMB_minimal/results/", year, Sys.Date(), "naive_occ_table.png", sep="_") )
 
 # det_tbl <- data.frame(mean = colMeans(site_pos[3:6], na.rm=T), 
 #                       model=colnames(site_pos[3:6]), 
@@ -80,7 +81,7 @@ for (mod_name in names(species_mods)) {
   obj <- species_mods[[mod_name]] # obj is a single model
 
 mod_summary <- data.frame(obj$summary)
-mod_summary$model <- paste(str_split(mod_name, "_")[[1]][4],str_split(mod_name, "_")[[1]][5], sep="_")
+mod_summary$model <- paste(str_split(mod_name, "_")[[1]][5],str_split(mod_name, "_")[[1]][6], sep="_")
 mod_summary$measure <- rownames(mod_summary)
 mod_summary$species <- sp
 
@@ -118,7 +119,7 @@ pARU11Plot <- ggplot(detprobs[detprobs$measure=="p_aru11",]) +
   scale_color_manual(values=my_colors) +
   scale_y_continuous(limits=c(0, 0.5))
 pARU11Plot
-ggsave(plot = pARU11Plot, filename = paste("COMB_minimal/results/figures/pARU_11", species, year, Sys.Date(), "plot.png", sep="_"), width = 3.5, height = 2.5, units = "in", dpi = 300)
+ggsave(plot = pARU11Plot, filename = paste("COMB_minimal/results/figures/covarMod/pARU_11", species, year, Sys.Date(), "plot.png", sep="_"), width = 3.5, height = 2.5, units = "in", dpi = 300)
 #
 # # pARU01 -------------------------------------------------------------
 #
@@ -132,7 +133,7 @@ pARU01Plot <- ggplot(detprobs[detprobs$measure=="p_aru01",]) +
   scale_y_continuous(limits=c(0, 0.18))
 pARU01Plot
 #
-ggsave(plot = pARU01Plot, filename = paste("COMB_minimal/results/figures/pARU_01", species, year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 2.5, units = "in", dpi = 300)
+ggsave(plot = pARU01Plot, filename = paste("COMB_minimal/results/figures/covarMod/pARU_01", species, year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 2.5, units = "in", dpi = 300)
 #
  combined_det_plot <- ggarrange(pARU11Plot, pARU01Plot, ncol=1)
 ggsave(plot = combined_det_plot, filename = paste("COMB_minimal/results/figures/covarMod/combined_pARU", sp, year, Sys.Date(), "plot.png", sep="_"),width = 2, height = 3.5, units = "in", dpi = 300)
@@ -151,7 +152,7 @@ propOccPlot <- ggplot(psi.all[psi.all$measure=="PropOcc",]) +
   theme_pubclean() +
 
   scale_color_manual(values=my_colors) +
-  labs(y="finite-sample occupancy", title=sp) +
+  labs(y="finite-sample occupancy (proportion of sites occupied)", title=sp) +
   theme(legend.position = "none") #+
 #  scale_y_continuous(limits=c(0, 85))
 propOccPlot
@@ -173,7 +174,7 @@ mu.Plot <- ggplot(mu.all[grepl("mu", mu.all$measure),]) +
   theme(legend.position = "none") #+
 #  scale_y_continuous(limits=c(0, 85))
 mu.Plot
-ggsave(plot = mu.Plot, filename=paste("COMB_minimal/results/figures/nullMod/mu", species, year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 3, units = "in", dpi = 300)
+ggsave(plot = mu.Plot, filename=paste("COMB_minimal/results/figures/covarMod/mu", species, year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 3, units = "in", dpi = 300)
 
 
 
@@ -198,7 +199,7 @@ sigma.Plot <- ggplot(sigma.all[grepl("sigma", sigma.all$measure),]) +
   theme(legend.position = "none") #+
 #  scale_y_continuous(limits=c(0, 85))
 sigma.Plot
-ggsave(plot = sigma.Plot, filename=paste("COMB_minimal/results/figures/nullMod/sigma", species, year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 3, units = "in", dpi = 300)
+ggsave(plot = sigma.Plot, filename=paste("COMB_minimal/results/figures/covarMod/sigma", species, year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 3, units = "in", dpi = 300)
 
 
 #}
@@ -262,4 +263,220 @@ firefx.p <- ggarrange(fire.full.p, fire.all.p,
 
 ggsave(plot = firefx.p, filename = paste("COMB_minimal/results/figures/covarMod/firefx_allmods", sp, Sys.Date(), ".png") ,width = 7.5, height = 5, units = "in", dpi = 300)
 }
+
+
+
+
+# LOOP for MULTIPLE SPECIES -----------------------------------------------
+
+
+# Loop for generating parameter figures -----------------------------------
+# create "allmods"
+allmods <- data.frame() 
+
+for (sp in names(species_groups)) {
+  species_mods <- mget(species_groups[[sp]]) # "species_mods" is a list of all models for that species 
+  species_summs <- list() # empty list for all model summaries of a given species
+  for (mod_name in names(species_mods)) {
+    obj <- species_mods[[mod_name]] # obj is a single model
+    
+    mod_summary <- data.frame(obj$summary)
+    mod_summary$model <- paste(str_split(mod_name, "_")[[1]][5],str_split(mod_name, "_")[[1]][6], sep="_")
+    mod_summary$measure <- rownames(mod_summary)
+    mod_summary$species <- str_split(mod_name, "_")[[1]][3]
+    
+    species_summs[[mod_name]] <- mod_summary
+    
+  allmods <- rbind(allmods, mod_summary)
+  }
+}
+#  allmods$model <- factor(allmods$model, levels=c("model_H", "model_HA", "model_HS", "model_HAS", "model_A", "model_AS", "model_S")) # level the factors from most human to most machine
+#  allmods$modelLabs <- factor(substr(allmods$model, 7,10), levels = c("H", "HA", "HS", "HAS", "A", "AS", "S")) 
+allmods$modelLabs <- "HAS"
+
+  # detection parameters
+  detprobs <- allmods %>% filter(measure=="p11" | measure=="p_aru11" | measure=="p_aru01")
+  
+  detprobs_2 <- detprobs %>% dplyr::select(mean, measure, species) %>%
+    pivot_wider(names_from = measure, values_from = mean)
+
+  
+ggplot(detprobs_2) +
+    geom_text(aes(x=p11, y=p_aru11, label = species, color=species)) +
+    theme_pubclean() +
+  theme(legend.position = "none")
+  
+  detprobPlot <- ggplot(detprobs[detprobs$measure=="p11",]) +
+    geom_point(aes(x=modelLabs, y=`mean`, color=modelLabs)) +
+    geom_errorbar(aes(x=modelLabs, ymin=X2.5., ymax=X97.5., color=modelLabs), size=0.5, width=0.3) +
+    facet_wrap(~species) +
+    theme_pubclean() +
+    labs(y="p11", x="model", title=sp) +
+    theme(legend.position = "none") +
+    scale_color_manual(values=my_colors) +
+    scale_y_continuous(limits=seq(0.0, 1.0))
+  detprobPlot
+  ggsave(plot = detprobPlot,
+         filename = paste("COMB_minimal/results/figures/covarMod/p11", year, Sys.Date(), "plot.png", sep="_"),
+         width = 2, height = 1.75, units = "in", dpi = 300)
+  
+  # # pARU -------------------------------------------------------------
+  #
+  pARU11Plot <- ggplot(detprobs[detprobs$measure=="p_aru11"& detprobs$species != "RBNU",]) +
+    geom_point(aes(x=reorder(species, mean), y=`mean`, color=species)) +
+    geom_errorbar(aes(x=reorder(species, mean), ymin=X2.5., ymax=X97.5., color=species), linewidth=0.5, width=0.3) +
+    theme_pubclean() +
+    labs(y="p_ARU11", title=sp, x="") +
+    theme(legend.position = "none") +
+  #  scale_color_manual(values=my_colors) +
+    scale_y_continuous(limits=c(0, 0.5))
+  pARU11Plot
+  ggsave(plot = pARU11Plot, filename = paste("COMB_minimal/results/figures/covarMod/pARU_11", year, Sys.Date(), "plot.png", sep="_"), width = 3.5, height = 2.5, units = "in", dpi = 300)
+  #
+  # # pARU01 -------------------------------------------------------------
+  #
+  pARU01Plot <- ggplot(detprobs[detprobs$measure=="p_aru01" & detprobs$species != "RBNU",]) +
+    geom_point(aes(x=reorder(species, mean), y=`mean`, color=species)) +
+    geom_errorbar(aes(x=reorder(species, mean), ymin=X2.5., ymax=X97.5., color=species), linewidth=0.5, width=0.3) +
+    theme_pubclean() +
+    labs(y="p_ARU01", x="model") +
+    theme(legend.position = "none") +
+  #  scale_color_manual(values=my_colors) +
+    scale_y_continuous(limits=c(0, 0.01))
+  pARU01Plot
+  #
+  ggsave(plot = pARU01Plot, filename = paste("COMB_minimal/results/figures/covarMod/pARU_01", year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 2.5, units = "in", dpi = 300)
+  #
+  combined_det_plot <- ggarrange(pARU11Plot, pARU01Plot, ncol=1)
+  ggsave(plot = combined_det_plot, filename = paste("COMB_minimal/results/figures/covarMod/combined_pARU", year, Sys.Date(), "plot.png", sep="_"),width = 2, height = 3.5, units = "in", dpi = 300)
+ 
+  
+  
+  ##year
+  # #}
+  # # overall psi -------------------------------------------------------------
+  #
+  psi.all <- allmods %>% filter(measure=="PropOcc")
+  tmp_tab <- all_naive_occs %>% filter(common_name==sp)
+  propOccPlot <- ggplot(psi.all[psi.all$measure=="PropOcc",]) +
+    geom_point(aes(x=reorder(species, mean), y=`mean`, color=species)) +
+    geom_errorbar(aes(x=reorder(species, mean), ymin=X2.5., ymax=X97.5., color=species), width=0.3) +
+  #  geom_hline(yintercept = colSums(tmp_tab[6])/81, linetype="dashed") + # naive detections by either source
+  #  geom_hline(yintercept = colSums(tmp_tab[3])/81, linetype="twodash", color = "#59A14F") + # naive dets by PC only
+  #  geom_hline(yintercept= colSums(tmp_tab[4])/81, linetype="twodash", color = "#E15759") + # naive dets by ARU only
+    theme_pubclean() +
+    
+    scale_color_manual(values=my_colors) +
+    labs(y="finite-sample occupancy (proportion of sites occupied)", title=sp) +
+    theme(legend.position = "none") #+
+  #  scale_y_continuous(limits=c(0, 85))
+  propOccPlot
+  ggsave(plot = propOccPlot, filename=paste("COMB_minimal/results/figures/covarMod/combined_psi",  year, Sys.Date(), "plot.png", sep="_"),width = 3, height = 3.5, units = "in", dpi = 300)
+  
+  
+  mu.all <- allmods %>% filter(grepl("mu", measure))
+  tmp_tab <- all_naive_occs %>% filter(common_name==species)
+  
+  mu.all$facetLab <- ifelse(mu.all$measure=="mu[1]", "unoccupied", "occupied")
+  mu.Plot <- ggplot(mu.all[grepl("mu", mu.all$measure),]) +
+    geom_point(aes(x=modelLabs, y=`mean`, color=modelLabs)) +
+    geom_errorbar(aes(x=modelLabs, ymin=X2.5., ymax=X97.5., color=modelLabs), width=0.3) +
+    theme_pubclean() +
+    
+    scale_color_manual(values=my_colors) +
+    labs(y="mu (mean score)", x="model", title=species) +
+    facet_wrap(~facetLab) +
+    theme(legend.position = "none") #+
+  #  scale_y_continuous(limits=c(0, 85))
+  mu.Plot
+  ggsave(plot = mu.Plot, filename=paste("COMB_minimal/results/figures/covarMod/mu", year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 3, units = "in", dpi = 300)
+  
+  
+  
+  # sigma -------------------------------------------------------------------
+  
+  
+  sigma.all <- allmods %>% filter(grepl("sigma", measure))
+  tmp_tab <- all_naive_occs %>% filter(common_name==species)
+  
+  sigma.all$facetLab <- ifelse(sigma.all$measure=="sigma[1]", "unoccupied", "occupied")
+  sigma.Plot <- ggplot(sigma.all[grepl("sigma", sigma.all$measure),]) +
+    geom_point(aes(x=modelLabs, y=`mean`, color=modelLabs)) +
+    geom_errorbar(aes(x=modelLabs, ymin=X2.5., ymax=X97.5., color=modelLabs), width=0.3) +
+    #  geom_hline(yintercept = colSums(tmp_tab[6]), linetype="dashed") + # naive detections by either source
+    #  geom_hline(yintercept = colSums(tmp_tab[3]), linetype="twodash", color = "#59A14F") + # naive dets by PC only
+    #  geom_hline(yintercept= colSums(tmp_tab[4]), linetype="twodash", color = "#E15759") + # naive dets by ARU only
+    theme_pubclean() +
+    
+    scale_color_manual(values=my_colors) +
+    labs(y="sigma (variance of mu)", title=species, x="model") +
+    facet_wrap(~facetLab) +
+    theme(legend.position = "none") #+
+  #  scale_y_continuous(limits=c(0, 85))
+  sigma.Plot
+  ggsave(plot = sigma.Plot, filename=paste("COMB_minimal/results/figures/covarMod/sigma", year, Sys.Date(), "plot.png", sep="_"),width = 3.5, height = 3, units = "in", dpi = 300)
+  
+  
+  #}
+  
+  # effect of fire ----------------------------------------------------------
+  
+  beta1s <- allmods %>% filter(measure=="beta1")
+  
+  betaPlot <- ggplot(beta1s) +
+    geom_point(aes(x=modelLabs, y=mean, color=modelLabs)) +
+    geom_errorbar(aes(x=modelLabs, ymin=X2.5., ymax=X97.5., color=modelLabs), size=0.5, width=0.3) +
+    theme_pubclean() +
+    scale_color_manual(values = my_colors) +
+    geom_hline(yintercept=0) +
+    # scale_y_continuous(limits = c(0,5))
+    labs(y="posterior beta1", x="", title=sp) +
+    theme(legend.position = "none")
+  
+  ggsave(plot = betaPlot, filename=paste("COMB_minimal/results/figures/covarMod/burn_covar", year, Sys.Date(), "plot.png", sep="_"),width = 3, height = 3.5, units = "in", dpi = 300)
+  
+  #}
+  
+  #colMeans(site_pos[1:5], na.rm=T) # how close the pc and aru estimates are to the combined model estimates likely differs by species
+  # do we have a simulation that gives different z matrices for pc, aru, and show that we return a reasonable psi?
+  fire.fxall <- allmods %>% filter(grepl("psi.pred.burn", measure))
+  fire.fxall$Xburn <- rep(jagsData$Xburn, 7)
+  
+  #supp.labs <- c("Point Count Only", "ARU Only", "PC + ARU detections", "PC + ARU Scores")
+  #names(supp.labs) <- c("pconly", "aruonly", "noscores", "scoreonly")
+  
+  fire.full.p <- fire.fxall %>% filter(modelLabs=="HAS") %>%
+    ggplot() +
+    geom_ribbon(aes(x=Xburn, ymin=X2.5., ymax=X97.5.), alpha=0.3) +
+    geom_ribbon(aes(x=Xburn, ymin=X25., ymax=X75.), alpha=0.3) +
+    geom_line(aes(x=Xburn, y=mean), linewidth=1.6) +
+    #facet_wrap(~spp) +
+    theme_pubclean() +
+    labs(y="predicted occupancy probability (psi)", x = "Fire Severity", title=sp) +
+    theme(legend.position = "none") 
+  
+  fire.all.p <- fire.fxall %>% filter(modelLabs !="HAS") %>%
+    ggplot() +
+    geom_ribbon(aes(x=Xburn, ymin=X2.5., ymax=X97.5., fill=modelLabs), alpha=0.3) +
+    geom_ribbon(aes(x=Xburn, ymin=X25., ymax=X75., fill=modelLabs), alpha=0.3) +
+    geom_line(aes(x=Xburn, y=mean, color=modelLabs)) +
+    #facet_wrap(~spp) +
+    theme_pubclean() +
+    labs(y="predicted occupancy probability (psi)", x = "Fire Severity") +
+    theme(legend.position = "none") +
+    scale_color_manual(values = my_colors) +
+    scale_fill_manual(values=my_colors) +
+    scale_x_continuous(breaks = c(0,1,2,3)) +
+    facet_wrap(~modelLabs)
+  
+  firefx.p <- ggarrange(fire.full.p, fire.all.p,
+                        #  labels = c("A", "B", "C"),
+                        ncol=2,
+                        widths = c(1,1)
+                        #  common.legend = F
+  )
+  
+  ggsave(plot = firefx.p, filename = paste("COMB_minimal/results/figures/covarMod/firefx_allmods", Sys.Date(), ".png") ,width = 7.5, height = 5, units = "in", dpi = 300)
+}
+
 
