@@ -102,7 +102,7 @@ model {
 #  }
 
 }
-    ", file = "COMB_minimal/models/jags_files/no_covars/model_HAS.txt")
+    ", file = "COMB_minimal/models/src/jags_files/no_covars/model_HAS.txt")
 
 # HUMANS ONLY [H] -----------------------------------------------------------------
 
@@ -180,7 +180,7 @@ model {
   # }
 
 } # end of model loop
-    ", file = "COMB_minimal/models/jags_files/no_covars/model_H.txt")
+    ", file = "COMB_minimal/models/src/jags_files/no_covars/model_H.txt")
 
 
 # ARU DETECTIONS + SCORES [A-S]----------------------------------------------------------------
@@ -264,7 +264,7 @@ model {
   # }
   
 } # end of model loop
-", file = "COMB_minimal/models/jags_files/no_covars/model_AS.txt")
+", file = "COMB_minimal/models/src/jags_files/no_covars/model_AS.txt")
 
 
 # HUMANS + ARU DETECTIONS [H-A]---------------------------------------------------------------
@@ -355,7 +355,7 @@ model {
   #   logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn with canopy cover held at mean
   # }
 } # end of model loop
-", file = "COMB_minimal/models/jags_files/no_covars/model_HA.txt")
+", file = "COMB_minimal/models/src/jags_files/no_covars/model_HA.txt")
 
 
 # HUMANS + SCORES [H-S]-------------------------------------------------------------
@@ -454,7 +454,7 @@ model {
   #   logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn with canopy cover held at mean
   # }
 } # end of model loop
-", file = "COMB_minimal/models/jags_files/no_covars/model_HS.txt")
+", file = "COMB_minimal/models/src/jags_files/no_covars/model_HS.txt")
 
 
 # SCORES ONLY [S] ---------------------------------------------------------
@@ -530,7 +530,7 @@ model {
   #   logit(psi.pred.burn[k]) <- beta0 + beta1 * Xburn[k] # psi predictions for burn over the range of burn
   # }
 }
-    ", file = "COMB_minimal/models/jags_files/no_covars/model_S.txt")
+    ", file = "COMB_minimal/models/src/jags_files/no_covars/model_S.txt")
 
 
 # ARU DETECTIONS ONLY [A] ------------------------------------------------
@@ -629,5 +629,5 @@ model {
   # }
 
 }
-    ", file = "COMB_minimal/models/jags_files/no_covars/model_A.txt")
+    ", file = "COMB_minimal/models/src/jags_files/no_covars/model_A.txt")
 

@@ -26,7 +26,7 @@ speciesCode <- sort(c("CONI", "BBWO", "AMRO", "WEWP", "RBNU", "OSFL", "MOUQ", "C
 speciesCode <- sort(c("SOGR", "ANHU"))
 speciesCode <- sort(c("BBWO", "CONI"))
 
-speciesCode <- sort(c("AMRO", "BBWO", "CONI"))
+speciesCode <- sort(c("AMRO", "BBWO", "CONI", "DUFL"))
 #year <- c(2020, 2021)
 year <- 2021
 threshold <- c(-2,-1,0,1,2)
@@ -36,10 +36,8 @@ aruVisitLimit <- 60 # only consider this many ARU visits per site (ordered). 32=
 # read in/prepare field data ----------------------------------------------
 
 # SITE covars
-site_covars <- read_csv("./models/input/wide4havars.csv") %>%
+site_covars <- read_csv("COMB_minimal/models/input/wide4havars.csv") %>%
   mutate(Point = avian_point) %>% dplyr::select(Point, mean_CanopyCover_2020_4ha, mean_RAVGcbi_20182019_4ha, Perc_LTg22mHt_2020_4ha) %>% arrange(Point)
-
-Veg <-left_join(as.data.frame(data$indices$point), site_covars, by = "Point") 
 
 # JAGS structuring --------------------------------------------------------
 
@@ -47,16 +45,16 @@ for(th in threshold) {
 
 for (sp in speciesCode) {
   begin_hour = 4
-  end_hour = 9
+  end_hour = 10
   data <- readCombined(
-    species = "AMRO",
+    species = sp,
     years = c(year),
-    beginTime = dhours(begin_hour),
-    endTime = dhours(end_hour),
-    visitLimit = aruVisitLimit, # total number of files
+    beginTime = begin_hour,
+    endTime = end_hour,
+ #   visitLimit = aruVisitLimit, # total number of files
     visitAggregation = "file",
-  #  daysLimit = 4,
-  #  samplesperdayLimit = 10, # determines how many samples per day to sample
+    daysLimit = 5,
+    samplesperdayLimit = 12, # determines how many samples per day to sample
     thresholdOptions = list(value = th,
                             is.quantile = F),
     squeeze = T,
@@ -76,11 +74,11 @@ for (sp in speciesCode) {
   jagsData$burn  <- Veg$mean_RAVGcbi_20182019_4ha
   jagsData$Xburn <- seq(0, 2.5, length.out = 100)
   
-  assign(paste("data", th, sp, sep="_"), jagsData)
+  assign(paste("data", th, sp, year, sep="_"), jagsData)
 }
 
 datasets <- setNames(
-  lapply(speciesCode, function(sp) get(paste("data", th, sp, sep="_"))),
+  lapply(speciesCode, function(sp) get(paste("data", th, sp, year, sep="_"))),
   speciesCode
 )
 
@@ -189,3 +187,41 @@ jags_objects <- ls(pattern = "^jagsResult")
   }
 
 }
+
+
+# write summary table -----------------------------------------------------
+
+params_of_interest <- c(
+  "mean_psi", "p_11", "p_aru11", "p_aru01", 
+  "mu[1]", "mu[2]", "sigma[1]", "sigma[2]", 
+  "NOcc", "PropOcc", "deviance"
+)
+
+# Find all objects in the environment that start with "jagsResult_"
+jags_objs <- mget(ls(pattern = "^jagsResult_"), inherits = TRUE)
+
+# Function to process each model object
+extract_summary <- function(obj, obj_name) {
+  
+  # Parse name: jagsResult_[threshold]_[species]_[year]_[model]_Sysdate
+  parts <- unlist(strsplit(obj_name, "_", fixed = TRUE))
+  
+  tibble::as_tibble(obj$summary, rownames = "parameter") %>%
+    filter(parameter %in% params_of_interest) %>%
+    mutate(
+      threshold = as.numeric(parts[2]),
+      species   = parts[3],
+      year      = as.integer(parts[4]),
+      model     = paste(parts[6:(length(parts) - 1)], collapse = "_"),
+      sysdate   = parts[length(parts)]
+    )
+}
+
+# Apply to all objects and combine
+df_all <- imap_dfr(jags_objs, extract_summary)
+
+# Check result
+print(df_all)
+
+write.csv(df_all, file = paste0("COMB_minimal/results/jagsResults/jagsResults_no_covars/threshold_expt_3spp", Sys.Date(), ".csv"))
+
