@@ -108,12 +108,11 @@ veg_plot_points_for_comparison_df <- cbind(st_drop_geometry(veg_plot_points_for_
 FinalCaplesMonitoringPlots2022_df %>%
   left_join(new_wild_points_df, c("CSE_ID" = "PLOTID"), keep = TRUE) %>% # View() #used to join by "plotID_veg"
   mutate(CSE_RF_ID = ifelse(is.na(RedFir_ID.x), CSE_ID.x, RedFir_ID.x)) %>% 
-  left_join(veg_plot_points_for_comparison_df, by = c("CSE_RF_ID" = "PlotID"),  keep = TRUE) %>% 
   dplyr::select(UTM_N_FCMP22 = UTM_N, UTM_E_FCMP22 = UTM_E, 
                 FCMP22_Y.y = Y.x, FCMP22_X.x = X.x, 
                 # UTM_N_nwp_Northing = Northing, UTM_N_nwp_Easting = Easting,
                 nwp_Y.y = Y.y, nwp_X.y = X.y,
-                vppfc_Y = Y, vppfc_X = X, CSE_ID.x:RedFir_ID.x, Cpls_Wt:inside_fire_boundary, PV_ID:WYMO) %>% View() #yikes, they are all over the place!
+                vppfc_Y = Y, vppfc_X = X, CSE_ID.x:RedFir_ID.x, wild_points:Cpls_Wt, PV_ID:WYMO) %>% #yikes, they are all over the place!
   st_as_sf(., coords = c("UTM_E_FCMP22", "UTM_N_FCMP22")) -> fcmp22data #make first two into the geometry
 
 st_crs(fcmp22data) <- 26910
