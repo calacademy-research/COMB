@@ -50,8 +50,6 @@ class AruData:
 
         self.aru_data_dict = self.convert_df_to_dict()
 
-    
-
     def convert_df_to_dict(self):
         """
         Converts the df of ARU data into a dictionary.
@@ -71,7 +69,9 @@ class AruData:
         aru_data_dict = self._create_aru_arrays(aru_data)
         return aru_data_dict
 
-    def _create_aru_arrays(self, aru_data: pl.DataFrame) -> dict[str, Union[np.ndarray, int]]:
+    def _create_aru_arrays(
+        self, aru_data: pl.DataFrame
+    ) -> dict[str, Union[np.ndarray, int]]:
         """
         Creates the y_aru and scores arrays from the ARU data.
 
@@ -192,14 +192,18 @@ class AruData:
             raise ValueError("ARU data must have a 'logit' column.")
         else:
             if self.aru_data[logit_col].dtype != "float":
-                self.aru_data = self.aru_data.with_columns(pl.col(logit_col).cast(pl.Float32))
+                self.aru_data = self.aru_data.with_columns(
+                    pl.col(logit_col).cast(pl.Float32)
+                )
 
         # check the point column
         if point_col not in self.aru_data.columns:
             raise ValueError("ARU data must have a 'point' column.")
         else:
             if self.aru_data[point_col].dtype != pl.Int32:
-                self.aru_data = self.aru_data.with_columns(pl.col(point_col).cast(pl.Int32))
+                self.aru_data = self.aru_data.with_columns(
+                    pl.col(point_col).cast(pl.Int32)
+                )
 
     def _assign_indices(self, aru_data: pl.DataFrame) -> pl.DataFrame:
         """
@@ -226,7 +230,9 @@ class AruData:
             )
 
         if self.aru_data_params.species:
-            aru_data = aru_data.filter(pl.col(species_col).is_in(self.aru_data_params.species))
+            aru_data = aru_data.filter(
+                pl.col(species_col).is_in(self.aru_data_params.species)
+            )
 
         # filter to the time range
         aru_data = aru_data.filter(
@@ -248,11 +254,15 @@ class AruData:
             and self.aru_data_params.year_index is not None
         ):
             aru_data = aru_data.with_columns(
-                point_index=pl.col(point_col).replace_strict(self.aru_data_params.point_index),
+                point_index=pl.col(point_col).replace_strict(
+                    self.aru_data_params.point_index
+                ),
                 species_index=pl.col(species_col).replace_strict(
                     self.aru_data_params.species_index
                 ),
-                year_index=pl.col("year").replace_strict(self.aru_data_params.year_index),
+                year_index=pl.col("year").replace_strict(
+                    self.aru_data_params.year_index
+                ),
             )
         elif (
             self.aru_data_params.point_index is not None
@@ -285,7 +295,10 @@ class AruData:
 
         # Rest of the code for assigning indices, filtering, and sorting
         aru_data = aru_data.with_columns(
-            visit_index=pl.col("datetime").cum_count().over(["point", "year", "species_index"]) - 1
+            visit_index=pl.col("datetime")
+            .cum_count()
+            .over(["point", "year", "species_index"])
+            - 1
         )
 
         # Filter to the visit limit
@@ -354,14 +367,18 @@ class PcData:
             raise ValueError(f"Point Count data must have a {count_col} column.")
         else:
             if self.pc_data[count_col].dtype != "int":
-                self.pc_data = self.pc_data.with_columns(self.pc_data[count_col].cast(pl.Int32))
+                self.pc_data = self.pc_data.with_columns(
+                    self.pc_data[count_col].cast(pl.Int32)
+                )
 
         # check the point column
         if point_col not in self.pc_data.columns:
             raise ValueError(f"Point Count data must have a {point_col} column.")
         else:
             if self.pc_data[point_col].dtype != pl.Int32:
-                self.pc_data = self.pc_data.with_columns(self.pc_data[point_col].cast(pl.Int32))
+                self.pc_data = self.pc_data.with_columns(
+                    self.pc_data[point_col].cast(pl.Int32)
+                )
 
         # check the datetime column
         if datetime_col in self.pc_data.columns:
@@ -389,7 +406,9 @@ class PcData:
         pc_data_dict = self._create_pc_arrays(pc_data)
         return pc_data_dict
 
-    def _create_pc_arrays(self, pc_data: pl.DataFrame) -> dict[str, Union[np.ndarray, int]]:
+    def _create_pc_arrays(
+        self, pc_data: pl.DataFrame
+    ) -> dict[str, Union[np.ndarray, int]]:
         """
         Creates the y_pc array from the Point Count data.
 
@@ -504,7 +523,9 @@ class PcData:
             )
 
         if self.pc_data_params.species:
-            pc_data = pc_data.filter(pl.col(species_col).is_in(self.pc_data_params.species))
+            pc_data = pc_data.filter(
+                pl.col(species_col).is_in(self.pc_data_params.species)
+            )
 
         # sort by species and datetime for consistency when assigning indices
         pc_data = pc_data.sort([species_col, datetime_col, point_col])
@@ -520,9 +541,15 @@ class PcData:
             and self.pc_data_params.year_index is not None
         ):
             pc_data = pc_data.with_columns(
-                point_index=pl.col(point_col).replace_strict(self.pc_data_params.point_index),
-                species_index=pl.col(species_col).replace_strict(self.pc_data_params.species_index),
-                year_index=pl.col("year").replace_strict(self.pc_data_params.year_index),
+                point_index=pl.col(point_col).replace_strict(
+                    self.pc_data_params.point_index
+                ),
+                species_index=pl.col(species_col).replace_strict(
+                    self.pc_data_params.species_index
+                ),
+                year_index=pl.col("year").replace_strict(
+                    self.pc_data_params.year_index
+                ),
             )
         elif (
             self.pc_data_params.point_index is not None
@@ -543,6 +570,118 @@ class PcData:
         # and is not assigned here
 
         # filter to the visit limit
-        pc_data = pc_data.filter(pl.col(visit_index_col) < self.pc_data_params.pc_visit_limit)
+        pc_data = pc_data.filter(
+            pl.col(visit_index_col) < self.pc_data_params.pc_visit_limit
+        )
 
         return pc_data
+
+
+@dataclass
+class SpatialDataParams:
+    """
+    Data class to hold the spatial data parameters.
+    """
+
+    point_index: dict[int, int]
+    year_index: dict[int, int]
+
+    point_col: str = "point"
+    covariate_cols: tuple[str, ...] = ("burn",)
+    year_col: str = "year"
+
+    years: list[int] | None = None
+
+
+class SpatialData:
+    def __init__(self, spatial_data: pl.DataFrame, spatial_params: SpatialDataParams):
+        """
+        Initializes a SpatialData object, containing spatial data from the caples study
+
+        :param spatial_data: DataFrame of spatial data
+        :type spatial_data: pl.DataFrame
+        :param spatial_params: Params for the spatial data
+        :type spatial_params: SpatialDataParams
+        """
+        self.spatial_data = spatial_data
+        self.spatial_params = spatial_params
+        self._verify_spatial_data()
+
+        self.spatial_data_dict = self._create_spatial_arrays()
+
+    def _verify_spatial_data(self):
+        point_col = self.spatial_params.point_col
+        covariate_cols = self.spatial_params.covariate_cols
+        year_col = self.spatial_params.year_col
+
+        # check that all of the columns exist in the data
+        if point_col not in self.spatial_data.columns:
+            raise ValueError(f"point_col {point_col} not in spatial data")
+        elif self.spatial_data[point_col].dtype != "int":
+            self.spatial_data = self.spatial_data.with_columns(
+                self.spatial_data[point_col].cast(pl.Int32)
+            )
+
+        if year_col not in self.spatial_data.columns:
+            raise ValueError(f"year_col {year_col} not in spatial data")
+
+        for cov_col in covariate_cols:
+            if cov_col not in self.spatial_data.columns:
+                raise ValueError(f"covariate column {cov_col} not in spatial data")
+
+    def _assign_indices(self):
+        """
+        Assigns indices to the spatial data.
+
+        Each species, point, year, and visit will have a unique index.
+
+        Returns:
+            pl.DataFrame: The ARU data with an index assigned to each point.
+        """
+
+        point_col = self.spatial_params.point_col
+        year_col = self.spatial_params.year_col
+
+        # filter out null points and years
+        self.spatial_data = self.spatial_data.filter(
+            pl.col(point_col).is_not_null() & pl.col(year_col).is_not_null()
+        )
+
+        if self.spatial_params.years:
+            self.spatial_data = self.spatial_data.filter(
+                pl.col(year_col).is_in(self.spatial_params.years)
+            )
+
+        self.spatial_data = self.spatial_data.with_columns(
+            point_index=pl.col(point_col).replace_strict(
+                self.spatial_params.point_index
+            ),
+            year_index=pl.col(year_col).replace_strict(self.spatial_params.year_index),
+        )
+
+    def _create_spatial_arrays(self) -> dict[str, np.ndarray]:
+        """
+        Each covariate in the dict will map to an ndarray with the following shape:
+        (year, site)
+        """
+        n_years = max(self.spatial_params.year_index.values()) + 1
+        n_sites = max(self.spatial_params.point_index.values()) + 1
+        shape = (n_years, n_sites)
+
+        covar_data: dict[str, np.ndarray] = dict()
+
+        for covar in self.spatial_params.covariate_cols:
+            covar_array = np.empty(shape, dtype=np.float32)
+            covar_array.fill(np.nan)
+
+            for row in self.spatial_data.iter_rows(named=True):
+                year_index = row["year_index"]
+                site_index = row["site_index"]
+
+                # we guarantee that covar is a column of spatial_data
+                # because of the _verify_spatial_data method
+                covar_array[year_index, site_index] = row[covar]
+
+            covar_data[covar] = covar_array
+
+        return covar_data

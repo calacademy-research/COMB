@@ -4,7 +4,14 @@ from dataclasses import dataclass
 from typing import List, Union, Tuple
 from datetime import time
 
-from read_cap_data import AruData, ARUDataParams, PCDataParams, PcData
+from read_cap_data import (
+    AruData,
+    ARUDataParams,
+    PCDataParams,
+    PcData,
+    SpatialData,
+    SpatialDataParams,
+)
 
 
 @dataclass
@@ -31,14 +38,23 @@ class CombinedParams:
 
     species: Union[List[str], None] = None
 
+    spatial_point_col: str = "point"
+    spatial_covariate_cols: tuple[str, ...] = ("burn",)
+    spatial_year_col: str = "year"
+
 
 class CombinedData:
     def __init__(
-        self, aru_data: pl.DataFrame, pc_data: pl.DataFrame, params: CombinedParams
+        self,
+        aru_data: pl.DataFrame,
+        pc_data: pl.DataFrame,
+        spatial_data: pl.DataFrame,
+        params: CombinedParams,
     ):
         self.params = params
         self.aru_data = aru_data
         self.pc_data = pc_data
+        self.spatial_data = spatial_data
 
         self.pc_data = self.convert_PC_to_6_codes()
 
@@ -59,9 +75,11 @@ class CombinedData:
         )
         self.aru_params = self._build_aru_params()
         self.pc_params = self._build_pc_params()
+        self.spatial_params = self._build_spatial_params()
 
         self.aru = AruData(self.aru_data, self.aru_params)
         self.pc = PcData(self.pc_data, self.pc_params)
+        self.spatial = SpatialData(self.spatial_data, self.spatial_params)
 
         self._verify_data()
 
@@ -156,7 +174,7 @@ class CombinedData:
             )
         n_species = self.aru.aru_data_dict["n_species"]
 
-        return {
+        d = {
             "n_sites": n_sites,
             "n_years": n_years,
             "n_species": n_species,
@@ -170,6 +188,12 @@ class CombinedData:
             "time_aru": self.aru.aru_data_dict["time_aru"],
             "n_surveys_aru": self.aru.aru_data_dict["n_surveys_aru"],
         }
+
+        # add each covariate to the dict
+        for covar in self.params.spatial_covariate_cols:
+            d[covar] = self.spatial.spatial_data_dict[covar]
+
+        return d
 
     def _verify_data(self):
         """
@@ -220,6 +244,16 @@ class CombinedData:
             point_index=self.point_index,
             species_index=self.species_index,
             year_index=self.year_index,
+            years=self.params.years,
+        )
+
+    def _build_spatial_params(self) -> SpatialDataParams:
+        return SpatialDataParams(
+            point_index=self.point_index,
+            year_index=self.year_index,
+            point_col=self.params.spatial_point_col,
+            covariate_cols=self.params.spatial_covariate_cols,
+            year_col=self.params.spatial_year_col,
             years=self.params.years,
         )
 
