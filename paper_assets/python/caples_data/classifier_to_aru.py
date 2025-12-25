@@ -27,6 +27,11 @@ class ClassifierOutputs:
             .str.to_datetime("%Y%m%d_%H%M%S")
         )
 
+        # strip the year prefix from filename for joining (e.g., "2020/" -> "")
+        lazy = lazy.with_columns(
+            filename=pl.col("filename").str.replace(r"^\d{4}/", "")
+        )
+
         # map the filename to the point
         aru2point = pl.read_csv(self.aru_to_point_file)
         lazy = lazy.join(aru2point.lazy(), on="filename", how="left")
