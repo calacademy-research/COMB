@@ -1,36 +1,18 @@
-from pyiceberg.catalog.sql import SqlCatalog
 from pathlib import Path
-from urllib.parse import urlparse
-import os
 import polars as pl
+from datetime import datetime
 
 
 class ClassifierOutputs:
-    def __init__(
-        self, classifier_warehouse_path: Path, aru_to_point_csv: Path, project_id: int
-    ):
-        self.catalog = SqlCatalog(
-            "default",
-            **{
-                "uri": f"sqlite:///{classifier_warehouse_path}/pyiceberg_catalog.db",
-                "warehouse": f"file://{classifier_warehouse_path}",
-            },
-        )
-        self.project_id = project_id
-        self.aru_to_point_csv = aru_to_point_csv
+    def __init__(self, parquet_file: str | Path, aru_to_point_file: str | Path):
+        self.table = pl.scan_parquet(parquet_file)
+        self.aru_to_point_file = aru_to_point_file
 
-    def write_output_parquet(
-        self, output_file: Path, table_name: str, agg: bool = True
-    ):
+    def write_output_parquet(self, output_file: Path, agg: bool = True):
         """
         Writes the outputs for the given table
         """
-        table = self.catalog.load_table(f"{self.project_id}.{table_name}")
-        parsed = urlparse(table.location())
-        relative_path = parsed.netloc + parsed.path
-        data_path = Path(os.getcwd()) / relative_path / "data/*.parquet"
-
-        lazy = pl.scan_parquet(data_path)
+        lazy = self.table
         print(lazy)
         # we have these cols: ['filename', 'logit', 'timestamp_s', 'window_id', 'label']
 
@@ -46,31 +28,24 @@ class ClassifierOutputs:
         )
 
         # map the filename to the point
-        aru2point = pl.read_csv(self.aru_to_point_csv)
+        aru2point = pl.read_csv(self.aru_to_point_file)
         lazy = lazy.join(aru2point.lazy(), on="filename", how="left")
 
         lazy.sink_parquet(output_file)
 
-    def get_all_tables(self):
-        return self.catalog.list_tables(str(self.project_id))
-
 
 if __name__ == "__main__":
-    # NOTE: Run this script from /home/mschulist/perch-agile-modeling/python_server
-    # because the catalog uses relative file:// paths
-
-    os.chdir("/home/mschulist/perch-agile-modeling/python_server")
     classifier_outputs = ClassifierOutputs(
-        Path("/home/mschulist/perch-agile-modeling/python_server/data/warehouse"),
+        Path(
+            "/home/mschulist/perch-agile-modeling/python_server/data/classify/10/predictions.parquet"
+        ),
         Path("/home/mschulist/caples_sound/aru2point/aru2point_all.csv"),
-        1,
     )
 
-    table_name = "20251222_091414"
+    date = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     classifier_outputs.write_output_parquet(
         Path(
-            f"/home/mschulist/COMB/paper_assets/python/caples_data/data/outputs_{table_name}.parquet"
-        ),
-        table_name,
+            f"/home/mschulist/COMB/paper_assets/python/caples_data/data/outputs_agg_{date}.parquet"
+        )
     )
