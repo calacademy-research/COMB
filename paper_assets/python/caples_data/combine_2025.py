@@ -11,6 +11,8 @@ pc = pl.read_csv("~/COMB/point_counts/data_ingest/output/PC_delinted.csv").with_
     DateTime=pl.col("DateTime").str.to_datetime("%Y-%m-%dT%H:%M:%SZ"),
 )
 
+spatial = pl.read_csv("TODO!")
+
 combined_params = CombinedParams(
     aru_species_col="label",
     aru_visit_limit=24,
@@ -22,7 +24,12 @@ combined_params = CombinedParams(
     pc_visit_index_col="visit",
     species=["gockin"],
 )
-combined = CombinedData(aru, pc, combined_params)
+combined = CombinedData(
+    aru,
+    pc,
+    spatial,
+    combined_params,
+)
 
 print(combined.combined_data.keys())
 print(combined.combined_data["y_aru"])
