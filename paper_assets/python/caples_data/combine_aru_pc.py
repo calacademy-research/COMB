@@ -187,6 +187,7 @@ class CombinedData:
             "date_aru": self.aru.aru_data_dict["date_aru"],
             "time_aru": self.aru.aru_data_dict["time_aru"],
             "n_surveys_aru": self.aru.aru_data_dict["n_surveys_aru"],
+            "scores": self.aru.aru_data_dict["scores"],
         }
 
         # add each covariate to the dict
