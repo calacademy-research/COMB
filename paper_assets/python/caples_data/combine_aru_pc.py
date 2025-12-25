@@ -33,7 +33,9 @@ class CombinedParams:
 
 
 class CombinedData:
-    def __init__(self, aru_data: pl.DataFrame, pc_data: pl.DataFrame, params: CombinedParams):
+    def __init__(
+        self, aru_data: pl.DataFrame, pc_data: pl.DataFrame, params: CombinedParams
+    ):
         self.params = params
         self.aru_data = aru_data
         self.pc_data = pc_data
@@ -52,7 +54,9 @@ class CombinedData:
                 pl.col(self.params.pc_species_col).is_in(self.params.species)
             )
 
-        self.point_index, self.species_index, self.year_index = self._build_all_indices()
+        self.point_index, self.species_index, self.year_index = (
+            self._build_all_indices()
+        )
         self.aru_params = self._build_aru_params()
         self.pc_params = self._build_pc_params()
 
@@ -83,7 +87,10 @@ class CombinedData:
 
         species_no_call_type = (
             self.aru_data.with_columns(
-                pl.col(aru_species_col).str.split("_").list.get(0).alias(aru_species_col)
+                pl.col(aru_species_col)
+                .str.split("_")
+                .list.get(0)
+                .alias(aru_species_col)
             )
             .group_by(
                 [aru_species_col, aru_datetime_col, aru_point_col],
@@ -216,7 +223,9 @@ class CombinedData:
             years=self.params.years,
         )
 
-    def _build_all_indices(self) -> Tuple[dict[int, int], dict[str, int], dict[int, int]]:
+    def _build_all_indices(
+        self,
+    ) -> Tuple[dict[int, int], dict[str, int], dict[int, int]]:
         """
         Builds the following indices:
         - point_index: maps point names to integers
