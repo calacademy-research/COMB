@@ -3,6 +3,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import List, Union, Tuple
 from datetime import time
+from pathlib import Path
 
 from .read_cap_data import (
     AruData,
@@ -149,7 +150,7 @@ class CombinedData:
         pc_data = self.pc_data
         pc_species_col = self.params.pc_species_col
 
-        codes = pl.read_csv("data/bird_codes.csv")
+        codes = pl.read_csv(Path(__file__).parent / "data" / "bird_codes.csv")
         code_mapping = dict(zip(codes["four_code"], codes["code"]))
 
         pc_mapped = pc_data.with_columns(

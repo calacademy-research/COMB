@@ -98,14 +98,14 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
     data_dir = Path(points_csv).parent
     fires = [
         {
-            "year": 2019,
+            "year": 2020,
             "name": "caples",
             "raster": data_dir
             / "caples_fire_20181118_20191118_ravg_data"
             / "caples_fire_20181118_20191118_rdnbr.tif",
         },
         {
-            "year": 2021,
+            "year": 2022,
             "name": "caldor",
             "raster": data_dir
             / "caldor_fire_20201011_20211016_ravg_data"
