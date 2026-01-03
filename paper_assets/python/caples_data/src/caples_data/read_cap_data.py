@@ -6,6 +6,18 @@ import numpy as np
 
 
 @dataclass
+class AruDataHolder:
+    y_aru: np.ndarray
+    scores: np.ndarray
+    n_species: int
+    n_years: int
+    n_sites: int
+    n_surveys_aru: int
+    date_aru: np.ndarray
+    time_aru: np.ndarray
+
+
+@dataclass
 class ARUDataParams:
     """
     Data class to hold the ARU data parameters.
@@ -69,18 +81,13 @@ class AruData:
         aru_data_dict = self._create_aru_arrays(aru_data)
         return aru_data_dict
 
-    def _create_aru_arrays(
-        self, aru_data: pl.DataFrame
-    ) -> dict[str, Union[np.ndarray, int]]:
+    def _create_aru_arrays(self, aru_data: pl.DataFrame) -> AruDataHolder:
         """
         Creates the y_aru and scores arrays from the ARU data.
 
         Also returns the number of species, years, sites, and visits.
 
         The arrays will have the following shape: (species, year, site, visit)
-
-        Returns:
-            Dict[str, Union[np.ndarray, int]]: The ARU data as a dictionary.
         """
         if self.aru_data_params.species_index is not None:
             n_species = max(self.aru_data_params.species_index.values()) + 1
@@ -156,16 +163,16 @@ class AruData:
                 datetime.hour * 60 + datetime.minute
             )
 
-        return {
-            "y_aru": y_aru,
-            "scores": scores,
-            "n_species": n_species,
-            "n_years": n_years,
-            "n_sites": n_sites,
-            "n_surveys_aru": n_surveys_aru,
-            "date_aru": date_aru,
-            "time_aru": time_aru,
-        }
+        return AruDataHolder(
+            y_aru=y_aru,
+            scores=scores,
+            n_species=n_species,
+            n_years=n_years,
+            n_sites=n_sites,
+            n_surveys_aru=n_surveys_aru,
+            date_aru=date_aru,
+            time_aru=time_aru,
+        )
 
     def _verify_aru_data(self) -> None:
         """
@@ -308,6 +315,18 @@ class AruData:
 
 
 @dataclass
+class PCDataHolder:
+    y_pc: np.ndarray
+    y_ind: np.ndarray
+    n_species: int
+    n_years: int
+    n_sites: int
+    n_surveys_pc: int
+    date_pc: np.ndarray
+    time_pc: np.ndarray
+
+
+@dataclass
 class PCDataParams:
     """
     Data class to hold the Point Count data parameters.
@@ -406,18 +425,13 @@ class PcData:
         pc_data_dict = self._create_pc_arrays(pc_data)
         return pc_data_dict
 
-    def _create_pc_arrays(
-        self, pc_data: pl.DataFrame
-    ) -> dict[str, Union[np.ndarray, int]]:
+    def _create_pc_arrays(self, pc_data: pl.DataFrame) -> PCDataHolder:
         """
         Creates the y_pc array from the Point Count data.
 
         Also returns the number of visits.
 
         The array will have the following shape: (species, year, site, visit)
-
-        Returns:
-            Dict[str, Union[np.ndarray, int]]: The Point Count data as a dictionary.
         """
         if self.pc_data_params.species_index is not None:
             n_species = max(self.pc_data_params.species_index.values()) + 1
@@ -487,16 +501,16 @@ class PcData:
         # y_ind is the binary count data
         y_ind = np.where(y_pc > 0, 1, 0)
 
-        return {
-            "y_pc": y_pc,
-            "y_ind": y_ind,
-            "n_species": n_species,
-            "n_years": n_years,
-            "n_sites": n_sites,
-            "n_surveys_pc": n_surveys_pc,
-            "date_pc": date_pc,
-            "time_pc": time_pc,
-        }
+        return PCDataHolder(
+            y_pc=y_pc,
+            y_ind=y_ind,
+            n_species=n_species,
+            n_years=n_years,
+            n_sites=n_sites,
+            n_surveys_pc=n_surveys_pc,
+            date_pc=date_pc,
+            time_pc=time_pc,
+        )
 
     def _assign_indices(self, pc_data: pl.DataFrame) -> pl.DataFrame:
         """
@@ -606,6 +620,7 @@ class SpatialData:
         self.spatial_data = spatial_data
         self.spatial_params = spatial_params
         self._verify_spatial_data()
+        self._assign_indices()
 
         self.spatial_data_dict = self._create_spatial_arrays()
 
@@ -654,10 +669,10 @@ class SpatialData:
 
         self.spatial_data = self.spatial_data.with_columns(
             point_index=pl.col(point_col).replace_strict(
-                self.spatial_params.point_index
+                self.spatial_params.point_index, default=None
             ),
             year_index=pl.col(year_col).replace_strict(self.spatial_params.year_index),
-        )
+        ).filter(pl.col("point_index").is_not_null())
 
     def _create_spatial_arrays(self) -> dict[str, np.ndarray]:
         """
@@ -676,7 +691,7 @@ class SpatialData:
 
             for row in self.spatial_data.iter_rows(named=True):
                 year_index = row["year_index"]
-                site_index = row["site_index"]
+                site_index = row["point_index"]
 
                 # we guarantee that covar is a column of spatial_data
                 # because of the _verify_spatial_data method

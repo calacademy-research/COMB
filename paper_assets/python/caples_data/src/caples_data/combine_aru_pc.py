@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List, Union, Tuple
 from datetime import time
 
-from read_cap_data import (
+from .read_cap_data import (
     AruData,
     ARUDataParams,
     PCDataParams,
@@ -12,6 +12,24 @@ from read_cap_data import (
     SpatialData,
     SpatialDataParams,
 )
+
+
+@dataclass
+class COMBData:
+    n_sites: int
+    n_years: int
+    n_species: int
+    y_aru: np.ndarray
+    y_pc: np.ndarray
+    y_index: np.ndarray
+    n_surveys_pc: int
+    date_pc: np.ndarray
+    time_pc: np.ndarray
+    date_aru: np.ndarray
+    time_aru: np.ndarray
+    n_surveys_aru: int
+    scores: np.ndarray
+    covariates: dict[str, np.ndarray]
 
 
 @dataclass
@@ -147,64 +165,64 @@ class CombinedData:
         Combines the ARU and PC dicts into a single dict,
         combining fields that are common (and checking that they are the same)
         """
-        if self.aru.aru_data_dict["n_sites"] != self.pc.pc_data_dict["n_sites"]:
+        if self.aru.aru_data_dict.n_sites != self.pc.pc_data_dict.n_sites:
             raise ValueError(
                 f"""
             The number of sites in the ARU and PC data must be the same
-            ARU n_sites: {self.aru.aru_data_dict["n_sites"]}, PC n_sites: {self.pc.pc_data_dict["n_sites"]}
+            ARU n_sites: {self.aru.aru_data_dict.n_sites}, PC n_sites: {self.pc.pc_data_dict.n_sites}
             """
             )
-        n_sites = self.aru.aru_data_dict["n_sites"]
+        n_sites = self.aru.aru_data_dict.n_sites
 
-        if self.aru.aru_data_dict["n_years"] != self.pc.pc_data_dict["n_years"]:
+        if self.aru.aru_data_dict.n_years != self.pc.pc_data_dict.n_years:
             raise ValueError(
                 f"""
             The number of years in the ARU and PC data must be the same
-            ARU n_years: {self.aru.aru_data_dict["n_years"]}, PC n_years: {self.pc.pc_data_dict["n_years"]}
+            ARU n_years: {self.aru.aru_data_dict.n_years}, PC n_years: {self.pc.pc_data_dict.n_years}
             """
             )
-        n_years = self.aru.aru_data_dict["n_years"]
+        n_years = self.aru.aru_data_dict.n_years
 
-        if self.aru.aru_data_dict["n_species"] != self.pc.pc_data_dict["n_species"]:
+        if self.aru.aru_data_dict.n_species != self.pc.pc_data_dict.n_species:
             raise ValueError(
                 f"""
             The number of species in the ARU and PC data must be the same
-            ARU n_species: {self.aru.aru_data_dict["n_species"]}, PC n_species: {self.pc.pc_data_dict["n_species"]}
+            ARU n_species: {self.aru.aru_data_dict.n_species}, PC n_species: {self.pc.pc_data_dict.n_species}
             """
             )
-        n_species = self.aru.aru_data_dict["n_species"]
+        n_species = self.aru.aru_data_dict.n_species
 
-        d = {
-            "n_sites": n_sites,
-            "n_years": n_years,
-            "n_species": n_species,
-            "y_aru": self.aru.aru_data_dict["y_aru"],
-            "y_pc": self.pc.pc_data_dict["y_pc"],
-            "y_index": self.pc.pc_data_dict["y_ind"],
-            "n_surveys_pc": self.pc.pc_data_dict["n_surveys_pc"],
-            "date_pc": self.pc.pc_data_dict["date_pc"],
-            "time_pc": self.pc.pc_data_dict["time_pc"],
-            "date_aru": self.aru.aru_data_dict["date_aru"],
-            "time_aru": self.aru.aru_data_dict["time_aru"],
-            "n_surveys_aru": self.aru.aru_data_dict["n_surveys_aru"],
-            "scores": self.aru.aru_data_dict["scores"],
+        covar_dict = {
+            covar: self.spatial.spatial_data_dict[covar]
+            for covar in self.params.spatial_covariate_cols
         }
 
-        # add each covariate to the dict
-        for covar in self.params.spatial_covariate_cols:
-            d[covar] = self.spatial.spatial_data_dict[covar]
-
-        return d
+        return COMBData(
+            n_sites=n_sites,
+            n_years=n_years,
+            n_species=n_species,
+            y_aru=self.aru.aru_data_dict.y_aru,
+            y_pc=self.pc.pc_data_dict.y_pc,
+            y_index=self.pc.pc_data_dict.y_ind,
+            n_surveys_pc=self.pc.pc_data_dict.n_surveys_pc,
+            date_pc=self.pc.pc_data_dict.date_pc,
+            time_pc=self.pc.pc_data_dict.time_pc,
+            date_aru=self.aru.aru_data_dict.date_aru,
+            time_aru=self.aru.aru_data_dict.time_aru,
+            n_surveys_aru=self.aru.aru_data_dict.n_surveys_aru,
+            scores=self.aru.aru_data_dict.scores,
+            covariates=covar_dict,
+        )
 
     def _verify_data(self):
         """
         Verifies that the data is in the correct format
         """
         # Check that the first three (species, year, point) dimensions are the same length
-        if isinstance(self.aru.aru_data_dict["y_aru"], np.ndarray):
-            aru_shape = self.aru.aru_data_dict["y_aru"].shape
-        if isinstance(self.pc.pc_data_dict["y_pc"], np.ndarray):
-            pc_shape = self.pc.pc_data_dict["y_pc"].shape
+        if isinstance(self.aru.aru_data_dict.y_aru, np.ndarray):
+            aru_shape = self.aru.aru_data_dict.y_aru.shape
+        if isinstance(self.pc.pc_data_dict.y_pc, np.ndarray):
+            pc_shape = self.pc.pc_data_dict.y_pc.shape
 
         if (
             aru_shape[0] != pc_shape[0]
