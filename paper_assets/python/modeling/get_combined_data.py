@@ -4,7 +4,7 @@ import polars as pl
 
 def get_combined_data() -> CombinedData:
     aru = pl.read_parquet(
-        "/Users/mschulist/github/COMB/paper_assets/python/caples_data/src/caples_data/data/outputs_agg_20251224_180943.parquet"
+        "/Users/mschulist/github/COMB/paper_assets/python/caples_data/src/caples_data/data/outputs_agg_20260103_210827.parquet"
     ).filter(pl.col("point") != 0)
 
     pc = pl.read_csv(
@@ -27,8 +27,8 @@ def get_combined_data() -> CombinedData:
         pc_datetime_col="DateTime",
         pc_point_col="point_ID_fk",
         pc_visit_index_col="visit",
-        species=["bkbwoo"],
-        aru_threshold=2.2,
+        species=["herwar"],
+        aru_threshold=0,
     )
     combined = CombinedData(
         aru,

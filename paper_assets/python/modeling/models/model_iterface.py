@@ -21,15 +21,15 @@ class SimulationParams:
 
 
 class CombinedModelInterface(abc.ABC):
-    @abc.abstractmethod
     @classmethod
+    @abc.abstractmethod
     def run_model(cls, data: COMBData) -> InferenceData:
         """
         The main method to run the given model with COMBData. Returns an InferenceData object containing the samples.
         """
 
-    @abc.abstractmethod
     @classmethod
+    @abc.abstractmethod
     def simulate_data(cls, sim_params: SimulationParams) -> COMBData:
         """
         Simulate date for the model with the given params.
