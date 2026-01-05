@@ -6,7 +6,7 @@ import numpy as np
 
 if __name__ == "__main__":
     combined = get_combined_data()
-    model = get_model_by_name("single_species_single_year_all")
-    trace = model.run_model(model.simulate_data(SimulationParams()))
+    model = get_model_by_name("single_species_single_year_all_datetime")
+    trace = model.run_model(combined.combined_data)
 
     trace.to_netcdf("data/trace.nc")

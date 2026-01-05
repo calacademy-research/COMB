@@ -262,7 +262,7 @@ class AruData:
         ):
             aru_data = aru_data.with_columns(
                 point_index=pl.col(point_col).replace_strict(
-                    self.aru_data_params.point_index
+                    self.aru_data_params.point_index, default=None
                 ),
                 species_index=pl.col(species_col).replace_strict(
                     self.aru_data_params.species_index
@@ -556,7 +556,7 @@ class PcData:
         ):
             pc_data = pc_data.with_columns(
                 point_index=pl.col(point_col).replace_strict(
-                    self.pc_data_params.point_index
+                    self.pc_data_params.point_index, default=None
                 ),
                 species_index=pl.col(species_col).replace_strict(
                     self.pc_data_params.species_index

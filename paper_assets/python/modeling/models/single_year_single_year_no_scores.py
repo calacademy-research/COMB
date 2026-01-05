@@ -1,8 +1,7 @@
 from arviz import InferenceData
 from caples_data import COMBData
 
-from .model_iterface import SimulationParams
-from .model_iterface import CombinedModelInterface
+from .model_iterface import CombinedModelInterface, SimulationParams, normalize
 import numpy as np
 import pymc as pm
 
@@ -10,9 +9,7 @@ import pymc as pm
 class SingleYearSingleSpeciesNoScores(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
-        burn_norm = (
-            data.covariates["burn"] - np.mean(data.covariates["burn"])
-        ) / np.std(data.covariates["burn"])
+        burn_norm = normalize(data.covariates["burn"])
         # this is a single year, single species model so we need to extract the correct dimensions
         burn = burn_norm[0]
         y_ind = data.y_index[0, 0]

@@ -4,21 +4,10 @@ from caples_data import COMBData
 from .model_iterface import CombinedModelInterface, SimulationParams, normalize
 import numpy as np
 import pymc as pm
-
-# Data (shapes matter)
-# nsites
-# nsurveys_pc
-# nsurveys_aru
-# nsurveys_scores
-
-# covar:        (nsites,)
-# y_pc:         (nsites, nsurveys_pc)
-# y_aru:        (nsites, nsurveys_aru)
-# scores:       (nsites, nsurveys_scores)
-# siteid:       (nsites,)  # 0-based indexing
+import pytensor.tensor as pt
 
 
-class SingleYearSingleSpeciesAll(CombinedModelInterface):
+class SingleYearSingleSpeciesAllMarg(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
         burn_norm = normalize(data.covariates["burn"])
@@ -43,75 +32,79 @@ class SingleYearSingleSpeciesAll(CombinedModelInterface):
             logit_psi = beta0 + beta1 * burn
             psi = pm.Deterministic("psi", pm.math.sigmoid(logit_psi))
 
-            z = pm.Bernoulli("z", p=psi, shape=data.n_sites)
-
             # ---------------------
-            # Point count (PC)
+            # Detection parameters
             # ---------------------
             p11 = pm.Beta("p11", alpha=1, beta=1)
-
-            p_pc = z * p11
-            pm.Bernoulli(
-                "y_pc",
-                p=p_pc[:, None],
-                observed=y_ind,
-            )
-
-            # ---------------------
-            # ARU detections
-            # ---------------------
             p_aru11 = pm.Beta("p_aru11", alpha=1, beta=1)
             p_aru01 = pm.Beta("p_aru01", alpha=1, beta=1)
-
-            p_aru = z * p_aru11 + (1 - z) * p_aru01
-            pm.Bernoulli(
-                "y_aru",
-                p=p_aru[:, None],
-                observed=y_aru,
-            )
-
-            # ---------------------
-            # Gaussian mixture scores
-            # ---------------------
             mu = pm.Normal("mu", mu=[-1, 1], sigma=2, shape=2)
             sigma = pm.HalfNormal("sigma", sigma=1, shape=2)
 
-            mu_score = pm.math.switch(z, mu[1], mu[0])
-            sigma_score = pm.math.switch(z, sigma[1], sigma[0])
+            # ---------------------
+            # Marginalize over z
+            # ---------------------
+            # For each site, compute log likelihood for z=0 and z=1
 
-            pm.Normal(
-                "scores",
-                mu=mu_score[:, None],  # type: ignore
-                sigma=sigma_score[:, None],  # type: ignore
-                observed=scores,
+            # Convert data to pytensor tensors
+            y_ind_pt = pt.as_tensor_variable(y_ind)
+            y_aru_pt = pt.as_tensor_variable(y_aru)
+            scores_pt = pt.as_tensor_variable(scores)
+
+            # Log probability of occupancy states
+            log_psi = pt.log(psi)
+            log_1m_psi = pt.log(1 - psi)
+
+            # Log likelihood when z=0 (site unoccupied)
+            # PC: must observe all zeros (otherwise impossible)
+            log_lik_pc_z0 = pt.switch(
+                y_ind_pt.sum(axis=1) > 0, pt.constant(-np.inf), pt.constant(0.0)
             )
+            # ARU: detections from false positives only
+            log_lik_aru_z0 = pm.logp(pm.Bernoulli.dist(p=p_aru01), y_aru_pt).sum(axis=1)  # type: ignore
+            # Scores: from unoccupied distribution
+            log_lik_scores_z0 = pm.logp(
+                pm.Normal.dist(mu=mu[0], sigma=sigma[0]), scores_pt
+            ).sum(axis=1)  # type: ignore
+
+            log_lik_z0 = log_1m_psi + log_lik_pc_z0 + log_lik_aru_z0 + log_lik_scores_z0  # type: ignore
+
+            # Log likelihood when z=1 (site occupied)
+            # PC: standard detection model
+            log_lik_pc_z1 = pm.logp(pm.Bernoulli.dist(p=p11), y_ind_pt).sum(axis=1)  # type: ignore
+            # ARU: detections from true positives
+            log_lik_aru_z1 = pm.logp(pm.Bernoulli.dist(p=p_aru11), y_aru_pt).sum(axis=1)  # type: ignore
+            # Scores: from occupied distribution
+            log_lik_scores_z1 = pm.logp(
+                pm.Normal.dist(mu=mu[1], sigma=sigma[1]), scores_pt
+            ).sum(axis=1)  # type: ignore
+
+            log_lik_z1 = log_psi + log_lik_pc_z1 + log_lik_aru_z1 + log_lik_scores_z1  # type: ignore
+
+            # Marginalize: log(P(z=0) * P(data|z=0) + P(z=1) * P(data|z=1))
+            log_lik_marginal = pm.math.logsumexp(
+                pt.stack([log_lik_z0, log_lik_z1], axis=0), axis=0
+            )  # type: ignore
+
+            pm.Potential("marginalized_likelihood", log_lik_marginal.sum())  # type: ignore
 
             # ---------------------
             # Derived quantities
             # ---------------------
+            # Posterior probability of occupancy for each site
+            post_prob_occ = pm.Deterministic(
+                "post_prob_occ", pt.exp(log_lik_z1 - log_lik_marginal)
+            )
+
             pm.Deterministic("mean_psi", psi.mean())
-            pm.Deterministic("NOcc", z.sum())
-            pm.Deterministic("PropOcc", z.mean())
+            pm.Deterministic("NOcc", post_prob_occ.sum())
+            pm.Deterministic("PropOcc", post_prob_occ.mean())
 
             # ---------------------
             # SAMPLING (IMPORTANT)
             # ---------------------
-            step_z = pm.BinaryGibbsMetropolis(vars=[z])
-            step_cont = pm.NUTS(
-                vars=[
-                    beta0,
-                    beta1,
-                    p11,
-                    p_aru11,
-                    p_aru01,
-                    mu,
-                    sigma,
-                ],
-                target_accept=0.9,
-            )
-
             trace = pm.sample(
-                step=[step_z, step_cont],
+                target_accept=0.9,
                 progressbar=True,
             )
 

@@ -2,6 +2,11 @@ import abc
 from caples_data import COMBData
 from arviz import InferenceData
 from dataclasses import dataclass
+import numpy as np
+
+
+def normalize(x: np.ndarray) -> np.ndarray:
+    return (x - np.nanmean(x)) / np.nanstd(x)
 
 
 @dataclass

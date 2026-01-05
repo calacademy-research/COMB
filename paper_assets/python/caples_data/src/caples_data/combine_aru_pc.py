@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List, Union, Tuple
 from datetime import time
 from pathlib import Path
+from typing import Literal
 
 from .read_cap_data import (
     AruData,
@@ -60,6 +61,9 @@ class CombinedParams:
     spatial_point_col: str = "point"
     spatial_covariate_cols: tuple[str, ...] = ("burn",)
     spatial_year_col: str = "year"
+
+    use_aru_point_index: bool = True
+    use_pc_point_index: bool = True
 
 
 class CombinedData:
@@ -293,13 +297,13 @@ class CombinedData:
         # Build point index
         # get all of the unique points from the ARU and PC data
         # and assign them an index
-        points = (
-            self.aru_data[self.params.aru_point_col]
-            .cast(pl.Int64)
-            .append(self.pc_data[self.params.pc_point_col].cast(pl.Int64))
-            .unique()
-            .to_list()
-        )
+        points = []
+        if self.params.use_aru_point_index:
+            points += self.aru_data[self.params.aru_point_col].cast(pl.Int64).to_list()
+        if self.params.use_pc_point_index:
+            points += self.pc_data[self.params.pc_point_col].cast(pl.Int64).to_list()
+        points = list(set(points))
+
         point_index = {point: i for i, point in enumerate(points)}
 
         # Build species index
