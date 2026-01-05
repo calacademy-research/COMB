@@ -4,11 +4,11 @@ import polars as pl
 
 def get_combined_data() -> CombinedData:
     aru = pl.read_parquet(
-        "/Users/mschulist/github/COMB/paper_assets/python/caples_data/src/caples_data/data/outputs_agg_20260103_210827.parquet"
+        "/Users/mschulist/github/COMB/paper_assets/python/modeling/data/outputs_agg_20260103_210827.parquet"
     ).filter(pl.col("point") != 0)
 
     pc = pl.read_csv(
-        "/Users/mschulist/github/COMB/paper_assets/python/caples_data/src/caples_data/data/PC_delinted.csv"
+        "/Users/mschulist/github/COMB/paper_assets/python/modeling/data/PC_delinted.csv"
     ).with_columns(
         visit=pl.col("visit") - 1,
         DateTime=pl.col("DateTime").str.to_datetime("%Y-%m-%dT%H:%M:%SZ"),

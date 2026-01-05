@@ -1,3 +1,5 @@
+# Deprecated...now inside of modeling directory!
+
 Code to go from classifier outputs to structured data that we can feed into an occupancy model. 
 
 There are three main inputs into the combined model: ARU, PC, and spatial. For each data source, we provide a polars dataframe containing the data along with parameters that specify the columns to use. 
