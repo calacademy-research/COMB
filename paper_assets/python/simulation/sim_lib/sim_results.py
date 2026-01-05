@@ -141,7 +141,7 @@ class SimResults:
             write_samples (bool): Whether to save the raw samples to disk. Default is False.
                         If True, raw samples will be saved as compressed numpy files.
         """
-        if len(self.samples_list) == 0:
+        if len(self.samples_list) == 0 and write_samples:
             raise ValueError(
                 "No samples to save. Make sure that you have loaded the samples."
             )
@@ -163,7 +163,7 @@ class SimResults:
         with open(directory / "metadata.json", "w") as f:
             f.write(json.dumps(metadata, indent=4))
 
-        summary_dict = self.get_summary(reindex=True)
+        summary_dict = self.get_summary(reindex=False)
 
         for param_name, summary_df in summary_dict.items():
             summary_df.to_csv(directory / f"{param_name}_summary.csv")
