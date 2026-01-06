@@ -1,6 +1,7 @@
 import polars as pl
 from dataclasses import dataclass
 from datetime import time
+from datetime import datetime as dt
 from typing import Tuple, List, Union
 import numpy as np
 
@@ -592,6 +593,14 @@ class PcData:
 
 
 @dataclass
+class FireInfo:
+    date: dt
+    name: str
+    severity_col_name: str
+    inside_col_name: str
+
+
+@dataclass
 class SpatialDataParams:
     """
     Data class to hold the spatial data parameters.
@@ -599,10 +608,12 @@ class SpatialDataParams:
 
     point_index: dict[int, int]
     year_index: dict[int, int]
+    fire_info: tuple[FireInfo, ...]
 
     point_col: str = "point"
-    covariate_cols: tuple[str, ...] = ("burn",)
+    other_covariate_cols: tuple[str, ...] = ()
     year_col: str = "year"
+    fire_name_col: str = "fire_name"
 
     years: list[int] | None = None
 
@@ -626,7 +637,8 @@ class SpatialData:
 
     def _verify_spatial_data(self):
         point_col = self.spatial_params.point_col
-        covariate_cols = self.spatial_params.covariate_cols
+        fire_col = self.spatial_params.fire_name_col
+        other_covariate_cols = self.spatial_params.other_covariate_cols
         year_col = self.spatial_params.year_col
 
         # check that all of the columns exist in the data
@@ -640,9 +652,12 @@ class SpatialData:
         if year_col not in self.spatial_data.columns:
             raise ValueError(f"year_col {year_col} not in spatial data")
 
-        for cov_col in covariate_cols:
+        for cov_col in other_covariate_cols:
             if cov_col not in self.spatial_data.columns:
                 raise ValueError(f"covariate column {cov_col} not in spatial data")
+
+        if fire_col not in self.spatial_data.columns:
+            raise ValueError(f"fire col {fire_col} not in spatial data")
 
     def _assign_indices(self):
         """
@@ -685,7 +700,7 @@ class SpatialData:
 
         covar_data: dict[str, np.ndarray] = dict()
 
-        for covar in self.spatial_params.covariate_cols:
+        for covar in self.spatial_params.other_covariate_cols:
             covar_array = np.empty(shape, dtype=np.float32)
             covar_array.fill(np.nan)
 
@@ -698,5 +713,25 @@ class SpatialData:
                 covar_array[year_index, site_index] = row[covar]
 
             covar_data[covar] = covar_array
+
+        for fire in self.spatial_params.fire_info:
+            fire_df = self.spatial_data.filter(
+                pl.col(self.spatial_params.fire_name_col) == fire.name
+            )
+
+            fire_array = np.empty(n_sites)
+            fire_array.fill(np.nan)
+
+            inside_boundary = np.empty(n_sites)
+            inside_boundary.fill(np.nan)
+
+            for row in fire_df.iter_rows(named=True):
+                site_index = row["point_index"]
+
+                fire_array[site_index] = row[fire.severity_col_name]
+                inside_boundary[site_index] = row[fire.inside_col_name]
+
+            covar_data[fire.name] = fire_array
+            covar_data[f"inside_{fire.name}"] = inside_boundary
 
         return covar_data

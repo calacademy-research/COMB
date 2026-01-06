@@ -103,6 +103,9 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
             "raster": data_dir
             / "caples_fire_20181118_20191118_ravg_data"
             / "caples_fire_20181118_20191118_rdnbr.tif",
+            "boundary": data_dir
+            / "caples_fire_20181118_20191118_ravg_data"
+            / "caples_fire_20181118_20191118_burn_bndy.shp",
         },
         {
             "year": 2022,
@@ -110,6 +113,9 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
             "raster": data_dir
             / "caldor_fire_20201011_20211016_ravg_data"
             / "caldor_fire_20201011_20211016_rdnbr.tif",
+            "boundary": data_dir
+            / "caldor_fire_20201011_20211016_ravg_data"
+            / "caldor_fire_20201011_20211016_burn_bndy.shp",
         },
     ]
 
@@ -117,6 +123,8 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
     for fire in fires:
         if not fire["raster"].exists():
             print(f"Warning: Raster file not found: {fire['raster']}")
+        if not fire["boundary"].exists():
+            print(f"Warning: Boundary file not found: {fire['boundary']}")
 
     # Extract burn values for each point and fire
     results = []
@@ -131,12 +139,25 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
         with rasterio.open(fire["raster"]) as src:
             raster_crs = src.crs
 
+        # Load burn boundary shapefile
+        burn_boundary = None
+        if fire["boundary"].exists():
+            burn_boundary = gpd.read_file(fire["boundary"])
+            # Reproject boundary to match raster CRS if needed
+            if burn_boundary.crs != raster_crs:
+                burn_boundary = burn_boundary.to_crs(raster_crs)
+
         # Reproject points to raster CRS
         points_reprojected = points_gdf.to_crs(raster_crs)
 
         for idx, row in points_reprojected.iterrows():
             point_name = row["Name"]
             point_geom = row["geometry"]
+
+            # Check if point is inside burn boundary
+            inside_boundary = False
+            if burn_boundary is not None:
+                inside_boundary = burn_boundary.contains(point_geom).any()
 
             # Extract burn value
             burn_value = extract_burn_value(point_geom, fire["raster"], buffer_pixels)
@@ -148,7 +169,9 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
                 {
                     "point": point_name,
                     "year": fire["year"],
+                    "fire_name": fire["name"],
                     "burn": burn_value,
+                    "inside_burn_boundary": inside_boundary,
                     "geometry": original_geom.wkt,
                 }
             )
@@ -167,6 +190,8 @@ def extract_burn_data(points_csv, output_csv, buffer_pixels=0):
     print(f"Total records: {len(results_df)}")
     print("\nBurn severity statistics by year:")
     print(results_df.groupby("year")["burn"].describe())
+    print("\nPoints inside burn boundary by year:")
+    print(results_df.groupby("year")["inside_burn_boundary"].sum())
 
     # Report points with missing data
     missing = results_df[results_df["burn"].isna()]

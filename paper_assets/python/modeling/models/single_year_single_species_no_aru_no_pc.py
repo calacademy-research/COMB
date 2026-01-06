@@ -9,7 +9,7 @@ import pymc as pm
 class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
-        burn_norm = normalize(data.covariates["burn"])
+        burn_norm = normalize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
         burn = burn_norm[0]
         scores = data.scores[0, 0]

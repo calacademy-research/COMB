@@ -11,6 +11,8 @@ from .single_year_single_species_datetime_all import SingleYearSingleSpeciesAllD
 from .single_year_single_species_no_scores_no_aru import (
     SingleYearSingleSpeciesNoScoresNoARU,
 )
+from .multi_year_multi_species_all import MultiYearMultiSpeciesAll
+from .multi_year_multi_species_all_marg import MultiYearMultiSpeciesAllMarg
 from .model_iterface import CombinedModelInterface
 from typing import Literal
 
@@ -24,6 +26,8 @@ model_class_map = {
     "single_year_single_species_no_aru_no_pc": SingleYearSingleSpeciesNoARUNoPC,
     "single_year_single_species_no_aru": SingleYearSingleSpeciesNoARU,
     "single_year_single_species_no_pc": SingleYearSingleSpeciesNoPC,
+    "multi_year_multi_species_all": MultiYearMultiSpeciesAll,
+    "multi_year_multi_species_all_marg": MultiYearMultiSpeciesAllMarg,
 }
 
 
@@ -37,6 +41,8 @@ ModelNames = Literal[
     "single_year_single_species_no_aru_no_pc",
     "single_year_single_species_no_aru",
     "single_year_single_species_no_pc",
+    "multi_year_multi_species_all",
+    "multi_year_multi_species_all_marg",
 ]
 
 

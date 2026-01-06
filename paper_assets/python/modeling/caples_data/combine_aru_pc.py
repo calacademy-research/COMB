@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List, Union, Tuple
 from datetime import time
 from pathlib import Path
-from typing import Literal
+from datetime import datetime as dt
 
 from .read_cap_data import (
     AruData,
@@ -13,6 +13,7 @@ from .read_cap_data import (
     PcData,
     SpatialData,
     SpatialDataParams,
+    FireInfo,
 )
 
 
@@ -59,8 +60,12 @@ class CombinedParams:
     species: Union[List[str], None] = None
 
     spatial_point_col: str = "point"
-    spatial_covariate_cols: tuple[str, ...] = ("burn",)
+    other_spatial_covariate_cols: tuple[str, ...] = ()
     spatial_year_col: str = "year"
+    fire_info: tuple[FireInfo, ...] = (
+        FireInfo(dt(2019, 11, 18), "caples", "burn", "inside_burn_boundary"),
+        FireInfo(dt(2021, 10, 16), "caldor", "burn", "inside_burn_boundary"),
+    )
 
     use_aru_point_index: bool = True
     use_pc_point_index: bool = True
@@ -197,10 +202,25 @@ class CombinedData:
             )
         n_species = self.aru.aru_data_dict.n_species
 
-        covar_dict = {
-            covar: self.spatial.spatial_data_dict[covar]
-            for covar in self.params.spatial_covariate_cols
-        }
+        covar_dict: dict[str, np.ndarray] = dict()
+
+        for covar in self.params.other_spatial_covariate_cols:
+            covar_dict[covar] = self.spatial.spatial_data_dict[covar]
+
+        for fire in self.params.fire_info:
+            covar_dict[fire.name] = self.spatial.spatial_data_dict[fire.name]
+            covar_dict[f"inside_{fire.name}"] = self.spatial.spatial_data_dict[
+                f"inside_{fire.name}"
+            ]
+
+            time_since_fire = np.empty((n_sites, n_years))
+            time_since_fire.fill(np.nan)
+
+            for i, year in enumerate(self.params.years):
+                fire_year_diff = year - fire.date.year
+                time_since_fire[:, i] = fire_year_diff if fire_year_diff >= 0 else 0
+
+            covar_dict[f"time_since_{fire.name}"] = time_since_fire
 
         return COMBData(
             n_sites=n_sites,
@@ -276,9 +296,10 @@ class CombinedData:
             point_index=self.point_index,
             year_index=self.year_index,
             point_col=self.params.spatial_point_col,
-            covariate_cols=self.params.spatial_covariate_cols,
+            other_covariate_cols=self.params.other_spatial_covariate_cols,
             year_col=self.params.spatial_year_col,
             years=self.params.years,
+            fire_info=self.params.fire_info,
         )
 
     def _build_all_indices(

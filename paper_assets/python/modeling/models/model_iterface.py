@@ -1,12 +1,17 @@
 import abc
+import json
 from caples_data import COMBData
 from arviz import InferenceData
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import numpy as np
 
 
-def normalize(x: np.ndarray) -> np.ndarray:
+def standardize(x: np.ndarray) -> np.ndarray:
     return (x - np.nanmean(x)) / np.nanstd(x)
+
+
+def normalize(x: np.ndarray) -> np.ndarray:
+    return (x - np.nanmin(x)) / (np.nanmax(x) - np.nanmin(x))
 
 
 @dataclass
@@ -23,6 +28,14 @@ class SimulationParams:
     mu: tuple = (-1.0, 2.0)
     sigma: tuple = (1.0, 1.0)
     seed: int | None = None
+
+    def to_str(self):
+        return json.dumps(asdict(self))
+
+    @staticmethod
+    def from_str(s: str):
+        data = json.loads(s)
+        return SimulationParams(**data)
 
 
 class CombinedModelInterface(abc.ABC):

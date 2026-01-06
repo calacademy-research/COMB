@@ -8,7 +8,7 @@ def get_combined_data() -> CombinedData:
     ).filter(pl.col("point") != 0)
 
     pc = pl.read_csv(
-        "/Users/mschulist/github/COMB/paper_assets/python/modeling/data/PC_delinted.csv"
+        "/Users/mschulist/github/COMB/paper_assets/python/modeling/data/PC_delinted_2018-2023.csv"
     ).with_columns(
         visit=pl.col("visit") - 1,
         DateTime=pl.col("DateTime").str.to_datetime("%Y-%m-%dT%H:%M:%SZ"),
@@ -21,13 +21,13 @@ def get_combined_data() -> CombinedData:
     combined_params = CombinedParams(
         aru_species_col="label",
         aru_visit_limit=24,
-        years=[2020],
+        years=[2018, 2019, 2020, 2021, 2022, 2023],
         pc_species_col="birdCode_fk",
         pc_count_col="abun",
         pc_datetime_col="DateTime",
         pc_point_col="point_ID_fk",
         pc_visit_index_col="visit",
-        species=["herwar"],
+        species=["naswar"],
         aru_threshold=0,
     )
     combined = CombinedData(
@@ -55,4 +55,4 @@ def get_combined_data() -> CombinedData:
 if __name__ == "__main__":
     combined = get_combined_data()
 
-    print(combined.combined_data.y_index)
+    print(combined.combined_data)
