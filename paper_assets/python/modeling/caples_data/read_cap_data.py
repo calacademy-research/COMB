@@ -500,7 +500,7 @@ class PcData:
             )
 
         # y_ind is the binary count data
-        y_ind = np.where(y_pc > 0, 1, 0)
+        y_ind = np.where(np.isnan(y_pc), np.nan, np.where(y_pc > 0, 1, 0))
 
         return PCDataHolder(
             y_pc=y_pc,
