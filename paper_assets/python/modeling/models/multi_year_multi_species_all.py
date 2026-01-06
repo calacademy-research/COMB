@@ -142,9 +142,10 @@ class MultiYearMultiSpeciesAll(CombinedModelInterface):
 
             trace = pm.sample(
                 step=[step_z, step_cont],
-                chains=4,
-                cores=4,
+                chains=16,
+                cores=16,
                 init="adapt_diag",
+                progressbar=True,
             )
 
         return trace
