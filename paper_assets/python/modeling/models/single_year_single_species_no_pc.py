@@ -151,7 +151,7 @@ class SingleYearSingleSpeciesNoPC(CombinedModelInterface):
             y_pc=np.zeros(0),
             n_surveys_pc=sim_params.nsurveys_pc,
             n_surveys_aru=sim_params.nsurveys_aru,
-            covariates={"burn": covar_sim.reshape(1, -1)},
+            covariates={"caples": covar_sim.reshape(1, -1)},
             date_pc=np.zeros(0),
             date_aru=np.zeros(0),
             time_aru=np.zeros(0),

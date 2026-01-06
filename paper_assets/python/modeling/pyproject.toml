@@ -10,5 +10,6 @@ dependencies = [
     "polars>=1.36.1",
     "pymc>=5.27.0",
     "pymc-experimental>=0.1.4",
+    "tqdm>=4.67.1",
 ]
 

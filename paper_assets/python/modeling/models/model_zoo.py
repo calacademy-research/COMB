@@ -17,10 +17,10 @@ from .model_iterface import CombinedModelInterface
 from typing import Literal
 
 model_class_map = {
-    "single_species_single_year_all": SingleYearSingleSpeciesAll,
-    "single_species_single_year_all_marg": SingleYearSingleSpeciesAllMarg,
-    "single_species_single_year_no_scores": SingleYearSingleSpeciesNoScores,
-    "single_species_single_year_all_datetime": SingleYearSingleSpeciesAllDateTime,
+    "single_year_single_species_all": SingleYearSingleSpeciesAll,
+    "single_year_single_species_all_marg": SingleYearSingleSpeciesAllMarg,
+    "single_year_single_species_no_scores": SingleYearSingleSpeciesNoScores,
+    "single_year_single_species_all_datetime": SingleYearSingleSpeciesAllDateTime,
     "single_year_single_species_no_scores_no_aru": SingleYearSingleSpeciesNoScoresNoARU,
     "single_year_single_species_no_scores_no_pc": SingleYearSingleSpeciesNoScoresNoPC,
     "single_year_single_species_no_aru_no_pc": SingleYearSingleSpeciesNoARUNoPC,
@@ -32,10 +32,10 @@ model_class_map = {
 
 
 ModelNames = Literal[
-    "single_species_single_year_all",
-    "single_species_single_year_no_scores",
-    "single_species_single_year_all_marg",
-    "single_species_single_year_all_datetime",
+    "single_year_single_species_all",
+    "single_year_single_species_no_scores",
+    "single_year_single_species_all_marg",
+    "single_year_single_species_all_datetime",
     "single_year_single_species_no_scores_no_aru",
     "single_year_single_species_no_scores_no_pc",
     "single_year_single_species_no_aru_no_pc",
