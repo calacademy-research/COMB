@@ -1,10 +1,11 @@
 import polars as pl
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import List, Union, Tuple
 from datetime import time
 from pathlib import Path
 from datetime import datetime as dt
+import json
 
 from .read_cap_data import (
     AruData,
@@ -63,12 +64,69 @@ class CombinedParams:
     other_spatial_covariate_cols: tuple[str, ...] = ()
     spatial_year_col: str = "year"
     fire_info: tuple[FireInfo, ...] = (
-        FireInfo(dt(2019, 11, 18), "caples", "burn", "inside_burn_boundary"),
-        FireInfo(dt(2021, 10, 16), "caldor", "burn", "inside_burn_boundary"),
+        FireInfo(
+            date=dt(2019, 11, 18),
+            name="caples",
+            severity_col_name="burn",
+            inside_col_name="inside_burn_boundary",
+        ),
+        FireInfo(
+            date=dt(2021, 10, 16),
+            name="caldor",
+            severity_col_name="burn",
+            inside_col_name="inside_burn_boundary",
+        ),
     )
 
     use_aru_point_index: bool = True
     use_pc_point_index: bool = True
+
+    def to_str(self):
+        data = asdict(self)
+        # Convert time objects to strings
+        if "aru_time_range" in data and data["aru_time_range"]:
+            data["aru_time_range"] = [
+                t.isoformat() if isinstance(t, time) else t
+                for t in data["aru_time_range"]
+            ]
+        # Convert FireInfo objects to serializable dicts
+        if "fire_info" in data and data["fire_info"]:
+            data["fire_info"] = [
+                {
+                    "date": fi["date"].isoformat()
+                    if isinstance(fi["date"], dt)
+                    else fi["date"],
+                    "name": fi["name"],
+                    "severity_col_name": fi["severity_col_name"],
+                    "inside_col_name": fi["inside_col_name"],
+                }
+                for fi in data["fire_info"]
+            ]
+        return json.dumps(data)
+
+    @staticmethod
+    def from_str(s: str):
+        data = json.loads(s)
+        # Convert time strings back to time objects
+        if "aru_time_range" in data and data["aru_time_range"]:
+            data["aru_time_range"] = tuple(
+                time.fromisoformat(t) if isinstance(t, str) else t
+                for t in data["aru_time_range"]
+            )
+        # Convert fire_info dicts back to FireInfo objects
+        if "fire_info" in data and data["fire_info"]:
+            data["fire_info"] = tuple(
+                FireInfo(
+                    date=dt.fromisoformat(fi["date"])
+                    if isinstance(fi["date"], str)
+                    else fi["date"],
+                    name=fi["name"],
+                    severity_col_name=fi["severity_col_name"],
+                    inside_col_name=fi["inside_col_name"],
+                )
+                for fi in data["fire_info"]
+            )
+        return CombinedParams(**data)
 
 
 class CombinedData:
