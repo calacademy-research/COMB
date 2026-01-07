@@ -123,7 +123,6 @@ def simulate_data(db: SimulationsDB, study_id: int, num_processes: int | None = 
             # Write results immediately as each simulation completes
             for model_name, result in model_results:
                 db.insert_run(dataset_id, model_name, result)
-
             db.commit()
 
     print("All results saved to database.")
@@ -156,8 +155,8 @@ if __name__ == "__main__":
         sim_name_for_data="single_year_single_species_all",
     )
 
-    study_id = make_datasets(db, params, "minimal_param_combs", num_datasets=1)
+    study_id = make_datasets(db, params, "minimal_param_combs", num_datasets=100)
     print(f"Created {len(db.get_all_sim_param_ids(study_id))} parameter combinations")
 
     # Run simulations in parallel and save to database (thread-safe)
-    simulate_data(db, study_id, num_processes=4)
+    simulate_data(db, study_id, num_processes=8)

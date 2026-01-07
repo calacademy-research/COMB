@@ -1,7 +1,7 @@
 from arviz import InferenceData
 from caples_data import COMBData
 
-from .model_iterface import CombinedModelInterface, SimulationParams, normalize
+from .model_iterface import CombinedModelInterface, SimulationParams, standardize
 import numpy as np
 import pymc as pm
 
@@ -9,7 +9,7 @@ import pymc as pm
 class SingleYearSingleSpeciesNoPC(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
-        burn_norm = normalize(data.covariates["caples"])
+        burn_norm = standardize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
         burn = burn_norm[0]
         y_aru = data.y_aru[0, 0]

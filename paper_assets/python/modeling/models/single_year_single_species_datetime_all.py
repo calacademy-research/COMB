@@ -2,26 +2,26 @@ from arviz import InferenceData
 from caples_data import COMBData
 import numpy as np
 
-from .model_iterface import CombinedModelInterface, normalize
+from .model_iterface import CombinedModelInterface, standardize
 import pymc as pm
 
 
 class SingleYearSingleSpeciesAllDateTime(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
-        burn_norm = normalize(data.covariates["caples"])
+        burn_norm = standardize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
         burn = burn_norm[0]
         y_ind = data.y_index[0, 0]
         y_aru = data.y_aru[0, 0]
         scores = data.scores[0, 0]
 
-        date_pc = normalize(data.date_pc[0, 0])
-        date_aru = normalize(data.date_aru[0, 0])
-        time_pc = normalize(data.time_pc[0, 0])
-        time_aru = normalize(data.time_aru[0, 0])
+        date_pc = standardize(data.date_pc[0, 0])
+        date_aru = standardize(data.date_aru[0, 0])
+        time_pc = standardize(data.time_pc[0, 0])
+        time_aru = standardize(data.time_aru[0, 0])
 
-        # Replace NaN values with 0 (normalized mean) to prevent NaN propagation
+        # Replace NaN values with 0 (standardized mean) to prevent NaN propagation
         date_pc = np.nan_to_num(date_pc, nan=0.0)
         time_pc = np.nan_to_num(time_pc, nan=0.0)
         date_aru = np.nan_to_num(date_aru, nan=0.0)
