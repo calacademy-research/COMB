@@ -3,7 +3,10 @@ import polars as pl
 
 
 def get_combined_data(
-    aru_filename: str, pc_filename: str, spatial_filename: str
+    aru_filename: str,
+    pc_filename: str,
+    spatial_filename: str,
+    species: list[str],
 ) -> CombinedData:
     aru = pl.read_parquet(aru_filename).filter(pl.col("point") != 0)
 
@@ -23,8 +26,8 @@ def get_combined_data(
         pc_datetime_col="DateTime",
         pc_point_col="point_ID_fk",
         pc_visit_index_col="visit",
-        species=["herwar"],
-        aru_threshold=0.75,
+        species=species,
+        aru_threshold=0,
     )
     combined = CombinedData(
         aru,
@@ -54,5 +57,6 @@ if __name__ == "__main__":
         aru_filename="data/outputs_agg_20260103_210827.parquet",
         pc_filename="data/PC_delinted_2018-2023.csv",
         spatial_filename="../spatial/data/burn_data_by_point.csv",
+        species=["herwar"]
     )
     print(combined.combined_data)
