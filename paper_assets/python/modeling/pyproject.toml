@@ -8,6 +8,7 @@ dependencies = [
     "geopandas>=1.1.2",
     "ipykernel>=7.1.0",
     "polars>=1.36.1",
+    "pyarrow>=22.0.0",
     "pymc>=5.27.0",
     "pymc-experimental>=0.1.4",
     "tqdm>=4.67.1",

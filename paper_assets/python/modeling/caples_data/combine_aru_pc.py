@@ -156,6 +156,17 @@ class CombinedData:
                 pl.col(self.params.pc_species_col).is_in(self.params.species)
             )
 
+        # remove nan points from aru and pc data and filter to correct years
+        # we need to do this before building indices
+        self.aru_data = self.aru_data.filter(
+            (pl.col(self.params.aru_point_col).is_not_null())
+            & (pl.col(self.params.aru_datetime_col).dt.year().is_in(self.params.years))
+        )
+        self.pc_data = self.pc_data.filter(
+            (pl.col(self.params.pc_point_col).is_not_null())
+            & (pl.col(self.params.pc_datetime_col).dt.year().is_in(self.params.years))
+        )
+
         self.point_index, self.species_index, self.year_index = (
             self._build_all_indices()
         )

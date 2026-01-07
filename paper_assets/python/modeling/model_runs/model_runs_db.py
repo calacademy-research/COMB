@@ -234,9 +234,9 @@ class ResultsDB:
         results.to_netcdf(str(self.db_path / RESULTS_DIR / f"{run_id}.nc"))
         return run_id
 
-    def get_all_run_ids(self, filter_params: dict[str, Any]):
+    def get_all_run_ids(self, filter_params: dict[str, Any] = {}):
         cursor = self._get_cursor()
-        where_clause, params = create_sql_json_filter("runs", filter_params)
+        where_clause, params = create_sql_json_filter("combined_params", filter_params)
 
         query = f"""
             SELECT id

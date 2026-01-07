@@ -23,8 +23,8 @@ def get_combined_data(
         pc_datetime_col="DateTime",
         pc_point_col="point_ID_fk",
         pc_visit_index_col="visit",
-        species=["bkbwoo"],
-        aru_threshold=0,
+        species=["herwar"],
+        aru_threshold=0.75,
     )
     combined = CombinedData(
         aru,
@@ -44,6 +44,7 @@ def get_combined_data(
     #     legend=True,
     # )
     # plt.show()
+    # exit()
 
     return combined
 

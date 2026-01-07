@@ -11,7 +11,7 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
     def run_model(cls, data: COMBData) -> InferenceData:
         burn_norm = standardize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
-        burn = burn_norm[0]
+        burn = burn_norm
         scores = data.scores[0, 0]
 
         print("burn", burn.shape)
@@ -123,7 +123,7 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
             y_pc=np.zeros(0),
             n_surveys_pc=sim_params.nsurveys_pc,
             n_surveys_aru=sim_params.nsurveys_aru,
-            covariates={"caples": covar_sim.reshape(1, -1)},
+            covariates={"caples": covar_sim},
             date_pc=np.zeros(0),
             date_aru=np.zeros(0),
             time_aru=np.zeros(0),

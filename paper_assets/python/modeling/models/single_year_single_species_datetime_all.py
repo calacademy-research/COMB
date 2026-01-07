@@ -11,7 +11,7 @@ class SingleYearSingleSpeciesAllDateTime(CombinedModelInterface):
     def run_model(cls, data: COMBData) -> InferenceData:
         burn_norm = standardize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
-        burn = burn_norm[0]
+        burn = burn_norm
         y_ind = data.y_index[0, 0]
         y_aru = data.y_aru[0, 0]
         scores = data.scores[0, 0]

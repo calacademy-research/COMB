@@ -2,6 +2,7 @@ from get_combined_data import get_combined_data
 from models.model_zoo import get_model_by_name, ModelNames
 from model_runs.model_runs_db import ResultsDB
 from caples_data.combine_aru_pc import CombinedParams
+import numpy as np
 
 """
 Main script to run the combined model on the caples data
@@ -23,6 +24,7 @@ if __name__ == "__main__":
         pc_filename=pc_filename,
         spatial_filename=spatial_filename,
     )
+    combined.combined_data.y_index = np.nan_to_num(combined.combined_data.y_index)
     model = get_model_by_name(model_name)
     trace = model.run_model(combined.combined_data)
 
