@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import numpy as np
+import json
 
 from caples_data.combine_aru_pc import COMBData
 from models.model_iterface import SimulationParams
@@ -98,6 +99,69 @@ def format_sql_insert_values(
     values = normalize_sql_value(list(kwargs.values()))
 
     return f"({', '.join(columns)})", f"({', '.join(placeholders)})", values
+
+
+def create_sql_json_filter(
+    column_name: str, filter_dict: dict[str, Any]
+) -> tuple[str, list[Any]]:
+    """Create SQLite WHERE clause for filtering JSON column values.
+
+    Args:
+        column_name: Name of the JSON column to filter (e.g., "simulation_params")
+        filter_dict: Dictionary of key-value pairs to match in the JSON
+
+    Returns:
+        A tuple of (where_clause, params) where:
+        - where_clause: SQL WHERE conditions joined with AND
+        - params: List of parameter values for the prepared statement
+
+    Supported value types:
+        - Scalars (int, float, str, bool, None): Direct equality comparison
+        - Lists/tuples: JSON array comparison (order-sensitive)
+
+    Examples:
+        # Scalar values
+        where_clause, params = create_sql_json_filter(
+            "simulation_params",
+            {"nsites": 50, "beta0": -0.5}
+        )
+
+        # List/tuple values (compares as JSON arrays)
+        where_clause, params = create_sql_json_filter(
+            "simulation_params",
+            {"mu": [-1.0, 2.0], "sigma": [1.0, 1.0]}
+        )
+    """
+    if not is_valid_sql_identifier(column_name):
+        raise ValueError(f"`{column_name}` is not a valid SQL identifier.")
+
+    if not filter_dict:
+        return "1=1", []
+
+    conditions = []
+    params = []
+
+    for key, value in filter_dict.items():
+        json_path = f"$.{key}"
+
+        # Check if value is a list/tuple BEFORE normalizing
+        if isinstance(value, (list, tuple)):
+            # Normalize the list elements, then convert to JSON string
+            normalized_value = normalize_sql_value(value)
+            json_str = json.dumps(normalized_value)
+            # Extract the value, then compare JSON representations
+            condition = f"json(json_extract({column_name}, '{json_path}')) = json(?)"
+            params.append(json_str)
+        else:
+            # For scalars, normalize and use direct comparison
+            normalized_value = normalize_sql_value(value)
+            condition = f"json_extract({column_name}, '{json_path}') = ?"
+            params.append(normalized_value)
+
+        conditions.append(condition)
+
+    where_clause = " AND ".join(conditions)
+    return where_clause, params
 
 
 @dataclass
@@ -291,6 +355,25 @@ class SimulationsDB:
             """,
             (study_id,),
         )
+        results = cursor.fetchall()
+        return [row[0] for row in results]
+
+    def get_sim_param_ids_by_filter(
+        self, study_id: int, filter_params: dict[str, Any]
+    ) -> list[int]:
+        """Get all sim_param IDs that match the given filter parameters."""
+        cursor = self._get_cursor()
+        where_clause, params = create_sql_json_filter(
+            "simulation_params", filter_params
+        )
+
+        query = f"""
+            SELECT id
+            FROM sim_params
+            WHERE study_id = ? AND {where_clause}
+        """
+
+        cursor.execute(query, [study_id] + params)
         results = cursor.fetchall()
         return [row[0] for row in results]
 
