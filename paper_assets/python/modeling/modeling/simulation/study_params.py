@@ -3,7 +3,6 @@ import json
 from models import model_zoo
 
 
-
 @dataclass
 class StudyParams:
     models: list[model_zoo.ModelNames]
@@ -19,6 +18,7 @@ class StudyParams:
     n_surveys_aru: list[int]
     n_surveys_scores: list[int]
     sim_name_for_data: model_zoo.ModelNames
+    aru_scores_independent_model: bool
 
     def to_str(self) -> str:
         return json.dumps(asdict(self))
