@@ -2,7 +2,7 @@ import numpy as np
 from modeling.models.model_iterface import SimulationParams
 from .model_iterface import CombinedModelInterface
 from arviz import InferenceData
-from modeling.caples_data import COMBData
+from modeling.caples_data.combine_aru_pc import COMBData
 import arviz as az
 import pyjags
 
@@ -62,8 +62,9 @@ class JagsModel:
             data=model_data,
             init=inits,
             chains=4,
-            adapt=2000,
+            adapt=1000,
             threads=4,
+            progress_bar=False,
         )
 
         monitored = [
@@ -78,7 +79,7 @@ class JagsModel:
             "PropOcc",
         ]
 
-        samples = model.sample(iterations=8000, vars=monitored)
+        samples = model.sample(iterations=4000, vars=monitored)
         return az.from_pyjags(samples)
 
     @classmethod
