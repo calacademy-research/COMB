@@ -8,8 +8,8 @@ from typing import Any
 import numpy as np
 import json
 
-from caples_data.combine_aru_pc import COMBData
-from models.model_iterface import SimulationParams
+from modeling.caples_data.combine_aru_pc import COMBData
+from modeling.models.model_iterface import SimulationParams
 import pickle
 import arviz as az
 from .study_params import StudyParams

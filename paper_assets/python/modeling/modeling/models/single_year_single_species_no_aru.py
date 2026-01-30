@@ -1,20 +1,22 @@
 from arviz import InferenceData
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 
 from .model_iterface import CombinedModelInterface, SimulationParams, standardize
 import numpy as np
 import pymc as pm
 
 
-class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
+class SingleYearSingleSpeciesNoARU(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
         burn_norm = standardize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
         burn = burn_norm
+        y_ind = data.y_index[0, 0]
         scores = data.scores[0, 0]
 
         print("burn", burn.shape)
+        print("y_ind", y_ind.shape)
         print("scores", scores.shape)
 
         with pm.Model():
@@ -28,6 +30,18 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
             psi = pm.Deterministic("psi", pm.math.sigmoid(logit_psi))
 
             z = pm.Bernoulli("z", p=psi, shape=data.n_sites)
+
+            # ---------------------
+            # Point count (PC)
+            # ---------------------
+            p11 = pm.Beta("p11", alpha=1, beta=1)
+
+            p_pc = z * p11
+            pm.Bernoulli(
+                "y_pc",
+                p=p_pc[:, None],
+                observed=y_ind,
+            )
 
             # ---------------------
             # Gaussian mixture scores
@@ -60,6 +74,7 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
                 vars=[
                     beta0,
                     beta1,
+                    p11,
                     mu,
                     sigma,
                 ],
@@ -93,6 +108,16 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
             z = pm.Bernoulli("z", p=psi, shape=sim_params.nsites)
 
             # ---------------------
+            # Point count (PC)
+            # ---------------------
+            p_pc = z * sim_params.p11
+            pm.Bernoulli(
+                "y_ind",
+                p=p_pc[:, None],
+                shape=(sim_params.nsites, sim_params.nsurveys_pc),
+            )
+
+            # ---------------------
             # Gaussian mixture scores
             # ---------------------
             mu_score = pm.math.switch(z, sim_params.mu[1], sim_params.mu[0])
@@ -112,6 +137,7 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
 
         # Extract the simulated data (take the first sample from chain 0)
         covar_sim = prior_pred["prior"]["covar"].values[0, 0]
+        y_ind_sim = prior_pred["prior"]["y_ind"].values[0, 0]
         scores_sim = prior_pred["prior"]["scores"].values[0, 0]
 
         return COMBData(
@@ -119,7 +145,7 @@ class SingleYearSingleSpeciesNoARUNoPC(CombinedModelInterface):
             n_years=1,
             n_species=1,
             y_aru=np.zeros(0),
-            y_index=np.zeros(0),
+            y_index=y_ind_sim.reshape(1, 1, y_ind_sim.shape[0], y_ind_sim.shape[1]),
             y_pc=np.zeros(0),
             n_surveys_pc=sim_params.nsurveys_pc,
             n_surveys_aru=sim_params.nsurveys_aru,

@@ -7,10 +7,19 @@ requires-python = ">=3.12"
 dependencies = [
     "geopandas>=1.1.2",
     "ipykernel>=7.1.0",
+    "numpy>=2.3.5",
+    "pyjags",
     "polars>=1.36.1",
     "pyarrow>=22.0.0",
     "pymc>=5.27.0",
     "pymc-experimental>=0.1.4",
     "tqdm>=4.67.1",
 ]
+
+[tool.uv.sources]
+pyjags = { git = "https://github.com/mschulist/pyjags.git", rev = "dd7afd12081a14fe0d99fb07fb5d51dd81ec5002" }
+
+[tool.setuptools]
+package-dir = {"" = "."}
+packages = ["modeling"]
 

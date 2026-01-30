@@ -13,6 +13,7 @@ from .single_year_single_species_no_scores_no_aru import (
 )
 from .multi_year_multi_species_all import MultiYearMultiSpeciesAll
 from .multi_year_multi_species_all_marg import MultiYearMultiSpeciesAllMarg
+from .jags_sim_model import JagsModelDependent, JagsModelIndependent
 from .model_iterface import CombinedModelInterface
 from typing import Literal
 
@@ -28,6 +29,8 @@ model_class_map = {
     "single_year_single_species_no_pc": SingleYearSingleSpeciesNoPC,
     "multi_year_multi_species_all": MultiYearMultiSpeciesAll,
     "multi_year_multi_species_all_marg": MultiYearMultiSpeciesAllMarg,
+    "single_year_jags_model_dependent": JagsModelDependent,
+    "single_year_jags_model_independent": JagsModelIndependent,
 }
 
 
@@ -43,6 +46,8 @@ ModelNames = Literal[
     "single_year_single_species_no_pc",
     "multi_year_multi_species_all",
     "multi_year_multi_species_all_marg",
+    "single_year_jags_model_dependent",
+    "single_year_jags_model_independent",
 ]
 
 

@@ -1,13 +1,14 @@
-from simulation.study_params import StudyParams
-from models import model_zoo
-from models.model_iterface import SimulationParams
-from models.model_zoo import ModelNames
-from simulation.simulations_db import SimulationsDB
+from modeling.simulation.study_params import StudyParams
+from modeling.models import model_zoo
+from modeling.models.model_iterface import SimulationParams
+from modeling.models.model_zoo import ModelNames
+from modeling.simulation.simulations_db import SimulationsDB
 from datetime import datetime as dt
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from typing import Any, Tuple, List
 from tqdm import tqdm
+from itertools import product
 
 
 def make_datasets(
@@ -17,44 +18,60 @@ def make_datasets(
     study_id = db.insert_study(name, dt.now(), params)
     model = model_zoo.get_model_by_name(params.sim_name_for_data)
 
-    for beta0 in params.beta0:
-        for beta1 in params.beta1:
-            for p11 in params.p11:
-                for p_aru11 in params.p_aru11:
-                    for p_aru01 in params.p_aru01:
-                        for mu in params.mu:
-                            for sigma in params.sigma:
-                                for n_sites in params.n_sites:
-                                    for n_surveys_pc in params.n_surveys_pc:
-                                        for n_surveys_aru in params.n_surveys_aru:
-                                            for (
-                                                n_surveys_scores
-                                            ) in params.n_surveys_scores:
-                                                sim_params = SimulationParams(
-                                                    nsites=n_sites,
-                                                    nsurveys_pc=n_surveys_pc,
-                                                    nsurveys_aru=n_surveys_aru,
-                                                    nsurveys_scores=n_surveys_scores,
-                                                    beta0=beta0,
-                                                    beta1=beta1,
-                                                    p11=p11,
-                                                    p_aru11=p_aru11,
-                                                    p_aru01=p_aru01,
-                                                    mu=mu,
-                                                    sigma=sigma,
-                                                )
+    param_combinations = product(
+        params.beta0,
+        params.beta1,
+        params.p11,
+        params.p_aru11,
+        params.p_aru01,
+        params.mu,
+        params.sigma,
+        params.n_sites,
+        params.n_surveys_pc,
+        params.n_surveys_aru,
+        params.aru_scores_independent_data,
+        params.n_surveys_scores,
+    )
 
-                                                sim_param_id = db.insert_sim_params(
-                                                    study_id, sim_params
-                                                )
+    for (
+        beta0,
+        beta1,
+        p11,
+        p_aru11,
+        p_aru01,
+        mu,
+        sigma,
+        n_sites,
+        n_surveys_pc,
+        n_surveys_aru,
+        aru_independent_data,
+        n_surveys_scores,
+    ) in tqdm(param_combinations):
+        # Skip invalid combinations
+        if not aru_independent_data and n_surveys_aru != n_surveys_pc:
+            continue
 
-                                                for _ in range(num_datasets):
-                                                    data = model.simulate_data(
-                                                        sim_params
-                                                    )
-                                                    db.insert_dataset(
-                                                        sim_param_id, data
-                                                    )
+        sim_params = SimulationParams(
+            nsites=n_sites,  # type: ignore
+            nsurveys_pc=n_surveys_pc,  # type: ignore
+            nsurveys_aru=n_surveys_aru,  # type: ignore
+            nsurveys_scores=n_surveys_scores,  # type: ignore
+            beta0=beta0,  # type: ignore
+            beta1=beta1,  # type: ignore
+            p11=p11,  # type: ignore
+            p_aru11=p_aru11,  # type: ignore
+            p_aru01=p_aru01,  # type: ignore
+            mu=mu,  # type: ignore
+            sigma=sigma,  # type: ignore
+            aru_data_independent_model=aru_independent_data,  # type: ignore
+        )
+
+        sim_param_id = db.insert_sim_params(study_id, sim_params)
+
+        for _ in range(num_datasets):
+            data = model.simulate_data(sim_params)
+            db.insert_dataset(sim_param_id, data)
+
     db.commit()
     return study_id
 
@@ -133,30 +150,27 @@ if __name__ == "__main__":
 
     params = StudyParams(
         models=[
-            "single_year_single_species_all",
-            "single_year_single_species_no_pc",
-            "single_year_single_species_no_aru",
-            "single_year_single_species_no_scores",
-            "single_year_single_species_no_aru_no_pc",
-            "single_year_single_species_no_scores_no_pc",
-            "single_year_single_species_no_scores_no_aru",
+            "single_year_jags_model_dependent",
+            "single_year_jags_model_independent",
         ],
-        beta0=[-0.5],
+        beta0=[-2.5, -1, 1, 2.5],
         beta1=[-1, 0.5],
-        p11=[0.1, 0.5],
-        p_aru11=[0.1, 0.5],
-        p_aru01=[0.05],
-        mu=[(-2, -1.5), (-2, 0)],
-        sigma=[(0.5, 1)],
+        p11=[0.1, 0.5, 0.9],
+        p_aru11=[0.1, 0.5, 0.9],
+        p_aru01=[0, 0.05],
+        mu=[(-2, -1.75), (-2, 0)],
+        sigma=[(0.25, 1)],
         n_sites=[80, 200],
         n_surveys_pc=[3],
         n_surveys_aru=[24],
-        n_surveys_scores=[24],
-        sim_name_for_data="single_year_single_species_all",
+        n_surveys_scores=[8, 24],
+        sim_name_for_data="single_year_jags_model_dependent",
+        aru_scores_independent_data=[True],
+        threshold=[-1, 0, 1],
     )
 
-    study_id = make_datasets(db, params, "minimal_param_combs", num_datasets=100)
+    study_id = make_datasets(db, params, "full_comb_params", num_datasets=100)
     print(f"Created {len(db.get_all_sim_param_ids(study_id))} parameter combinations")
 
     # Run simulations in parallel and save to database (thread-safe)
-    simulate_data(db, study_id, num_processes=8)
+    # simulate_data(db, study_id, num_processes=8)

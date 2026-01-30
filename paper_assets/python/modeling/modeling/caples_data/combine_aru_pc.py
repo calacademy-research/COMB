@@ -32,6 +32,7 @@ class COMBData:
     date_aru: np.ndarray
     time_aru: np.ndarray
     n_surveys_aru: int
+    n_surveys_scores: int
     scores: np.ndarray
     covariates: dict[str, np.ndarray]
 
@@ -304,6 +305,8 @@ class CombinedData:
             date_aru=self.aru.aru_data_dict.date_aru,
             time_aru=self.aru.aru_data_dict.time_aru,
             n_surveys_aru=self.aru.aru_data_dict.n_surveys_aru,
+            # assume scores and ARU have same number of observations
+            n_surveys_scores=self.aru.aru_data_dict.n_surveys_aru,
             scores=self.aru.aru_data_dict.scores,
             covariates=covar_dict,
         )

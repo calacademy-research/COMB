@@ -1,6 +1,6 @@
 import abc
 import json
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 from arviz import InferenceData
 from dataclasses import dataclass, asdict
 import numpy as np
@@ -27,6 +27,8 @@ class SimulationParams:
     p_aru01: float = 0.1
     mu: tuple = (-1.0, 2.0)
     sigma: tuple = (1.0, 1.0)
+    aru_data_independent_model: bool = True
+    threshold: float = 0
     seed: int | None = None
 
     def to_str(self):

@@ -1,35 +1,21 @@
 from arviz import InferenceData
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 
 from .model_iterface import CombinedModelInterface, SimulationParams, standardize
 import numpy as np
 import pymc as pm
 
-# Data (shapes matter)
-# nsites
-# nsurveys_pc
-# nsurveys_aru
-# nsurveys_scores
 
-# covar:        (nsites,)
-# y_pc:         (nsites, nsurveys_pc)
-# y_aru:        (nsites, nsurveys_aru)
-# scores:       (nsites, nsurveys_scores)
-# siteid:       (nsites,)  # 0-based indexing
-
-
-class SingleYearSingleSpeciesAll(CombinedModelInterface):
+class SingleYearSingleSpeciesNoPC(CombinedModelInterface):
     @classmethod
     def run_model(cls, data: COMBData) -> InferenceData:
         burn_norm = standardize(data.covariates["caples"])
         # this is a single year, single species model so we need to extract the correct dimensions
         burn = burn_norm
-        y_ind = data.y_index[0, 0]
         y_aru = data.y_aru[0, 0]
         scores = data.scores[0, 0]
 
         print("burn", burn.shape)
-        print("y_ind", y_ind.shape)
         print("y_aru", y_aru.shape)
         print("scores", scores.shape)
 
@@ -44,18 +30,6 @@ class SingleYearSingleSpeciesAll(CombinedModelInterface):
             psi = pm.Deterministic("psi", pm.math.sigmoid(logit_psi))
 
             z = pm.Bernoulli("z", p=psi, shape=data.n_sites)
-
-            # ---------------------
-            # Point count (PC)
-            # ---------------------
-            p11 = pm.Beta("p11", alpha=1, beta=1)
-
-            p_pc = z * p11
-            pm.Bernoulli(
-                "y_pc",
-                p=p_pc[:, None],
-                observed=y_ind,
-            )
 
             # ---------------------
             # ARU detections
@@ -101,7 +75,6 @@ class SingleYearSingleSpeciesAll(CombinedModelInterface):
                 vars=[
                     beta0,
                     beta1,
-                    p11,
                     p_aru11,
                     p_aru01,
                     mu,
@@ -137,16 +110,6 @@ class SingleYearSingleSpeciesAll(CombinedModelInterface):
             z = pm.Bernoulli("z", p=psi, shape=sim_params.nsites)
 
             # ---------------------
-            # Point count (PC)
-            # ---------------------
-            p_pc = z * sim_params.p11
-            pm.Bernoulli(
-                "y_ind",
-                p=p_pc[:, None],
-                shape=(sim_params.nsites, sim_params.nsurveys_pc),
-            )
-
-            # ---------------------
             # ARU detections (independent)
             # ---------------------
             p_aru = z * sim_params.p_aru11 + (1 - z) * sim_params.p_aru01
@@ -176,7 +139,6 @@ class SingleYearSingleSpeciesAll(CombinedModelInterface):
 
         # Extract the simulated data (take the first sample from chain 0)
         covar_sim = prior_pred["prior"]["covar"].values[0, 0]
-        y_ind_sim = prior_pred["prior"]["y_ind"].values[0, 0]
         y_aru_sim = prior_pred["prior"]["y_aru"].values[0, 0]
         scores_sim = prior_pred["prior"]["scores"].values[0, 0]
 
@@ -185,7 +147,7 @@ class SingleYearSingleSpeciesAll(CombinedModelInterface):
             n_years=1,
             n_species=1,
             y_aru=y_aru_sim.reshape(1, 1, y_aru_sim.shape[0], y_aru_sim.shape[1]),
-            y_index=y_ind_sim.reshape(1, 1, y_ind_sim.shape[0], y_ind_sim.shape[1]),
+            y_index=np.zeros(0),
             y_pc=np.zeros(0),
             n_surveys_pc=sim_params.nsurveys_pc,
             n_surveys_aru=sim_params.nsurveys_aru,
