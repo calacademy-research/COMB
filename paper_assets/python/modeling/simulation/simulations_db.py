@@ -227,6 +227,35 @@ class SimulationsDB:
            )            
         """)
 
+        # Create indices for optimized queries
+        # Index on foreign key for JOIN operations
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_sim_params_study_id 
+            ON sim_params(study_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_datasets_sim_param_id 
+            ON datasets(sim_param_id)
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_runs_dataset_id 
+            ON runs(dataset_id)
+        """)
+
+        # Index on model_name for filtering runs by model
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_runs_model_name 
+            ON runs(model_name)
+        """)
+
+        # Composite index for common filter patterns (dataset_id + model_name)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_runs_dataset_model 
+            ON runs(dataset_id, model_name)
+        """)
+
     @classmethod
     def create(cls, db_path: str | Path):
         db_path = Path(db_path)
@@ -498,3 +527,80 @@ class SimulationsDB:
             results=results,
         )
         return run
+
+    def get_run_ids_by_filters(
+        self,
+        study_id: int,
+        params_filter: dict[str, Any] | None = None,
+        runs_filter: dict[str, Any] | None = None,
+    ) -> list[int]:
+        """Get all run IDs that match the combination of params and runs filters.
+
+        Args:
+            study_id: The study ID to filter by
+            params_filter: Dictionary to filter by simulation_params in sim_params table
+                          (e.g., {"nsites": 50, "beta0": -0.5})
+            runs_filter: Dictionary to filter by columns in runs table
+                        (e.g., {"model_name": "model_xyz"})
+
+        Returns:
+            List of run IDs matching both filters
+
+        Examples:
+            # Filter by both params and model name
+            run_ids = db.get_run_ids_by_filters(
+                study_id=1,
+                params_filter={"nsites": 50},
+                runs_filter={"model_name": "single_year_single_species"}
+            )
+
+            # Filter only by params
+            run_ids = db.get_run_ids_by_filters(
+                study_id=1,
+                params_filter={"beta0": -0.5, "nsites": 50}
+            )
+
+            # Filter only by runs
+            run_ids = db.get_run_ids_by_filters(
+                study_id=1,
+                runs_filter={"model_name": "multi_year_multi_species"}
+            )
+        """
+        cursor = self._get_cursor()
+
+        # Build the params filter WHERE clause
+        params_where = "1=1"
+        params_values = []
+        if params_filter:
+            params_where, params_values = create_sql_json_filter(
+                "simulation_params", params_filter
+            )
+
+        # Build the runs filter WHERE clause
+        runs_where = "1=1"
+        runs_values = []
+        if runs_filter:
+            conditions = []
+            for key, value in runs_filter.items():
+                if not is_valid_sql_identifier(key):
+                    raise ValueError(f"`{key}` is not a valid SQL identifier.")
+                normalized_value = normalize_sql_value(value)
+                conditions.append(f"runs.{key} = ?")
+                runs_values.append(normalized_value)
+            runs_where = " AND ".join(conditions) if conditions else "1=1"
+
+        # Combine query with JOINs
+        query = f"""
+            SELECT runs.id
+            FROM runs
+            JOIN datasets ON runs.dataset_id = datasets.id
+            JOIN sim_params ON datasets.sim_param_id = sim_params.id
+            WHERE sim_params.study_id = ?
+                AND {params_where}
+                AND {runs_where}
+        """
+
+        all_params = [study_id] + params_values + runs_values
+        cursor.execute(query, all_params)
+        results = cursor.fetchall()
+        return [row[0] for row in results]

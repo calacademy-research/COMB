@@ -238,6 +238,9 @@ class ResultsDB:
         self,
         filter_params: dict[str, Any] = {},
         model_name: str | None = None,
+        aru_filename: str | None = None,
+        pc_filename: str | None = None,
+        spatial_filename: str | None = None,
     ):
         cursor = self._get_cursor()
         where_clause, params = create_sql_json_filter("combined_params", filter_params)
@@ -245,6 +248,18 @@ class ResultsDB:
         if model_name is not None:
             where_clause += " AND model_name = ?"
             params.append(model_name)
+
+        if aru_filename is not None:
+            where_clause += " AND aru_filename = ?"
+            params.append(aru_filename)
+
+        if pc_filename is not None:
+            where_clause += " AND pc_filename = ?"
+            params.append(pc_filename)
+
+        if spatial_filename is not None:
+            where_clause += " AND spatial_filename = ?"
+            params.append(spatial_filename)
 
         query = f"""
             SELECT id
