@@ -11,12 +11,49 @@ from tqdm import tqdm
 from itertools import product
 
 
+def _generate_datasets_for_params(
+    args: Tuple[SimulationParams, int, ModelNames, str],
+) -> Tuple[SimulationParams, List[Any]]:
+    """
+    Worker function: Generate datasets for a single parameter combination.
+
+    Each process gets its own model instance.
+    Returns sim_params and list of generated datasets.
+    """
+    sim_params, num_datasets, sim_name_for_data, _ = args
+
+    # Each worker creates its own model instance
+    model = model_zoo.get_model_by_name(sim_name_for_data)
+
+    datasets = []
+    for _ in range(num_datasets):
+        data = model.simulate_data(sim_params)
+        datasets.append(data)
+
+    return sim_params, datasets
+
+
 def make_datasets(
-    db: SimulationsDB, params: StudyParams, name: str, num_datasets: int
+    db: SimulationsDB,
+    params: StudyParams,
+    name: str,
+    num_datasets: int,
+    num_processes: int | None = None,
 ) -> int:
-    """Create study and generate datasets for all parameter combinations."""
+    """
+    Create study and generate datasets for all parameter combinations in parallel.
+
+    Args:
+        db: Database connection
+        params: Study parameters
+        name: Study name
+        num_datasets: Number of datasets to generate per parameter combination
+        num_processes: Number of parallel processes (defaults to CPU count)
+    """
+    if num_processes is None:
+        num_processes = cpu_count()
+
     study_id = db.insert_study(name, dt.now(), params)
-    model = model_zoo.get_model_by_name(params.sim_name_for_data)
 
     param_combinations = product(
         params.beta0,
@@ -33,6 +70,8 @@ def make_datasets(
         params.n_surveys_scores,
     )
 
+    # Build list of valid parameter combinations
+    sim_args = []
     for (
         beta0,
         beta1,
@@ -46,9 +85,9 @@ def make_datasets(
         n_surveys_aru,
         aru_independent_data,
         n_surveys_scores,
-    ) in tqdm(param_combinations):
+    ) in param_combinations:
         # Skip invalid combinations
-        if not aru_independent_data and n_surveys_aru != n_surveys_pc:
+        if not aru_independent_data and n_surveys_aru != n_surveys_scores:
             continue
 
         sim_params = SimulationParams(
@@ -66,13 +105,32 @@ def make_datasets(
             aru_data_independent_model=aru_independent_data,  # type: ignore
         )
 
-        sim_param_id = db.insert_sim_params(study_id, sim_params)
+        sim_args.append((sim_params, num_datasets, params.sim_name_for_data, name))
 
-        for _ in range(num_datasets):
-            data = model.simulate_data(sim_params)
-            db.insert_dataset(sim_param_id, data)
+    print(
+        f"Generating datasets for {len(sim_args)} parameter combinations across {num_processes} processes..."
+    )
 
-    db.commit()
+    # Parallel execution: Generate datasets in parallel
+    with ProcessPoolExecutor(max_workers=num_processes) as executor:
+        futures = [
+            executor.submit(_generate_datasets_for_params, args) for args in sim_args
+        ]
+
+        for future in tqdm(
+            as_completed(futures),
+            total=len(futures),
+            desc="Generating & saving datasets",
+        ):
+            sim_params, datasets = future.result()
+
+            # Write results immediately as each parameter combination completes
+            sim_param_id = db.insert_sim_params(study_id, sim_params)
+            for data in datasets:
+                db.insert_dataset(sim_param_id, data)
+            db.commit()
+
+    print("All datasets saved to database.")
     return study_id
 
 
@@ -154,7 +212,7 @@ def simulate_data(db: SimulationsDB, study_id: int, num_processes: int | None = 
 
 
 if __name__ == "__main__":
-    db = SimulationsDB.create("data/simulations")
+    db = SimulationsDB.create("data/comb_simulations")
 
     params = StudyParams(
         models=[
@@ -173,11 +231,13 @@ if __name__ == "__main__":
         n_surveys_aru=[24],
         n_surveys_scores=[8, 24],
         sim_name_for_data="single_year_jags_model_dependent",
-        aru_scores_independent_data=[True],
+        aru_scores_independent_data=[True, False],
         threshold=[-1, 0, 1],
     )
 
-    study_id = make_datasets(db, params, "full_comb_params", num_datasets=100)
+    study_id = make_datasets(
+        db, params, "full_comb_params", num_datasets=100, num_processes=62
+    )
     print(f"Created {len(db.get_all_sim_param_ids(study_id))} parameter combinations")
 
     # Run simulations in parallel and save to database (thread-safe)
