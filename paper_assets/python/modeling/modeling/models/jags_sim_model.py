@@ -2,7 +2,7 @@ import numpy as np
 from modeling.models.model_iterface import SimulationParams
 from .model_iterface import CombinedModelInterface
 from arviz import InferenceData
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 import arviz as az
 import pyjags
 
@@ -41,6 +41,7 @@ class JagsModel:
             "nsurveys_scores": data.n_surveys_scores,
             "scores": data.scores,
             "covar": data.covariates["covar"],
+            "n_sites": data.n_sites,
         }
 
         mu = np.random.normal(0, 1, 2)
@@ -94,7 +95,18 @@ class JagsModel:
             "p_aru01": sim_params.p_aru01,
             "threshold": sim_params.threshold,
             "covar": covars,
+            "n_sites": sim_params.nsites,
+            "nsurveys_scores": sim_params.nsurveys_scores,
+            "nsurveys_aru": sim_params.nsurveys_aru,
+            "nsurveys_pc": sim_params.nsurveys_pc,
+            "mu": sim_params.mu,
+            "tau": [1 / sig**2 for sig in sim_params.sigma],
         }
+        if sim_params.aru_data_independent_model:
+            del data["threshold"]
+        else:
+            del data["nsurveys_scores"]
+
         monitored = {"y_aru", "y_pc", "scores"}
         data_model = pyjags.Model(jags_text, data, chains=1)
 
@@ -122,7 +134,7 @@ class JagsModel:
 def gen_jags_data_text(sim_params: SimulationParams):
     string_init = "data {\n"
     occ_lik = """
-    for (i in 1:nsites) {
+    for (i in 1:n_sites) {
         logit(psi[i]) <- beta0 + beta1*covar[i]
         z[i] ~ dbern(psi[i])
     """
@@ -141,7 +153,7 @@ def gen_jags_data_text(sim_params: SimulationParams):
                 y_aru[i,j] ~ dbern(p_aru[i])
             }
             for(j in 1:nsurveys_scores) {
-                scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+                scores[i,j] ~ dnorm(mu[z[i] + 1], tau[z[i] + 1])
             }
             }"""
     else:
@@ -149,8 +161,8 @@ def gen_jags_data_text(sim_params: SimulationParams):
             # ARU: detection + scores for dependent model
             p_aru[i] <- z[i]*p_aru11 + p_aru01
             for(j in 1:nsurveys_aru) {
-            y_aru[i,j] ~ dbern(p_aru[i])
-            scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
+                y_aru[i,j] ~ dbern(p_aru[i])
+                scores[i,j] ~ dnorm(mu[z[i] + 1], tau[z[i] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
             }
         }"""
 
@@ -181,7 +193,7 @@ def gen_jags_model_text(aru_scores_independent_model: bool):
 
     occ_lik = """
     # Likelihood for occupancy
-    for (i in 1:nsites) {
+    for (i in 1:n_sites) {
         logit(psi[i]) <- beta0 + beta1 * covar[i]
         z[i] ~ dbern(psi[i])
     """
@@ -204,7 +216,7 @@ def gen_jags_model_text(aru_scores_independent_model: bool):
             y_aru[i,j] ~ dbern(p_aru[i])
         }
         for(j in 1:nsurveys_scores) {
-            scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1])
+            scores[i,j] ~ dnorm(mu[z[i] + 1], tau[z[i] + 1])
         }
         }"""
     else:
@@ -213,7 +225,7 @@ def gen_jags_model_text(aru_scores_independent_model: bool):
         p_aru[i] <- z[i]*p_aru11 + p_aru01
         for(j in 1:nsurveys_aru) {
             y_aru[i,j] ~ dbern(p_aru[i])
-            scores[i,j] ~ dnorm(mu[z[siteid[i]] + 1], tau[z[siteid[i]] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
+            scores[i,j] ~ dnorm(mu[z[i] + 1], tau[z[i] + 1]) T(ifelse(y_aru[i,j] == 1, threshold, -10), ifelse(y_aru[i,j] == 1, 10, threshold))
         }
         }"""
 
@@ -233,7 +245,7 @@ def gen_jags_model_text(aru_scores_independent_model: bool):
     close_string = """
     mean_psi <- mean(psi)
     NOcc <- sum(z[])
-    PropOcc <- NOcc / nsites
+    PropOcc <- NOcc / n_sites
     }
     """
 

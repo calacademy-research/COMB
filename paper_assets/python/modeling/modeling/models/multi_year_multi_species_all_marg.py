@@ -1,5 +1,5 @@
 from arviz import InferenceData
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 import numpy as np
 
 from .model_iterface import CombinedModelInterface, normalize

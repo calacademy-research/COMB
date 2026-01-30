@@ -1,6 +1,6 @@
 from dataclasses import dataclass, asdict
 import json
-from models import model_zoo
+from modeling.models import model_zoo
 
 
 @dataclass
@@ -18,7 +18,8 @@ class StudyParams:
     n_surveys_aru: list[int]
     n_surveys_scores: list[int]
     sim_name_for_data: model_zoo.ModelNames
-    aru_scores_independent_model: bool
+    aru_scores_independent_data: list[bool]
+    threshold: list[int]
 
     def to_str(self) -> str:
         return json.dumps(asdict(self))

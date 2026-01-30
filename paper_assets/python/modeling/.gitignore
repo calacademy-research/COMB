@@ -1,3 +1,4 @@
 !bird_codes.csv
 data/
 logs/
+*.egg*

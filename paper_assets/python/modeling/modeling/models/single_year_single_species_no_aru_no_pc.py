@@ -1,5 +1,5 @@
 from arviz import InferenceData
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 
 from .model_iterface import CombinedModelInterface, SimulationParams, standardize
 import numpy as np

@@ -1,6 +1,6 @@
 import abc
 import json
-from caples_data import COMBData
+from modeling.caples_data import COMBData
 from arviz import InferenceData
 from dataclasses import dataclass, asdict
 import numpy as np
