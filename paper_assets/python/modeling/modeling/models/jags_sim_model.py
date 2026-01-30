@@ -44,12 +44,15 @@ class JagsModel:
             "n_sites": data.n_sites,
         }
 
+        if not aru_scores_independent_model:
+            del model_data["nsurveys_scores"]
+            model_data["threshold"] = data.threshold
+
         mu = np.random.normal(0, 1, 2)
         mu.sort()
         inits = {
             "mu": mu,
             "sigma": np.random.uniform(0.5, 2.5, 2),
-            "psi": 0.5,
             "z": np.repeat(1, data.n_sites),
             "beta0": 0,
             "beta1": 0,
@@ -129,6 +132,7 @@ class JagsModel:
             covariates={"covar": covars},
             time_aru=np.zeros(0),
             time_pc=np.zeros(0),
+            threshold=sim_params.threshold,
         )
 
 

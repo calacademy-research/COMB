@@ -34,6 +34,7 @@ class COMBData:
     n_surveys_aru: int
     n_surveys_scores: int
     scores: np.ndarray
+    threshold: float
     covariates: dict[str, np.ndarray]
 
 
@@ -308,6 +309,7 @@ class CombinedData:
             # assume scores and ARU have same number of observations
             n_surveys_scores=self.aru.aru_data_dict.n_surveys_aru,
             scores=self.aru.aru_data_dict.scores,
+            threshold=self.aru.aru_data_dict.threshold,  # TODO: fix this upstream!
             covariates=covar_dict,
         )
 

@@ -10,6 +10,8 @@ from typing import Any, Tuple, List
 from tqdm import tqdm
 from itertools import product
 
+DATABASE_PATH = "data/comb_simulations"
+
 
 def _generate_datasets_for_params(
     args: Tuple[SimulationParams, int, ModelNames, str],
@@ -146,7 +148,7 @@ def _run_single_simulation(
     dataset_id, model_names, _ = args
 
     # Each worker creates its own DB connection (read-only usage)
-    db = SimulationsDB.create("data/simulations")
+    db = SimulationsDB.create(DATABASE_PATH)
     dataset = db.get_dataset(dataset_id)
     params = db.get_sim_params(dataset.sim_param_id)
 
@@ -156,6 +158,13 @@ def _run_single_simulation(
         if (
             params.simulation_params.nsurveys_scores
             != params.simulation_params.nsurveys_aru
+            and model_name == "single_year_jags_model_dependent"
+        ):
+            continue
+        # we cannot run the independently generated aru/scores with the dependent model
+        # because of the truncated normal distribution
+        if (
+            params.simulation_params.aru_data_independent_model
             and model_name == "single_year_jags_model_dependent"
         ):
             continue
@@ -212,7 +221,7 @@ def simulate_data(db: SimulationsDB, study_id: int, num_processes: int | None = 
 
 
 if __name__ == "__main__":
-    db = SimulationsDB.create("data/comb_simulations")
+    db = SimulationsDB.create(DATABASE_PATH)
 
     params = StudyParams(
         models=[
@@ -235,10 +244,11 @@ if __name__ == "__main__":
         threshold=[-1, 0, 1],
     )
 
-    study_id = make_datasets(
-        db, params, "full_comb_params", num_datasets=100, num_processes=62
-    )
-    print(f"Created {len(db.get_all_sim_param_ids(study_id))} parameter combinations")
+    # study_id = make_datasets(
+    #     db, params, "full_comb_params", num_datasets=100, num_processes=32
+    # )
+    # print(f"Created {len(db.get_all_sim_param_ids(study_id))} parameter combinations")
 
     # Run simulations in parallel and save to database (thread-safe)
-    # simulate_data(db, study_id, num_processes=8)
+    study_id = 1
+    simulate_data(db, study_id, num_processes=32)
