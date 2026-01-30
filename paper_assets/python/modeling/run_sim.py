@@ -90,9 +90,17 @@ def _run_single_simulation(
     # Each worker creates its own DB connection (read-only usage)
     db = SimulationsDB.create("data/simulations")
     dataset = db.get_dataset(dataset_id)
+    params = db.get_sim_params(dataset.sim_param_id)
 
     results = []
     for model_name in model_names:
+        # skip incompatible data/model combinations
+        if (
+            params.simulation_params.nsurveys_scores
+            != params.simulation_params.nsurveys_aru
+            and model_name == "single_year_jags_model_dependent"
+        ):
+            continue
         model = model_zoo.get_model_by_name(model_name)
         result = model.run_model(dataset.data)
         results.append((model_name, result))
