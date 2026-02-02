@@ -154,6 +154,12 @@ def _run_single_simulation(
 
     results = []
     for model_name in model_names:
+        # skip duplicates
+        if db.get_run_ids_by_filters(
+            params.study_id,
+            runs_filter={"model_name": model_name, "dataset_id": dataset.id},
+        ):
+            continue
         # skip incompatible data/model combinations
         if (
             params.simulation_params.nsurveys_scores
@@ -251,4 +257,4 @@ if __name__ == "__main__":
 
     # Run simulations in parallel and save to database (thread-safe)
     study_id = 1
-    simulate_data(db, study_id, num_processes=32)
+    simulate_data(db, study_id, num_processes=48)
