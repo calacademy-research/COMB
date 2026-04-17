@@ -1,0 +1,36 @@
+
+model {
+
+  # Priors
+  psi ~ dunif(0, 1)
+  p11 ~ dbeta(2, 2)  # comment out when modeling pc detection w/ covariates
+
+  # Likelihood part 1 & 2: PC and ARU detections
+  
+  for (i in 1:nsites) { # Loop over sites
+    z[i] ~ dbern(psi) 
+
+    # Point count detection process
+    p[i] <- z[i]*p11 # Detection probability
+    for(j in 1:n_v[i]) {
+      y.ind[i,j] ~ dbern(p[i]) # Observed occ. data (if available)
+    }
+   
+    # GOF Point Count - Freeman-Tukey Discrepancy
+    T_pc_obs0[i] <- (sqrt(y_pc_sum[i]) - sqrt(p11*z[i]*n_v[i]))^2 
+    y_pc_Sim[i] ~ dbin(p11 * z[i], n_v[i])
+    T_pc_sim0[i] <- (sqrt(y_pc_Sim[i]) - sqrt(p11*z[i]*n_v[i]))^2 
+      
+  } # end of site loop i
+
+
+  # GOF assessment
+  T_pc_obs <- sum(T_pc_obs0)
+  T_pc_sim <- sum(T_pc_sim0)
+
+  mean_psi <- mean(psi)
+  NOcc <- sum(z[])
+  PropOcc <- NOcc/nsites
+
+} # end of model loop
+    

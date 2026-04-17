@@ -1,0 +1,32 @@
+
+model {
+
+  # Priors
+  psi ~ dunif(0,1)
+  p_aru11 ~ dbeta(2, 2) # p11 = Pr(y = 1 | z = 1)
+  p_aru01 ~ dbeta(1, 3)I(0, 1 - p_aru11) # p11 = Pr(y = 1 | z = 0)
+
+  # Likelihood part 1 & 2: PC and ARU detections
+  
+  for (i in 1:nsites) { # Loop over sites
+    z[i] ~ dbern(psi) # Latent occupancy states
+    
+ # ARU - binomial
+    p_aru[i] <- z[i]*p_aru11 + p_aru01
+    for(j in 1:n_s[i]) {
+      y.aru[i,j] ~ dbern(p_aru[i])  # n_surveys.aru = Total files processed
+    }
+
+    # GOF ARU Count - Freeman-Tukey Discrepancy
+    T_aru_obs0[i] <- (sqrt(y_aru_sum[i]) - sqrt(p_aru[i]*n_s[i]))^2 
+    T_aru_sim0[i] <- (sqrt(y_aru_Sim[i]) - sqrt(p_aru[i]*n_s[i]))^2  
+  }
+
+  T_aru_obs <- sum(T_aru_obs0)
+  T_aru_sim <- sum(T_aru_sim0)
+
+  mean_psi <- mean(psi)
+  NOcc <- sum(z[]) # derived quantity for 
+  PropOcc <- NOcc/nsites
+}
+    

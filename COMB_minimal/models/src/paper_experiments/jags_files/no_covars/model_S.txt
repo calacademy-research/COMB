@@ -1,0 +1,39 @@
+
+model {
+
+  # Priors
+  psi ~ dunif(0,1)
+
+  # Parameters of the observation model for the scores
+  mu[1] ~ dnorm(-2, .1)
+  mu[2] ~ dnorm(-2, .1)
+  sigma[1] ~ dunif(0.1, 5)
+  tau[1] <- 1 / (sigma[1] * sigma[1])
+  sigma[2] ~ dunif(0.1, 5)
+  tau[2] <- 1 / (sigma[2] * sigma[2])
+
+  # Likelihood part 1: No ARU or PC
+  
+  for (i in 1:nsites) { # Loop over sites
+    z[i] ~ dbern(psi) # Latent occupancy states
+  }
+
+  # Likelihood part 2: feature score data
+  for(k in 1:nsamples) {
+    score[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+    #GOF for ARU scores
+      LLobs_score[k] <- logdensity.norm(score[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+      score_Sim[k] ~ dnorm(mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+      LLsim_score[k] <- logdensity.norm(score_Sim[k], mu[z[siteid[k]] + 1], tau[z[siteid[k]] + 1])
+  }
+
+
+  #GOF assessment for scores
+  Dobs <- -2 * sum(LLobs_score)
+  Dsim <- -2 * sum(LLsim_score)
+
+  mean_psi <- mean(psi)
+  NOcc <- sum(z[]) # derived quantity for # of sites occupied (to compare with 'naive' sum(y.aru[]) and sum(y.pc[])
+  PropOcc <- NOcc/nsites
+}
+    
